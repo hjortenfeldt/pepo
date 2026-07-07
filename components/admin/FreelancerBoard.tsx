@@ -6,6 +6,7 @@ import type { ApplicationStatus, FreelancerListItem } from "@/lib/admin-types";
 import { setApplicationStatus } from "@/app/tenant/(protected)/freelancers/actions";
 
 type Tab = "pending" | "approved" | "rejected" | "all";
+type ViewMode = "grid" | "list";
 
 const TAB_LABELS: Record<Tab, string> = {
   pending: "Afventer godkendelse",
@@ -55,6 +56,8 @@ export default function FreelancerBoard({
 }) {
   const [tab, setTab] = useState<Tab>("pending");
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -115,16 +118,6 @@ export default function FreelancerBoard({
               Godkend ansøgninger og administrér freelancerprofiler
             </div>
           </div>
-          <div className="relative w-[260px]">
-            <i className="ti ti-search absolute left-[11px] top-1/2 -translate-y-1/2 text-[15px] text-pepo-t3" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Søg navn, by, kategori, telefon eller email..."
-              className="w-full h-[38px] border border-pepo-bds rounded-[9px] pl-[34px] pr-3 text-[13.5px] outline-none bg-pepo-wh focus:border-pepo-p"
-            />
-          </div>
         </div>
       </div>
 
@@ -153,11 +146,113 @@ export default function FreelancerBoard({
         ))}
       </div>
 
+      <div className="flex items-center justify-between px-8 py-4">
+        <div className="relative w-[38px] h-[38px] flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            title="Søg"
+            className="w-[38px] h-[38px] rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t2 flex items-center justify-center hover:bg-pepo-su"
+          >
+            <i className="ti ti-search text-[16px]" />
+          </button>
+          <div
+            className={
+              "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
+              (searchOpen
+                ? "w-[300px] border-pepo-bds opacity-100 pointer-events-auto"
+                : "w-0 border-transparent opacity-0 pointer-events-none")
+            }
+          >
+            <i className="ti ti-search absolute left-[11px] top-1/2 -translate-y-1/2 text-[15px] text-pepo-t3 pointer-events-none" />
+            <input
+              type="text"
+              autoFocus={searchOpen}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Søg..."
+              className="w-full h-full border-none outline-none px-[34px] text-[13.5px] bg-transparent"
+            />
+            <div
+              onClick={() => {
+                setSearchOpen(false);
+                setSearch("");
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-[6px] flex items-center justify-center cursor-pointer text-pepo-t3 hover:bg-pepo-su hover:text-pepo-t1"
+            >
+              <i className="ti ti-x text-[13px]" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex bg-pepo-su rounded-[9px] p-[3px] gap-0.5 flex-shrink-0">
+          <button
+            title="Kortvisning"
+            onClick={() => setViewMode("grid")}
+            className={
+              "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
+              (viewMode === "grid"
+                ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                : "text-pepo-t2 hover:text-pepo-t1")
+            }
+          >
+            <i className="ti ti-layout-grid" />
+          </button>
+          <button
+            title="Listevisning"
+            onClick={() => setViewMode("list")}
+            className={
+              "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
+              (viewMode === "list"
+                ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                : "text-pepo-t2 hover:text-pepo-t1")
+            }
+          >
+            <i className="ti ti-list" />
+          </button>
+        </div>
+      </div>
+      <div className="border-t border-pepo-bd" />
+
       <div className="flex-1 overflow-y-auto px-8 py-[22px] pb-10">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-pepo-t3">
             <i className="ti ti-inbox text-[32px] mb-2.5" />
             <span className="text-[13.5px]">Ingen freelancere i denne visning</span>
+          </div>
+        ) : viewMode === "list" ? (
+          <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] overflow-hidden">
+            {filtered.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setOpenId(f.id)}
+                className="w-full text-left flex items-center gap-3 px-4 py-[11px] border-b border-pepo-bd last:border-b-0 hover:bg-pepo-su transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p text-[12.5px] font-medium flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {f.profileImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={f.profileImageUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    initials(f.fullName)
+                  )}
+                </div>
+                <div className="text-[13.5px] font-medium text-pepo-t1 flex-shrink-0 w-[170px] truncate">
+                  {f.fullName}
+                </div>
+                <div className="flex flex-wrap gap-[5px] flex-1 min-w-0">
+                  {f.categories.length ? (
+                    f.categories.map((c) => (
+                      <span key={c} className="bg-pepo-su text-pepo-t2 text-[11px] font-medium px-[9px] py-[3px] rounded-full">
+                        {c}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-pepo-t3">Ingen kategorier valgt</span>
+                  )}
+                </div>
+                <Badge status={f.applicationStatus} />
+              </button>
+            ))}
           </div>
         ) : (
           <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>

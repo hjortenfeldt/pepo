@@ -2,26 +2,30 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { ClientListItem } from "@/lib/admin-types";
+import type { ClientListItem, VenueItem } from "@/lib/admin-types";
 import {
   createClientRecord,
   updateClientRecord,
   deleteClientRecord,
   type ClientFormInput,
+  type VenueFormEntry,
 } from "@/app/tenant/(protected)/clients/actions";
 
 type CustomerType = "company" | "private";
+type ViewMode = "grid" | "list";
+
+function blankVenue(): VenueFormEntry {
+  return { id: null, name: "", address: "", postalCode: "", city: "" };
+}
 
 const EMPTY_FORM: ClientFormInput = {
   name: "",
   cvrNumber: "",
-  address: "",
-  postalCode: "",
-  city: "",
   contactPerson: "",
   contactPhone: "",
   contactEmail: "",
   notes: "",
+  venues: [blankVenue()],
 };
 
 function displayName(c: { name: string | null; contactPerson: string | null }) {
@@ -29,8 +33,21 @@ function displayName(c: { name: string | null; contactPerson: string | null }) {
   return c.name || c.contactPerson || "(uden navn)";
 }
 
+// Enkelt venue → "postnr by". Flere venues → "N arbejdssteder".
+// Matcher prototypens venueSummary().
+function venueSummary(venues: VenueItem[]) {
+  if (!venues || venues.length === 0) return "";
+  if (venues.length === 1) {
+    const v = venues[0];
+    return [v.postalCode, v.city].filter(Boolean).join(" ");
+  }
+  return `${venues.length} arbejdssteder`;
+}
+
 export default function ClientBoard({ clients }: { clients: ClientListItem[] }) {
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customerType, setCustomerType] = useState<CustomerType>("company");
@@ -45,13 +62,26 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     return clients.filter((c) => {
       return (
         displayName(c).toLowerCase().includes(q) ||
-        (c.city ?? "").toLowerCase().includes(q) ||
         (c.contactPerson ?? "").toLowerCase().includes(q) ||
         (c.contactPhone ?? "").toLowerCase().includes(q) ||
-        (c.contactEmail ?? "").toLowerCase().includes(q)
+        (c.contactEmail ?? "").toLowerCase().includes(q) ||
+        c.venues.some(
+          (v) =>
+            (v.city ?? "").toLowerCase().includes(q) ||
+            (v.name ?? "").toLowerCase().includes(q)
+        )
       );
     });
   }, [clients, search]);
+
+  function openSearch() {
+    setSearchOpen(true);
+  }
+
+  function closeSearch() {
+    setSearchOpen(false);
+    setSearch("");
+  }
 
   function openNew() {
     setEditingId(null);
@@ -66,13 +96,20 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     setForm({
       name: c.name ?? "",
       cvrNumber: c.cvrNumber ?? "",
-      address: c.address ?? "",
-      postalCode: c.postalCode ?? "",
-      city: c.city ?? "",
       contactPerson: c.contactPerson ?? "",
       contactPhone: c.contactPhone ?? "",
       contactEmail: c.contactEmail ?? "",
       notes: c.notes ?? "",
+      venues:
+        c.venues.length > 0
+          ? c.venues.map((v) => ({
+              id: v.id,
+              name: v.name ?? "",
+              address: v.address ?? "",
+              postalCode: v.postalCode ?? "",
+              city: v.city ?? "",
+            }))
+          : [blankVenue()],
     });
     setCustomerType(c.name ? "company" : "private");
     setError(null);
@@ -88,6 +125,24 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     if (type === "private") {
       setForm((f) => ({ ...f, name: "", cvrNumber: "" }));
     }
+  }
+
+  function updateVenueField(index: number, field: keyof VenueFormEntry, value: string) {
+    setForm((f) => ({
+      ...f,
+      venues: f.venues.map((v, i) => (i === index ? { ...v, [field]: value } : v)),
+    }));
+  }
+
+  function addVenueBlock() {
+    setForm((f) => ({ ...f, venues: [...f.venues, blankVenue()] }));
+  }
+
+  function removeVenueBlock(index: number) {
+    setForm((f) => {
+      if (f.venues.length <= 1) return f;
+      return { ...f, venues: f.venues.filter((_, i) => i !== index) };
+    });
   }
 
   function save() {
@@ -134,16 +189,6 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             </div>
           </div>
           <div className="flex gap-2.5">
-            <div className="relative w-60">
-              <i className="ti ti-search absolute left-[11px] top-1/2 -translate-y-1/2 text-[15px] text-pepo-t3" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Søg navn, kontakt, by, telefon eller email..."
-                className="w-full h-[38px] border border-pepo-bds rounded-[9px] pl-[34px] pr-3 text-[13.5px] outline-none bg-pepo-wh focus:border-pepo-p"
-              />
-            </div>
             <button
               onClick={openNew}
               className="h-[38px] px-4 rounded-[9px] bg-pepo-p text-white text-[13.5px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
@@ -155,6 +200,72 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
         </div>
       </div>
 
+      <div className="border-t border-pepo-bd" />
+      <div className="flex items-center justify-between px-8 py-4">
+        <div className="relative w-[38px] h-[38px] flex-shrink-0">
+          <button
+            type="button"
+            onClick={openSearch}
+            title="Søg"
+            className="w-[38px] h-[38px] rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t2 flex items-center justify-center hover:bg-pepo-su"
+          >
+            <i className="ti ti-search text-[16px]" />
+          </button>
+          <div
+            className={
+              "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
+              (searchOpen
+                ? "w-[300px] border-pepo-bds opacity-100 pointer-events-auto"
+                : "w-0 border-transparent opacity-0 pointer-events-none")
+            }
+          >
+            <i className="ti ti-search absolute left-[11px] top-1/2 -translate-y-1/2 text-[15px] text-pepo-t3 pointer-events-none" />
+            <input
+              type="text"
+              autoFocus={searchOpen}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Søg..."
+              className="w-full h-full border-none outline-none px-[34px] text-[13.5px] bg-transparent"
+            />
+            <div
+              onClick={closeSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-[6px] flex items-center justify-center cursor-pointer text-pepo-t3 hover:bg-pepo-su hover:text-pepo-t1"
+            >
+              <i className="ti ti-x text-[13px]" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex bg-pepo-su rounded-[9px] p-[3px] gap-0.5 flex-shrink-0">
+          <button
+            title="Kortvisning"
+            onClick={() => setViewMode("grid")}
+            className={
+              "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
+              (viewMode === "grid"
+                ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                : "text-pepo-t2 hover:text-pepo-t1")
+            }
+          >
+            <i className="ti ti-layout-grid" />
+          </button>
+          <button
+            title="Listevisning"
+            onClick={() => setViewMode("list")}
+            className={
+              "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
+              (viewMode === "list"
+                ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                : "text-pepo-t2 hover:text-pepo-t1")
+            }
+          >
+            <i className="ti ti-list" />
+          </button>
+        </div>
+      </div>
+      <div className="border-t border-pepo-bd" />
+
       <div className="flex-1 overflow-y-auto px-8 py-[22px] pb-10">
         <div className="text-[12.5px] text-pepo-t2 mb-3.5">
           {clients.length} {clients.length === 1 ? "kunde" : "kunder"}
@@ -165,6 +276,29 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             <span className="text-[13.5px]">
               {search ? "Ingen kunder matcher søgningen" : "Ingen kunder endnu"}
             </span>
+          </div>
+        ) : viewMode === "list" ? (
+          <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] overflow-hidden">
+            {filtered.map((c) => {
+              const isPrivate = !c.name;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => openEdit(c)}
+                  className="w-full text-left flex items-center gap-3 px-4 py-[11px] border-b border-pepo-bd last:border-b-0 hover:bg-pepo-su transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-[9px] bg-pepo-pl text-pepo-p text-sm flex items-center justify-center flex-shrink-0">
+                    <i className={"ti " + (isPrivate ? "ti-user" : "ti-building-store")} />
+                  </div>
+                  <div className="text-[13.5px] font-medium text-pepo-t1 flex-shrink-0 w-[200px] truncate">
+                    {displayName(c)}
+                  </div>
+                  <div className="text-[12.5px] text-pepo-t2 flex-1 min-w-0 truncate">
+                    {venueSummary(c.venues)}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
@@ -183,7 +317,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                     <div>
                       <div className="text-sm font-medium text-pepo-t1">{displayName(c)}</div>
                       <div className="text-xs text-pepo-t2 mt-px">
-                        {[c.postalCode, c.city].filter(Boolean).join(" ") || "—"}
+                        {venueSummary(c.venues) || "—"}
                       </div>
                     </div>
                   </div>
@@ -233,6 +367,10 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 pt-[22px]">
+          <div className="text-[11px] font-semibold text-pepo-t3 uppercase tracking-wide mb-3.5">
+            Kunde &amp; faktureringsoplysninger
+          </div>
+
           <div className="flex bg-pepo-su rounded-[9px] p-[3px] mb-5">
             <button
               onClick={() => setType("company")}
@@ -291,37 +429,6 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             />
           </Field>
 
-          <Field label="Adresse">
-            <input
-              type="text"
-              value={form.address}
-              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-              placeholder="Fx Nyhavn 4"
-              className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
-            />
-          </Field>
-
-          <div className="flex gap-2.5">
-            <Field label="Postnr." className="flex-1">
-              <input
-                type="text"
-                value={form.postalCode}
-                onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
-                placeholder="1051"
-                className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
-              />
-            </Field>
-            <Field label="By" className="flex-[2]">
-              <input
-                type="text"
-                value={form.city}
-                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                placeholder="København K"
-                className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
-              />
-            </Field>
-          </div>
-
           <div className="flex gap-2.5">
             <Field label="Telefon" className="flex-1">
               <input
@@ -343,15 +450,82 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             </Field>
           </div>
 
-          <Field label="Noter">
+          <Field label="Note om kunden">
             <textarea
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={15}
+              rows={3}
               placeholder="Interne noter om kunden (valgfrit)"
               className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none resize-none focus:border-pepo-p"
             />
           </Field>
+
+          <div className="border-t border-pepo-bd my-6" />
+          <div className="text-[11px] font-semibold text-pepo-t3 uppercase tracking-wide mb-3.5">
+            Event sted hvor personalet skal arbejde
+          </div>
+
+          {form.venues.map((v, i) => (
+            <div key={i} className="relative border border-pepo-bd rounded-[10px] pt-3.5 px-3.5 pb-0.5 mb-3">
+              {form.venues.length > 1 && (
+                <button
+                  type="button"
+                  title="Fjern arbejdssted"
+                  onClick={() => removeVenueBlock(i)}
+                  className="absolute top-2.5 right-2.5 w-6 h-6 rounded-md flex items-center justify-center text-pepo-t3 hover:bg-pepo-su hover:text-[#C0021A]"
+                >
+                  <i className="ti ti-x text-sm" />
+                </button>
+              )}
+              <Field label="Navn på arbejdssted/venue">
+                <input
+                  type="text"
+                  value={v.name}
+                  onChange={(e) => updateVenueField(i, "name", e.target.value)}
+                  placeholder="Fx Kanal 4 Havnelokale"
+                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
+                />
+              </Field>
+              <Field label="Adresse">
+                <input
+                  type="text"
+                  value={v.address}
+                  onChange={(e) => updateVenueField(i, "address", e.target.value)}
+                  placeholder="Fx Nyhavn 4"
+                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
+                />
+              </Field>
+              <div className="flex gap-2.5">
+                <Field label="Postnr." className="flex-1">
+                  <input
+                    type="text"
+                    value={v.postalCode}
+                    onChange={(e) => updateVenueField(i, "postalCode", e.target.value)}
+                    placeholder="1051"
+                    className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
+                  />
+                </Field>
+                <Field label="By" className="flex-[2]">
+                  <input
+                    type="text"
+                    value={v.city}
+                    onChange={(e) => updateVenueField(i, "city", e.target.value)}
+                    placeholder="København K"
+                    className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
+                  />
+                </Field>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addVenueBlock}
+            className="w-full h-10 rounded-[9px] border border-dashed border-pepo-bds bg-pepo-wh text-pepo-p text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-pepo-pl mt-1"
+          >
+            <i className="ti ti-plus" />
+            Knyt endnu et arbejdssted/venue til denne kunde
+          </button>
+
           <div className="h-2" />
         </div>
 

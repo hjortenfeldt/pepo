@@ -13,6 +13,7 @@ import path from "path";
 //   "@/..."-alias'et virker uafhængigt af hvordan node_modules er symlinket
 //   ind i webpack's opløsning på denne server.
 const nextConfig: NextConfig = {
+  turbopack: {},
   typescript: {
     ignoreBuildErrors: true,
   },

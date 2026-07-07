@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { createCompany, inviteCompanyAdmin } from "@/app/super-admin/(protected)/actions";
 
 export type CompanyListItem = {
@@ -13,6 +13,27 @@ export type CompanyListItem = {
 };
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
+
+// Genkender om siden selv kører lokalt (fx admin.localhost:3000) i stedet
+// for på den rigtige server, så "Åbn"-links peger det rigtige sted hen
+// uanset hvor man arbejder fra. Starter som "false" (samme som server-
+// renderingen) og opdateres først efter mount, for at undgå at klient og
+// server viser forskelligt HTML ved første render (hydration-fejl).
+function useLocalDevOrigin() {
+  const [origin, setOrigin] = useState<{ isLocal: boolean; port: string }>({
+    isLocal: false,
+    port: "",
+  });
+
+  useEffect(() => {
+    setOrigin({
+      isLocal: window.location.hostname.endsWith("localhost"),
+      port: window.location.port,
+    });
+  }, []);
+
+  return origin;
+}
 
 function slugify(input: string) {
   return input
@@ -153,6 +174,12 @@ function InviteAdminForm({ companyId }: { companyId: string }) {
 }
 
 export default function CompaniesBoard({ companies }: { companies: CompanyListItem[] }) {
+  const { isLocal, port } = useLocalDevOrigin();
+
+  function tenantUrl(slug: string) {
+    return isLocal ? `http://${slug}.localhost:${port}` : `https://${slug}.${ROOT_DOMAIN}`;
+  }
+
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
       <div>
@@ -171,7 +198,7 @@ export default function CompaniesBoard({ companies }: { companies: CompanyListIt
               <div>
                 <div className="text-lg font-medium text-pepo-t1">{c.name}</div>
                 <a
-                  href={`https://${c.slug}.${ROOT_DOMAIN}`}
+                  href={tenantUrl(c.slug)}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm text-pepo-p hover:underline"
@@ -183,7 +210,7 @@ export default function CompaniesBoard({ companies }: { companies: CompanyListIt
                 <span>{c.adminCount} admin{c.adminCount === 1 ? "" : "s"}</span>
                 <span>{c.freelancerCount} freelancer{c.freelancerCount === 1 ? "" : "e"}</span>
                 <a
-                  href={`https://${c.slug}.${ROOT_DOMAIN}`}
+                  href={tenantUrl(c.slug)}
                   target="_blank"
                   rel="noreferrer"
                   className="px-3 py-1.5 rounded-lg text-sm font-medium bg-pepo-su text-pepo-t1 border border-pepo-bds hover:bg-pepo-bds/40"

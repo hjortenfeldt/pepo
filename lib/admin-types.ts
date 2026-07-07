@@ -12,14 +12,14 @@ export type ClientListItem = {
   id: string;
   name: string | null; // firmanavn — tom for privatkunder
   cvrNumber: string | null;
-  address: string | null;
-  postalCode: string | null;
-  city: string | null;
   contactPerson: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
   notes: string | null;
   createdAt: string;
+  // En kunde kan have flere fysiske arbejdssteder (venues) — det er IKKE
+  // nødvendigvis det samme som kundens fakturerings-/kontaktadresse.
+  venues: VenueItem[];
 };
 
 export type FreelancerListItem = {

@@ -74,13 +74,12 @@ export default function ClientQuickAddPanel({
     const input: ClientFormInput = {
       name: customerType === "private" ? "" : name,
       cvrNumber: customerType === "private" ? "" : cvrNumber,
-      address: "",
-      postalCode: "",
-      city: "",
       contactPerson,
       contactPhone,
       contactEmail,
       notes,
+      // "venues" udelades bevidst — dette panel styrer selv sine venues
+      // nedenfor via createVenue/updateVenue/deleteVenue.
     };
 
     startTransition(async () => {
