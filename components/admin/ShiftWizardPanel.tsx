@@ -11,7 +11,7 @@ import {
   removeAttachment,
   type EventFormInput,
   type ShiftRowInput,
-} from "@/app/admin/(protected)/shifts/actions";
+} from "@/app/tenant/(protected)/shifts/actions";
 import ClientVenueField from "./ClientVenueField";
 import { DateField, TimeField } from "./ShiftFormFields";
 

@@ -12,7 +12,7 @@ import {
   undeleteShift,
   duplicateShift,
   type ShiftRowInput,
-} from "@/app/admin/(protected)/shifts/actions";
+} from "@/app/tenant/(protected)/shifts/actions";
 import { TimeField } from "./ShiftFormFields";
 
 function initials(name: string) {

@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CategoryOption, FreelancerOption, MessageListItem } from "@/lib/admin-types";
-import { sendMessage } from "@/app/admin/(protected)/messages/actions";
+import { sendMessage } from "@/app/tenant/(protected)/messages/actions";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" });

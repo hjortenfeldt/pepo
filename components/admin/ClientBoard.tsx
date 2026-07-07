@@ -8,7 +8,7 @@ import {
   updateClientRecord,
   deleteClientRecord,
   type ClientFormInput,
-} from "@/app/admin/(protected)/clients/actions";
+} from "@/app/tenant/(protected)/clients/actions";
 
 type CustomerType = "company" | "private";
 

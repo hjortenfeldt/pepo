@@ -8,7 +8,7 @@ import {
   renameCategory,
   updateCategoryRates,
   deleteCategory,
-} from "@/app/admin/(protected)/categories/actions";
+} from "@/app/tenant/(protected)/categories/actions";
 
 export default function CategoryList({ categories }: { categories: CategoryListItem[] }) {
   const [newName, setNewName] = useState("");

@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import type { ClientOption, VenueItem } from "@/lib/admin-types";
-import { createClientRecord, updateClientRecord, type ClientFormInput } from "@/app/admin/(protected)/clients/actions";
-import { createVenue, updateVenue, deleteVenue, type VenueFormInput } from "@/app/admin/(protected)/shifts/actions";
+import { createClientRecord, updateClientRecord, type ClientFormInput } from "@/app/tenant/(protected)/clients/actions";
+import { createVenue, updateVenue, deleteVenue, type VenueFormInput } from "@/app/tenant/(protected)/shifts/actions";
 
 type VenueRow = { id: string | null; name: string; address: string; postalCode: string; city: string };
 

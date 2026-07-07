@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ApplicationStatus, FreelancerListItem } from "@/lib/admin-types";
-import { setApplicationStatus } from "@/app/admin/(protected)/freelancers/actions";
+import { setApplicationStatus } from "@/app/tenant/(protected)/freelancers/actions";
 
 type Tab = "pending" | "approved" | "rejected" | "all";
 
