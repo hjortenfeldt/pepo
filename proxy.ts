@@ -87,6 +87,13 @@ export async function proxy(request: NextRequest) {
 
   const isLoginRoute = pathname === "/login";
 
+  // Kalender-feedet under "Sync med kalender" hentes af eksterne
+  // kalenderapps (Google/Apple/Outlook) uden login-cookie — token'et i
+  // selve URL'en er hemmeligheden, ikke en session. Skal derfor undtages
+  // fra login-redirectet nedenfor, men rewrites stadig til
+  // /tenant-præfikset som alt andet på virksomhedens subdomæne.
+  const isPublicCalendarFeed = pathname.startsWith("/api/calendar/");
+
   // admin.pepo.team — Pepos eget super-admin-system.
   if (subdomain === SUPER_ADMIN_SUBDOMAIN) {
     if (!isLoginRoute && !user) {
@@ -106,7 +113,7 @@ export async function proxy(request: NextRequest) {
 
   // Alle andre subdomæner er en virksomheds eget adminsystem, fx
   // kulturbyen.pepo.team eller pepo.pepo.team (Pepo selv).
-  if (!isLoginRoute && !user) {
+  if (!isLoginRoute && !isPublicCalendarFeed && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return withRefreshedCookies(NextResponse.redirect(url), refreshed);

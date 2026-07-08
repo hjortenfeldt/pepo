@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Icon from "@/components/Icon";
 import type {
   CategoryOption,
@@ -84,6 +85,21 @@ export default function ShiftBoard({
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Deep-link fra fx "REDIGÉR OPLYSNINGER"-linket i kalender-noten
+  // (?event=<id>) — åbner detaljepanelet for eventets første aktive vagt,
+  // og skifter til "Alle"-fanen så eventet er synligt uanset dato.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const eventId = searchParams.get("event");
+    if (!eventId) return;
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+    setTab("all");
+    const shift = event.shifts.find((s) => s.status !== "cancelled") ?? event.shifts[0];
+    if (shift) setOpenShift({ shift, event });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, events]);
 
   const filtered = useMemo(() => {
     let list = events;
