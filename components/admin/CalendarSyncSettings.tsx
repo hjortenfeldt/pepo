@@ -121,6 +121,18 @@ export default function CalendarSyncSettings({
             </p>
           )}
 
+          <div className="flex items-start gap-2.5 mb-5 px-3.5 py-3 rounded-[9px] bg-pepo-su text-[12.5px] text-pepo-t2 leading-relaxed">
+            <Icon name="info-circle" size={16} className="flex-shrink-0 mt-0.5 text-pepo-t3" />
+            <div>
+              Et kalender-abonnement henter selv opdateringer med jævne mellemrum — Pepo sender ikke besked ud,
+              når der sker en ændring. Nye eller ændrede vagter kan derfor gå op til flere timer eller dage,
+              før de dukker op i jeres kalender. På en computer kan I ofte selv vælge hvor tit der opdateres
+              (kig efter "Auto-refresh" i kalender-appens indstillinger for abonnementet) — vælg gerne den
+              hyppigste mulighed. På telefoner styrer styresystemet selv opdateringsfrekvensen, uden at man kan
+              indstille det.
+            </div>
+          </div>
+
           <div className="border-t border-pepo-bd pt-5">
             <div className="text-[13px] font-medium text-pepo-t1 mb-1">Generér nyt link</div>
             <div className="text-[12.5px] text-pepo-t2 mb-3">
