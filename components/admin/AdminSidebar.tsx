@@ -34,7 +34,10 @@ const NAV: NavItem[] = [
     label: "Indstillinger",
     icon: "settings",
     active: true,
-    children: [{ href: "/settings/calendar", label: "Sync med kalender" }],
+    children: [
+      { href: "/settings/company", label: "Firmaoplysninger" },
+      { href: "/settings/calendar", label: "Sync med kalender" },
+    ],
   },
 ];
 
