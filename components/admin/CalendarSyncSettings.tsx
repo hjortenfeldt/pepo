@@ -79,18 +79,17 @@ export default function CalendarSyncSettings({
                 className="flex-1 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[12.5px] text-pepo-t2 bg-pepo-su outline-none"
                 onFocus={(e) => e.currentTarget.select()}
               />
-              <button
-                type="button"
-                onClick={() => copy("webcal")}
-                className="h-[42px] px-3.5 rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t1 text-[12.5px] font-medium hover:bg-pepo-su transition-colors flex items-center gap-1.5 flex-shrink-0"
+              <a
+                href={feedUrl(tenantSlug, token, "webcal")}
+                className="h-[42px] px-3.5 rounded-[9px] bg-pepo-p text-white text-[12.5px] font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5 flex-shrink-0"
               >
-                <Icon name={copied === "webcal" ? "check" : "copy"} size={16} />
-                {copied === "webcal" ? "Kopieret" : "Kopiér"}
-              </button>
+                <Icon name="calendar-plus" size={16} />
+                Abonnér
+              </a>
             </div>
             <div className="text-[11.5px] text-pepo-t3 mt-1.5">
-              Klik på linket på en telefon/computer med en kalender-app installeret, eller indsæt det som
-              "Abonnér på kalender" i Apple Kalender, Google Kalender eller Outlook.
+              Klik på "Abonnér" for at åbne kalender-appen på denne enhed direkte, eller kopiér linket herover
+              og indsæt det som "Abonnér på kalender" i Apple Kalender, Google Kalender eller Outlook.
             </div>
           </div>
 
