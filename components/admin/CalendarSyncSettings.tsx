@@ -21,6 +21,7 @@ export default function CalendarSyncSettings({
   const [copied, setCopied] = useState<"https" | "webcal" | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   async function copy(scheme: "https" | "webcal") {
@@ -93,28 +94,6 @@ export default function CalendarSyncSettings({
             </div>
           </div>
 
-          <div className="mb-5">
-            <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
-              Abonnementslink (https, til manuel indsætning)
-            </label>
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={feedUrl(tenantSlug, token, "https")}
-                className="flex-1 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[12.5px] text-pepo-t2 bg-pepo-su outline-none"
-                onFocus={(e) => e.currentTarget.select()}
-              />
-              <button
-                type="button"
-                onClick={() => copy("https")}
-                className="h-[42px] px-3.5 rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t1 text-[12.5px] font-medium hover:bg-pepo-su transition-colors flex items-center gap-1.5 flex-shrink-0"
-              >
-                <Icon name={copied === "https" ? "check" : "copy"} size={16} />
-                {copied === "https" ? "Kopieret" : "Kopiér"}
-              </button>
-            </div>
-          </div>
-
           {error && (
             <p className="mb-4 text-[12.5px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {error}
@@ -131,6 +110,49 @@ export default function CalendarSyncSettings({
               hyppigste mulighed. På telefoner styrer styresystemet selv opdateringsfrekvensen, uden at man kan
               indstille det.
             </div>
+          </div>
+
+          <div className="border-t border-pepo-bd pt-5 pb-5">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="w-full flex items-center justify-between text-left"
+            >
+              <span className="text-[13px] font-medium text-pepo-t1">Avanceret</span>
+              <Icon
+                name={showAdvanced ? "chevron-down" : "chevron-right"}
+                size={16}
+                className="text-pepo-t3 flex-shrink-0"
+              />
+            </button>
+            {showAdvanced && (
+              <div className="mt-4">
+                <div className="text-[12.5px] text-pepo-t2 mb-3">
+                  De fleste har kun brug for webcal-linket ovenfor. Https-linket er til de tilfælde hvor et
+                  kalendersystem kræver, at man selv indsætter en almindelig webadresse i stedet for at klikke
+                  på et link — fx Google Kalenders "Fra URL"-funktion på web, som ikke forstår webcal-links.
+                </div>
+                <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+                  Abonnementslink (https, til manuel indsætning)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={feedUrl(tenantSlug, token, "https")}
+                    className="flex-1 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[12.5px] text-pepo-t2 bg-pepo-su outline-none"
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => copy("https")}
+                    className="h-[42px] px-3.5 rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t1 text-[12.5px] font-medium hover:bg-pepo-su transition-colors flex items-center gap-1.5 flex-shrink-0"
+                  >
+                    <Icon name={copied === "https" ? "check" : "copy"} size={16} />
+                    {copied === "https" ? "Kopieret" : "Kopiér"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-pepo-bd pt-5">
