@@ -151,43 +151,44 @@ export default function CalendarSyncSettings({
                     {copied === "https" ? "Kopieret" : "Kopiér"}
                   </button>
                 </div>
-              </div>
-            )}
-          </div>
 
-          <div className="border-t border-pepo-bd pt-5">
-            <div className="text-[13px] font-medium text-pepo-t1 mb-1">Generér nyt link</div>
-            <div className="text-[12.5px] text-pepo-t2 mb-3">
-              Det nuværende link holder op med at virke, og skal opdateres i alle kalender-apps der allerede
-              abonnerer. Brug kun dette hvis linket er delt med nogen der ikke længere skal have adgang.
-            </div>
-            {confirmingReset ? (
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={regenerate}
-                  disabled={isPending}
-                  className="h-10 px-4 rounded-[9px] text-[13px] font-medium bg-[#C0021A] text-white disabled:opacity-40"
-                >
-                  {isPending ? "Genererer..." : "Ja, generér nyt link"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingReset(false)}
-                  disabled={isPending}
-                  className="h-10 px-4 rounded-[9px] text-[13px] font-medium border border-pepo-bds text-pepo-t1 hover:bg-pepo-su transition-colors"
-                >
-                  Fortryd
-                </button>
+                <div className="border-t border-pepo-bd mt-5 pt-5">
+                  <div className="text-[13px] font-medium text-pepo-t1 mb-1">Generér nyt link</div>
+                  <div className="text-[12.5px] text-pepo-t2 mb-3">
+                    Det nuværende link holder op med at virke, og skal opdateres i alle kalender-apps der
+                    allerede abonnerer. Brug kun dette hvis linket er delt med nogen der ikke længere skal have
+                    adgang.
+                  </div>
+                  {confirmingReset ? (
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={regenerate}
+                        disabled={isPending}
+                        className="h-10 px-4 rounded-[9px] text-[13px] font-medium bg-[#C0021A] text-white disabled:opacity-40"
+                      >
+                        {isPending ? "Genererer..." : "Ja, generér nyt link"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingReset(false)}
+                        disabled={isPending}
+                        className="h-10 px-4 rounded-[9px] text-[13px] font-medium border border-pepo-bds text-pepo-t1 hover:bg-pepo-su transition-colors"
+                      >
+                        Fortryd
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingReset(true)}
+                      className="h-10 px-4 rounded-[9px] text-[13px] font-medium border border-pepo-bds text-pepo-t1 hover:bg-pepo-su transition-colors"
+                    >
+                      Generér nyt link
+                    </button>
+                  )}
+                </div>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmingReset(true)}
-                className="h-10 px-4 rounded-[9px] text-[13px] font-medium border border-pepo-bds text-pepo-t1 hover:bg-pepo-su transition-colors"
-              >
-                Generér nyt link
-              </button>
             )}
           </div>
         </div>
