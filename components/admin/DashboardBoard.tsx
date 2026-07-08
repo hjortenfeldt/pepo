@@ -108,7 +108,7 @@ function StatCard({
   const labelColor = accent === "purple" ? "text-pepo-p" : "text-[#1D4ED8]";
 
   return (
-    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 flex-1 h-[190px]">
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 flex-1 h-[230px]">
       <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
       <div className="flex gap-6">
         {stats.map((s, i) => (
