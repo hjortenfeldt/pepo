@@ -10,6 +10,7 @@ export type AdminUserItem = {
   fullName: string;
   email: string;
   createdAt: string;
+  profileImageUrl: string | null;
 };
 
 function initials(name: string) {
@@ -47,7 +48,16 @@ export default function AdminUsersSettings({
         return;
       }
       setInviteSuccess(`Invitation sendt til ${email.trim()} — personen modtager en mail med link til at sætte en adgangskode.`);
-      setList((l) => [...l, { id: crypto.randomUUID(), fullName: name.trim(), email: email.trim().toLowerCase(), createdAt: new Date().toISOString() }]);
+      setList((l) => [
+        ...l,
+        {
+          id: crypto.randomUUID(),
+          fullName: name.trim(),
+          email: email.trim().toLowerCase(),
+          createdAt: new Date().toISOString(),
+          profileImageUrl: null,
+        },
+      ]);
       setName("");
       setEmail("");
     });
@@ -97,8 +107,13 @@ export default function AdminUsersSettings({
                   key={admin.id}
                   className="flex items-center gap-3 py-3 border-b border-pepo-bd last:border-none"
                 >
-                  <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p text-[12.5px] font-medium flex items-center justify-center flex-shrink-0">
-                    {initials(admin.fullName)}
+                  <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p text-[12.5px] font-medium flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {admin.profileImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={admin.profileImageUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      initials(admin.fullName)
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[13.5px] font-medium text-pepo-t1 truncate flex items-center gap-1.5">

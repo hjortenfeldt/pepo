@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "@/components/Icon";
-import { APP_VERSION } from "@/lib/version";
 
 type NavChild = {
   href: string;
@@ -42,46 +41,19 @@ const NAV: NavItem[] = [
   },
 ];
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return "?";
-}
-
-export default function AdminSidebar({
-  name,
-  onLogout,
-  companyName,
-}: {
-  name: string;
-  onLogout: () => Promise<void>;
-  companyName?: string;
-}) {
+// Logo, "Pepo admin"-teksten, versionsnummeret og brugerinfo/log ud bor nu
+// i AdminTopBar.tsx (den fælles top-bar) — denne komponent er udelukkende
+// selve navigationslisten, med sit eget uafhængige scroll-panel (se
+// [[feedback_admin_layout_single_scroll_panel]]).
+export default function AdminSidebar() {
   const pathname = usePathname();
   // null = "brug automatisk åbn/luk ud fra den aktuelle side"; ellers
   // overstyrer et manuelt klik den automatiske opførsel resten af sessionen.
   const [manualOpenSection, setManualOpenSection] = useState<string | null | undefined>(undefined);
 
-  // Venstremenuen har sit eget, uafhængige scroll-panel (nav'en herunder),
-  // adskilt fra sideindholdets scroll-panel i layout.tsx — logo øverst og
-  // brugerinfo/version nederst bliver stående, mens kun menupunkterne
-  // imellem dem scroller, hvis der en dag er flere end skærmpladsen tillader.
   return (
     <div className="w-56 bg-pepo-wh border-r border-pepo-bd flex-shrink-0 flex flex-col h-full overflow-hidden">
-      <div className="flex items-center gap-2.5 px-3.5 pt-[26px] pb-[22px] flex-shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-pepo-p flex items-center justify-center flex-shrink-0">
-          <svg width="16" height="16" viewBox="0 0 22 22" fill="none">
-            <circle cx="8.5" cy="11" r="5.5" fill="white" />
-            <circle cx="17" cy="11" r="3.5" fill="white" opacity="0.6" />
-          </svg>
-        </div>
-        <span className="text-base font-semibold tracking-tight text-pepo-t1">
-          {companyName ?? "pepo"} <span className="text-pepo-t3 font-normal">admin</span>
-        </span>
-      </div>
-
-      <nav className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto px-3.5 pb-2">
+      <nav className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto px-3.5 py-3">
         {NAV.map((item) => {
           const hasChildren = Boolean(item.children && item.children.length > 0);
           const isCurrent =
@@ -166,31 +138,6 @@ export default function AdminSidebar({
           );
         })}
       </nav>
-
-      <div className="flex-shrink-0 px-3.5 pb-5">
-        <div className="pt-2.5 border-t border-pepo-bd flex items-center gap-[9px] px-2.5">
-          <div className="w-[30px] h-[30px] rounded-full bg-pepo-pl text-pepo-p text-xs font-medium flex items-center justify-center flex-shrink-0">
-            {initials(name)}
-          </div>
-          <div className="min-w-0 flex-1">
-            {companyName && (
-              <div className="text-[10px] font-medium text-pepo-t3 uppercase tracking-wide truncate">
-                {companyName}
-              </div>
-            )}
-            <div className="text-[12.5px] font-medium text-pepo-t1 truncate">{name}</div>
-            <button
-              type="button"
-              onClick={() => onLogout()}
-              className="text-[11px] text-pepo-t3 hover:text-pepo-p"
-            >
-              Log ud
-            </button>
-          </div>
-        </div>
-
-        <div className="pt-2 px-2.5 text-[10px] text-pepo-t1">v{APP_VERSION}</div>
-      </div>
     </div>
   );
 }

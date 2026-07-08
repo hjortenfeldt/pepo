@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminTopBar from "@/components/admin/AdminTopBar";
 import { logout } from "./actions";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 
@@ -28,7 +29,7 @@ export default async function ProtectedTenantLayout({
   const [{ data: admin }, { data: superAdmin }] = await Promise.all([
     supabase
       .from("admin_users")
-      .select("full_name, email, company_id")
+      .select("full_name, email, company_id, profile_image_url")
       .eq("id", user.id)
       .maybeSingle(),
     supabase.from("super_admins").select("full_name").eq("id", user.id).maybeSingle(),
@@ -53,21 +54,33 @@ export default async function ProtectedTenantLayout({
     ? admin!.full_name
     : `${superAdmin!.full_name} (Pepo support)`;
 
-  // Hele det lysegrå indholdsområde er ÉT samlet scroll-panel (denne div),
-  // adskilt fra venstremenuens eget scroll-panel — se AdminSidebar.tsx.
-  // Sideindholdet (children) må derfor IKKE selv sætte h-screen eller sit
-  // eget overflow-y-auto, ellers opstår der to indlejrede scroll-rammer,
-  // og noget indhold kan blive skåret af midt på siden.
+  // Top-baren spænder 100% af bredden hen over både venstremenu og
+  // indhold, og er altid synlig (den scroller aldrig væk) — derfor ligger
+  // den som sin egen flex-shrink-0 række OVER sidebar+indhold-rækken,
+  // frem for inde i én af dem. Sidebar+indhold-rækken er ÉT samlet
+  // scroll-panel for indholdet (se AdminSidebar.tsx for sidebarens eget
+  // uafhængige scroll-panel). Sideindholdet (children) må derfor IKKE selv
+  // sætte h-screen eller sit eget overflow-y-auto, ellers opstår der to
+  // indlejrede scroll-rammer, og noget indhold kan blive skåret af midt på
+  // siden.
   return (
-    <div className="flex h-screen overflow-hidden bg-pepo-su">
-      <AdminSidebar name={displayName} onLogout={logout} companyName={company.name} />
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {isSupportVisit && (
-          <div className="bg-amber-400 text-amber-950 text-sm font-medium px-4 py-2 text-center">
-            Support-tilstand — du er logget ind som Pepo-superadmin i {company.name}s system.
-          </div>
-        )}
-        {children}
+    <div className="flex flex-col h-screen overflow-hidden bg-pepo-su">
+      <AdminTopBar
+        name={displayName}
+        onLogout={logout}
+        companyName={company.name}
+        profileImageUrl={isOwnCompanyAdmin ? admin!.profile_image_url : null}
+      />
+      <div className="flex flex-1 min-h-0">
+        <AdminSidebar />
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          {isSupportVisit && (
+            <div className="bg-amber-400 text-amber-950 text-sm font-medium px-4 py-2 text-center">
+              Support-tilstand — du er logget ind som Pepo-superadmin i {company.name}s system.
+            </div>
+          )}
+          {children}
+        </div>
       </div>
     </div>
   );

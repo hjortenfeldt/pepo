@@ -21,7 +21,7 @@ export default async function AdminUsersPage() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("admin_users")
-    .select("id, full_name, email, created_at")
+    .select("id, full_name, email, created_at, profile_image_url")
     .eq("company_id", company.id)
     .order("created_at", { ascending: true });
 
@@ -34,6 +34,7 @@ export default async function AdminUsersPage() {
     fullName: a.full_name,
     email: a.email,
     createdAt: a.created_at,
+    profileImageUrl: a.profile_image_url,
   }));
 
   return <AdminUsersSettings admins={admins} currentUserId={currentUser?.id ?? null} />;
