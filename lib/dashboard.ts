@@ -22,10 +22,11 @@ function hasActiveShift(event: DashboardEvent): boolean {
 }
 
 /**
- * Omsætning/udgift pr. måned for et givent kalenderår. Indtjening tælles
- * for alle ikke-annullerede vagter (kunden faktureres for det bestilte,
- * uanset bemandingsstatus). Udbetaling tælles kun for assigned
- * (man betaler ikke honorar for en vagt ingen er tildelt).
+ * Omsætning/udgift pr. måned for et givent kalenderår. Både indtjening og
+ * udbetaling tælles for alle ikke-annullerede vagter, uanset
+ * bemandingsstatus — kunden faktureres for det bestilte antal vagter, og
+ * udbetalingssøjlen viser den forventede honorarudgift for de samme
+ * vagter, uanset om de allerede er besat.
  */
 export function monthlyFinancials(events: DashboardEvent[], year: number): MonthlyFinancials[] {
   const months: MonthlyFinancials[] = Array.from({ length: 12 }, () => ({ revenue: 0, expense: 0 }));
@@ -37,9 +38,7 @@ export function monthlyFinancials(events: DashboardEvent[], year: number): Month
       if (shift.status === "cancelled") continue;
       const hours = hoursBetween(shift.startTime, shift.endTime);
       months[monthIndex].revenue += hours * shift.clientRatePerHour;
-      if (shift.status === "assigned") {
-        months[monthIndex].expense += hours * shift.freelancerRatePerHour;
-      }
+      months[monthIndex].expense += hours * shift.freelancerRatePerHour;
     }
   }
 
