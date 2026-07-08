@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Icon from "@/components/Icon";
 import type { ClientOption } from "@/lib/admin-types";
 import { venueLabel as formatVenueLabel } from "@/lib/format";
 import ClientQuickAddPanel from "./ClientQuickAddPanel";
@@ -91,9 +92,9 @@ export default function ClientVenueField({
             <button
               type="button"
               onClick={() => setExpandOpen((o) => !o)}
-              className="w-[42px] h-[42px] flex-shrink-0 rounded-[9px] border border-pepo-bds bg-pepo-wh flex items-center justify-center text-pepo-t2 hover:bg-pepo-su"
+              className="w-[41px] h-[41px] flex-shrink-0 rounded-[9px] border border-pepo-bds bg-pepo-wh flex items-center justify-center text-pepo-t2 hover:bg-pepo-su"
             >
-              <i className={"ti ti-chevron-right transition-transform " + (expandOpen ? "rotate-90" : "")} />
+              <Icon name="chevron-right" size={20} className={"transition-transform " + (expandOpen ? "rotate-90" : "")} />
             </button>
           )}
         </div>
@@ -116,14 +117,14 @@ export default function ClientVenueField({
                   onMouseDown={() => setQuickAdd({ mode: "new", initialType: "company" })}
                   className="px-3 py-2.5 text-[13px] font-medium text-pepo-p cursor-pointer hover:bg-pepo-pl flex items-center gap-1.5 border-b border-pepo-bd"
                 >
-                  <i className="ti ti-plus" />
+                  <Icon name="plus" size={16} />
                   Ny firmakunde
                 </div>
                 <div
                   onMouseDown={() => setQuickAdd({ mode: "new", initialType: "private" })}
                   className="px-3 py-2.5 text-[13px] font-medium text-pepo-p cursor-pointer hover:bg-pepo-pl flex items-center gap-1.5"
                 >
-                  <i className="ti ti-plus" />
+                  <Icon name="plus" size={16} />
                   Ny privatkunde
                 </div>
               </>
@@ -154,7 +155,7 @@ export default function ClientVenueField({
             onClick={() => setQuickAdd({ mode: "edit" })}
             className="w-full h-9 mt-2 rounded-[9px] border border-pepo-bds text-[12.5px] font-medium text-pepo-t2 hover:bg-pepo-su flex items-center justify-center gap-1.5"
           >
-            <i className="ti ti-pencil" />
+            <Icon name="pencil" size={16} />
             Redigér kundeoplysninger
           </button>
         </div>
@@ -193,7 +194,7 @@ function ClientDetailRows({ client }: { client: ClientOption }) {
     <div className="flex flex-col">
       {rows.map((r) => (
         <div key={r.label} className="flex items-start gap-2.5 py-2 border-b border-pepo-bd last:border-none">
-          <i className={`ti ti-${r.icon} text-base text-pepo-t3 mt-px w-4 flex-shrink-0`} />
+          <Icon name={r.icon} size={20} className="text-pepo-t3 mt-px flex-shrink-0" />
           <div>
             <div className="text-[11px] text-pepo-t3 uppercase tracking-wide">{r.label}</div>
             <div className="text-[13px] text-pepo-t1 mt-px leading-relaxed">{r.value}</div>

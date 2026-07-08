@@ -102,6 +102,36 @@ export async function createEventWithShifts(input: EventFormInput, rows: ShiftRo
   return { success: true as const, eventId: event.id as string };
 }
 
+// Opretter et event uden vagter — matcher prototypens "Gem event uden
+// vagter"-knap i trin 1 af guiden (fx til events der endnu ikke skal
+// bemandes, eller hvor vagterne tilføjes senere via "Tilføj vagt til event").
+export async function createEventOnly(input: EventFormInput) {
+  const validationError = validateEvent(input);
+  if (validationError) return { success: false as const, error: validationError };
+
+  const supabase = await createSupabaseClient();
+
+  const { data: event, error: eventError } = await supabase
+    .from("events")
+    .insert({
+      title: input.title.trim(),
+      event_date: input.eventDate,
+      description: input.description.trim() || null,
+      client_id: input.clientId,
+      venue_id: input.venueId,
+    })
+    .select("id")
+    .single();
+
+  if (eventError || !event) {
+    console.error("createEventOnly: kunne ikke oprette event", eventError);
+    return { success: false as const, error: "Kunne ikke oprette event. Prøv igen." };
+  }
+
+  revalidatePath("/shifts");
+  return { success: true as const, eventId: event.id as string };
+}
+
 export async function updateEvent(eventId: string, input: EventFormInput) {
   const validationError = validateEvent(input);
   if (validationError) return { success: false, error: validationError };

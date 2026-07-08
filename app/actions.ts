@@ -31,6 +31,7 @@ export async function submitRegistration(
   const phone = normalizePhone(String(formData.get("phone") || "").trim());
   const bio = String(formData.get("bio") || "").trim();
   const socialMediaUrl = String(formData.get("socialMediaUrl") || "").trim();
+  const hasLicense = formData.get("hasLicense") === "true";
   const categoryIds = formData
     .getAll("categoryIds")
     .map(String)
@@ -115,6 +116,7 @@ export async function submitRegistration(
       bio: bio || null,
       profile_image_url: profileImageUrl,
       social_media_url: socialMediaUrl || null,
+      has_license: hasLicense,
     });
 
   if (profileError) {

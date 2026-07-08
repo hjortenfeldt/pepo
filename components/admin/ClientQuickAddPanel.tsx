@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import type { ClientOption, VenueItem } from "@/lib/admin-types";
 import { createClientRecord, updateClientRecord, type ClientFormInput } from "@/app/tenant/(protected)/clients/actions";
 import { createVenue, updateVenue, deleteVenue, type VenueFormInput } from "@/app/tenant/(protected)/shifts/actions";
+import Icon from "@/components/Icon";
+import { useSlidePanel } from "./useSlidePanel";
 
 type VenueRow = { id: string | null; name: string; address: string; postalCode: string; city: string };
 
@@ -43,6 +45,7 @@ export default function ClientQuickAddPanel({
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { visible, close, closeWith } = useSlidePanel(onCancel);
 
   function setType(type: "company" | "private") {
     setCustomerType(type);
@@ -134,27 +137,40 @@ export default function ClientQuickAddPanel({
         await deleteVenue(id);
       }
 
-      onSaved({
-        id: resolvedId,
-        name: customerType === "private" ? null : name || null,
-        cvrNumber: customerType === "private" ? null : cvrNumber || null,
-        contactPerson: contactPerson || null,
-        contactPhone: contactPhone || null,
-        contactEmail: contactEmail || null,
-        notes: notes || null,
-        venues: resultVenues,
-      });
+      closeWith(() =>
+        onSaved({
+          id: resolvedId,
+          name: customerType === "private" ? null : name || null,
+          cvrNumber: customerType === "private" ? null : cvrNumber || null,
+          contactPerson: contactPerson || null,
+          contactPhone: contactPhone || null,
+          contactEmail: contactEmail || null,
+          notes: notes || null,
+          venues: resultVenues,
+        })
+      );
     });
   }
 
   return (
     <>
-      <div className="fixed inset-0 bg-[#1D1D1F]/30 z-30" onClick={onCancel} />
-      <div className="fixed top-0 right-0 bottom-0 w-[460px] bg-pepo-wh shadow-[-8px_0_40px_rgba(0,0,0,0.12)] z-40 flex flex-col">
+      <div
+        className={
+          "fixed inset-0 bg-[#1D1D1F]/30 transition-opacity duration-200 z-30 " +
+          (visible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none")
+        }
+        onClick={close}
+      />
+      <div
+        className={
+          "fixed top-0 right-0 bottom-0 w-[472px] bg-pepo-wh shadow-[-8px_0_40px_rgba(0,0,0,0.12)] transition-transform duration-200 z-40 flex flex-col " +
+          (visible ? "translate-x-0" : "translate-x-full")
+        }
+      >
         <div className="flex items-center justify-between px-5 py-[18px] border-b border-pepo-bd flex-shrink-0">
           <span className="text-sm font-medium">{isEditing ? "Redigér kunde" : "Ny kunde"}</span>
-          <button onClick={onCancel} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
-            <i className="ti ti-x" />
+          <button onClick={close} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
+            <Icon name="x" size={20} />
           </button>
         </div>
 
@@ -244,7 +260,7 @@ export default function ClientQuickAddPanel({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={4}
+              rows={3}
               placeholder="Interne noter om kunden (valgfrit)"
               className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none resize-none focus:border-pepo-p"
             />
@@ -252,15 +268,16 @@ export default function ClientQuickAddPanel({
 
           <div className="border-t border-pepo-bd my-5" />
 
-          <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2">Arbejdssted(er)</div>
+          <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2">Event sted hvor personalet skal arbejde</div>
           {venues.map((v, i) => (
-            <div key={i} className="border border-pepo-bd rounded-[10px] p-3.5 mb-3 relative">
+            <div key={i} className="border border-pepo-bd rounded-[10px] pt-3.5 px-3.5 pb-0.5 mb-3 relative">
               {venues.length > 1 && (
                 <button
+                  title="Fjern arbejdssted"
                   onClick={() => removeVenueRow(i)}
                   className="absolute top-2.5 right-2.5 w-6 h-6 rounded-md flex items-center justify-center text-pepo-t3 hover:bg-pepo-su hover:text-[#C0021A]"
                 >
-                  <i className="ti ti-x text-[13px]" />
+                  <Icon name="x" size={20} />
                 </button>
               )}
               <Field label="Navn på arbejdssted/venue">
@@ -305,10 +322,10 @@ export default function ClientQuickAddPanel({
           ))}
           <button
             onClick={addVenueRow}
-            className="w-full h-10 rounded-[9px] border border-dashed border-pepo-bds text-pepo-p text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-pepo-pl mb-4"
+            className="w-full h-10 rounded-[9px] border border-dashed border-pepo-bds bg-pepo-wh text-pepo-p text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-pepo-pl mb-4"
           >
-            <i className="ti ti-plus" />
-            Knyt endnu et arbejdssted/venue
+            <Icon name="plus" size={16} />
+            Knyt endnu et arbejdssted/venue til denne kunde
           </button>
         </div>
 
@@ -324,7 +341,7 @@ export default function ClientQuickAddPanel({
             disabled={isPending}
             className="w-full h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
           >
-            <i className="ti ti-check" />
+            <Icon name="check" size={18} />
             {isPending ? "Gemmer..." : isEditing ? "Gem ændringer" : "Gem kunde"}
           </button>
         </div>

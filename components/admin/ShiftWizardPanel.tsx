@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { CategoryOption, ClientOption, EventListItem } from "@/lib/admin-types";
 import {
   createEventWithShifts,
+  createEventOnly,
   addShiftsToEvent,
   updateEvent,
   uploadAttachment,
@@ -14,6 +15,8 @@ import {
 } from "@/app/tenant/(protected)/shifts/actions";
 import ClientVenueField from "./ClientVenueField";
 import { DateField, TimeField } from "./ShiftFormFields";
+import Icon from "@/components/Icon";
+import { useSlidePanel } from "./useSlidePanel";
 
 export type WizardState =
   | { mode: "new"; presetDate?: string }
@@ -63,6 +66,7 @@ export default function ShiftWizardPanel({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { visible, close } = useSlidePanel(onClose);
 
   function onClientSaved(client: ClientOption) {
     setClientsState((prev) => (prev.some((c) => c.id === client.id) ? prev.map((c) => (c.id === client.id ? client : c)) : [...prev, client]));
@@ -112,7 +116,30 @@ export default function ShiftWizardPanel({
         return;
       }
       router.refresh();
-      onClose();
+      close();
+    });
+  }
+
+  // "Gem event uden vagter" — opretter eventet med det samme, uden at gå
+  // videre til trin 2. Matcher prototypens wizardSaveStep1(false).
+  function saveNewEventWithoutShifts() {
+    const err = validateStep1();
+    if (err) {
+      setError(err);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await createEventOnly(form);
+      if (!result.success) {
+        setError(result.error ?? "Der opstod en fejl.");
+        return;
+      }
+      for (const file of pendingFiles) {
+        await uploadAttachment(result.eventId, file);
+      }
+      router.refresh();
+      close();
     });
   }
 
@@ -143,7 +170,7 @@ export default function ShiftWizardPanel({
           return;
         }
         router.refresh();
-        onClose();
+        close();
         return;
       }
 
@@ -156,7 +183,7 @@ export default function ShiftWizardPanel({
         await uploadAttachment(result.eventId, file);
       }
       router.refresh();
-      onClose();
+      close();
     });
   }
 
@@ -196,12 +223,23 @@ export default function ShiftWizardPanel({
 
   return (
     <>
-      <div className="fixed inset-0 bg-[#1D1D1F]/30 z-10" onClick={onClose} />
-      <div className="fixed top-0 right-0 bottom-0 w-[472px] bg-pepo-wh shadow-[-8px_0_40px_rgba(0,0,0,0.12)] z-20 flex flex-col">
+      <div
+        className={
+          "fixed inset-0 bg-[#1D1D1F]/30 transition-opacity duration-200 z-10 " +
+          (visible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none")
+        }
+        onClick={close}
+      />
+      <div
+        className={
+          "fixed top-0 right-0 bottom-0 w-[472px] bg-pepo-wh shadow-[-8px_0_40px_rgba(0,0,0,0.12)] transition-transform duration-200 z-20 flex flex-col " +
+          (visible ? "translate-x-0" : "translate-x-full")
+        }
+      >
         <div className="flex items-center justify-between px-5 py-[18px] border-b border-pepo-bd flex-shrink-0">
           <span className="text-sm font-medium">{title}</span>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
-            <i className="ti ti-x" />
+          <button onClick={close} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
+            <Icon name="x" size={20} />
           </button>
         </div>
 
@@ -222,14 +260,6 @@ export default function ShiftWizardPanel({
                 />
               </Field>
 
-              <ClientVenueField
-                clients={clientsState}
-                clientId={form.clientId}
-                venueId={form.venueId}
-                onChange={(clientId, venueId) => setForm((f) => ({ ...f, clientId, venueId }))}
-                onClientSaved={onClientSaved}
-              />
-
               <Field label="Briefing">
                 <textarea
                   value={form.description}
@@ -238,14 +268,21 @@ export default function ShiftWizardPanel({
                   placeholder="Beskrivelse af eventet (valgfrit)"
                   className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none resize-none focus:border-pepo-p"
                 />
+                <AttachmentsInline
+                  attachments={attachments}
+                  pendingFiles={pendingFiles}
+                  onAttach={onAttachFiles}
+                  onRemove={onRemoveAttachment}
+                  onRemovePending={(i) => setPendingFiles((f) => f.filter((_, idx) => idx !== i))}
+                />
               </Field>
 
-              <AttachmentsField
-                attachments={attachments}
-                pendingFiles={pendingFiles}
-                onAttach={onAttachFiles}
-                onRemove={onRemoveAttachment}
-                onRemovePending={(i) => setPendingFiles((f) => f.filter((_, idx) => idx !== i))}
+              <ClientVenueField
+                clients={clientsState}
+                clientId={form.clientId}
+                venueId={form.venueId}
+                onChange={(clientId, venueId) => setForm((f) => ({ ...f, clientId, venueId }))}
+                onClientSaved={onClientSaved}
               />
 
               <div className="h-2" />
@@ -254,19 +291,18 @@ export default function ShiftWizardPanel({
 
           {step === 2 && (
             <>
-              {rows.map((row, i) => (
-                <div key={row.key} className="border border-pepo-bd rounded-[10px] p-3 mb-3">
-                  <div className="flex items-center justify-between mb-2.5">
-                    <span className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide">
-                      Vagt {i + 1}
-                    </span>
-                    {rows.length > 1 && (
-                      <button onClick={() => removeRow(row.key)} className="text-pepo-t3 hover:text-[#C0021A]">
-                        <i className="ti ti-x text-[14px]" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2.5">
+              {rows.map((row) => (
+                <div key={row.key} className="relative border border-pepo-bd rounded-[10px] pt-3.5 px-3.5 pb-0.5 mb-3">
+                  {rows.length > 1 && (
+                    <button
+                      onClick={() => removeRow(row.key)}
+                      title="Fjern vagt"
+                      className="absolute top-2.5 right-2.5 w-6 h-6 rounded-md flex items-center justify-center text-pepo-t3 hover:bg-pepo-su hover:text-[#C0021A]"
+                    >
+                      <Icon name="x" size={16} />
+                    </button>
+                  )}
+                  <div className="mb-4">
                     <select
                       value={row.categoryId}
                       onChange={(e) => updateRow(row.key, { categoryId: e.target.value })}
@@ -279,19 +315,24 @@ export default function ShiftWizardPanel({
                         </option>
                       ))}
                     </select>
-                    <div className="flex gap-2.5">
-                      <div className="flex-1">
-                        <TimeField value={row.startTime} onChange={(v) => updateRow(row.key, { startTime: v })} />
-                      </div>
-                      <div className="flex-1">
-                        <TimeField value={row.endTime} onChange={(v) => updateRow(row.key, { endTime: v })} />
-                      </div>
+                  </div>
+                  <div className="flex gap-2.5 mb-4">
+                    <div className="flex-1">
+                      <TimeField value={row.startTime} onChange={(v) => updateRow(row.key, { startTime: v })} />
+                    </div>
+                    <div className="flex-1">
+                      <TimeField value={row.endTime} onChange={(v) => updateRow(row.key, { endTime: v })} />
                     </div>
                   </div>
                 </div>
               ))}
-              <button onClick={addRow} className="text-[12.5px] text-pepo-p hover:underline mb-4">
-                + Tilføj endnu en vagt
+              <button
+                type="button"
+                onClick={addRow}
+                className="w-full h-10 rounded-[9px] border border-dashed border-pepo-bds bg-pepo-wh text-pepo-p text-[13px] font-medium flex items-center justify-center gap-1.5 mt-1 hover:bg-pepo-pl"
+              >
+                <Icon name="plus" size={14} />
+                Tilføj endnu en vagt
               </button>
             </>
           )}
@@ -310,17 +351,29 @@ export default function ShiftWizardPanel({
               disabled={isPending}
               className="flex-1 h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
             >
-              <i className="ti ti-check" />
+              <Icon name="check" size={18} />
               {isPending ? "Gemmer..." : "Gem ændringer"}
             </button>
           ) : step === 1 ? (
-            <button
-              onClick={goToRows}
-              className="flex-1 h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5"
-            >
-              Videre til vagter
-              <i className="ti ti-chevron-right" />
-            </button>
+            <>
+              <button
+                onClick={goToRows}
+                disabled={isPending}
+                className="flex-1 h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
+              >
+                <Icon name="check" size={18} />
+                Gem og opret vagter
+              </button>
+              {state.mode === "new" && (
+                <button
+                  onClick={saveNewEventWithoutShifts}
+                  disabled={isPending}
+                  className="flex-1 h-11 rounded-[10px] text-sm font-medium bg-pepo-su text-pepo-t2 flex items-center justify-center disabled:opacity-40"
+                >
+                  {isPending ? "Gemmer..." : "Gem event uden vagter"}
+                </button>
+              )}
+            </>
           ) : (
             <>
               {!isAddShiftOnly && (
@@ -328,7 +381,7 @@ export default function ShiftWizardPanel({
                   onClick={() => setStep(1)}
                   className="w-11 h-11 flex-shrink-0 rounded-[10px] border border-pepo-bds flex items-center justify-center text-pepo-t2"
                 >
-                  <i className="ti ti-chevron-left" />
+                  <Icon name="chevron-left" size={18} />
                 </button>
               )}
               <button
@@ -336,7 +389,7 @@ export default function ShiftWizardPanel({
                 disabled={isPending}
                 className="flex-1 h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
               >
-                <i className="ti ti-check" />
+                <Icon name="check" size={18} />
                 {isPending ? "Gemmer..." : "Gem vagter"}
               </button>
             </>
@@ -356,7 +409,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function AttachmentsField({
+// Vedhæftninger vises inde i selve Briefing-feltet (samme .field-boks som
+// tekstfeltet), ikke som sit eget felt med label — matcher briefingFieldBlockHtml()
+// i prototypen.
+function AttachmentsInline({
   attachments,
   pendingFiles,
   onAttach,
@@ -370,34 +426,34 @@ function AttachmentsField({
   onRemovePending: (index: number) => void;
 }) {
   return (
-    <Field label="Vedhæftninger">
-      <div className="flex flex-col gap-1.5 mb-2">
+    <>
+      <div className="flex flex-col gap-1.5 mt-2.5 mb-2">
         {attachments.map((a) => (
           <div key={a.id} className="flex items-center gap-2 text-[13px] text-pepo-t1">
-            <i className="ti ti-paperclip text-pepo-t3" />
+            <Icon name="paperclip" className="text-pepo-t3" />
             <a href={a.fileUrl} target="_blank" rel="noopener" className="flex-1 truncate hover:underline">
               {a.fileName}
             </a>
             <button onClick={() => onRemove(a.id, a.fileUrl)} className="text-pepo-t3 hover:text-[#C0021A]">
-              <i className="ti ti-x text-[13px]" />
+              <Icon name="x" size={13} />
             </button>
           </div>
         ))}
         {pendingFiles.map((f, i) => (
           <div key={i} className="flex items-center gap-2 text-[13px] text-pepo-t1">
-            <i className="ti ti-paperclip text-pepo-t3" />
+            <Icon name="paperclip" className="text-pepo-t3" />
             <span className="flex-1 truncate">{f.name}</span>
             <button onClick={() => onRemovePending(i)} className="text-pepo-t3 hover:text-[#C0021A]">
-              <i className="ti ti-x text-[13px]" />
+              <Icon name="x" size={13} />
             </button>
           </div>
         ))}
       </div>
       <label className="inline-flex items-center gap-1.5 text-[12.5px] text-pepo-p cursor-pointer hover:underline">
-        <i className="ti ti-plus text-[13px]" />
+        <Icon name="plus" size={13} />
         Vedhæft fil
         <input type="file" multiple className="hidden" onChange={(e) => onAttach(e.target.files)} />
       </label>
-    </Field>
+    </>
   );
 }

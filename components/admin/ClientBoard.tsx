@@ -10,6 +10,7 @@ import {
   type ClientFormInput,
   type VenueFormEntry,
 } from "@/app/tenant/(protected)/clients/actions";
+import Icon from "@/components/Icon";
 
 type CustomerType = "company" | "private";
 type ViewMode = "grid" | "list";
@@ -18,7 +19,12 @@ function blankVenue(): VenueFormEntry {
   return { id: null, name: "", address: "", postalCode: "", city: "" };
 }
 
-const EMPTY_FORM: ClientFormInput = {
+// ClientBoard håndterer altid en rigtig venues-liste (i modsætning til
+// ClientQuickAddPanel, som administrerer venues separat) — derfor en
+// strammere lokal type, hvor venues ikke er optional.
+type ClientBoardFormInput = ClientFormInput & { venues: VenueFormEntry[] };
+
+const EMPTY_FORM: ClientBoardFormInput = {
   name: "",
   cvrNumber: "",
   contactPerson: "",
@@ -51,7 +57,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customerType, setCustomerType] = useState<CustomerType>("company");
-  const [form, setForm] = useState<ClientFormInput>(EMPTY_FORM);
+  const [form, setForm] = useState<ClientBoardFormInput>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -193,7 +199,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
               onClick={openNew}
               className="h-[38px] px-4 rounded-[9px] bg-pepo-p text-white text-[13.5px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
             >
-              <i className="ti ti-plus" />
+              <Icon name="plus" size={17} />
               Ny kunde
             </button>
           </div>
@@ -209,7 +215,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             title="Søg"
             className="w-[38px] h-[38px] rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t2 flex items-center justify-center hover:bg-pepo-su"
           >
-            <i className="ti ti-search text-[16px]" />
+            <Icon name="search" size={20} />
           </button>
           <div
             className={
@@ -219,7 +225,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                 : "w-0 border-transparent opacity-0 pointer-events-none")
             }
           >
-            <i className="ti ti-search absolute left-[11px] top-1/2 -translate-y-1/2 text-[15px] text-pepo-t3 pointer-events-none" />
+            <Icon name="search" size={19} className="absolute left-[11px] top-1/2 -translate-y-1/2 text-pepo-t3 pointer-events-none" />
             <input
               type="text"
               autoFocus={searchOpen}
@@ -232,7 +238,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
               onClick={closeSearch}
               className="absolute right-2 top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-[6px] flex items-center justify-center cursor-pointer text-pepo-t3 hover:bg-pepo-su hover:text-pepo-t1"
             >
-              <i className="ti ti-x text-[13px]" />
+              <Icon name="x" size={20} />
             </div>
           </div>
         </div>
@@ -248,7 +254,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                 : "text-pepo-t2 hover:text-pepo-t1")
             }
           >
-            <i className="ti ti-layout-grid" />
+            <Icon name="layout-grid" size={20} />
           </button>
           <button
             title="Listevisning"
@@ -260,7 +266,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                 : "text-pepo-t2 hover:text-pepo-t1")
             }
           >
-            <i className="ti ti-list" />
+            <Icon name="list" size={20} />
           </button>
         </div>
       </div>
@@ -272,7 +278,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
         </div>
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-pepo-t3">
-            <i className="ti ti-building-store text-[32px] mb-2.5" />
+            <Icon name="building-store" size={40} className="mb-2.5" />
             <span className="text-[13.5px]">
               {search ? "Ingen kunder matcher søgningen" : "Ingen kunder endnu"}
             </span>
@@ -288,7 +294,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                   className="w-full text-left flex items-center gap-3 px-4 py-[11px] border-b border-pepo-bd last:border-b-0 hover:bg-pepo-su transition-colors"
                 >
                   <div className="w-9 h-9 rounded-[9px] bg-pepo-pl text-pepo-p text-sm flex items-center justify-center flex-shrink-0">
-                    <i className={"ti " + (isPrivate ? "ti-user" : "ti-building-store")} />
+                    <Icon name={isPrivate ? "user" : "building-store"} size={18} />
                   </div>
                   <div className="text-[13.5px] font-medium text-pepo-t1 flex-shrink-0 w-[200px] truncate">
                     {displayName(c)}
@@ -312,25 +318,25 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                 >
                   <div className="flex items-start gap-2.5 mb-3">
                     <div className="w-[42px] h-[42px] rounded-[11px] bg-pepo-pl text-pepo-p text-lg flex items-center justify-center flex-shrink-0">
-                      <i className={"ti " + (isPrivate ? "ti-user" : "ti-building-store")} />
+                      <Icon name={isPrivate ? "user" : "building-store"} size={23} />
                     </div>
                     <div>
                       <div className="text-sm font-medium text-pepo-t1">{displayName(c)}</div>
                       <div className="text-xs text-pepo-t2 mt-px">
-                        {venueSummary(c.venues) || "—"}
+                        {venueSummary(c.venues)}
                       </div>
                     </div>
                   </div>
                   <div className="flex flex-col gap-[5px] text-xs text-pepo-t2 border-t border-pepo-bd pt-[11px]">
                     {c.contactPerson && !isPrivate && (
                       <div className="flex items-center gap-1.5">
-                        <i className="ti ti-user text-[13px] text-pepo-t3 w-3.5" />
+                        <Icon name="user" size={16} className="text-pepo-t3" />
                         {c.contactPerson}
                       </div>
                     )}
                     {c.contactPhone && (
                       <div className="flex items-center gap-1.5">
-                        <i className="ti ti-phone text-[13px] text-pepo-t3 w-3.5" />
+                        <Icon name="phone" size={16} className="text-pepo-t3" />
                         {c.contactPhone}
                       </div>
                     )}
@@ -362,7 +368,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             onClick={closePanel}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su"
           >
-            <i className="ti ti-x" />
+            <Icon name="x" size={20} />
           </button>
         </div>
 
@@ -474,7 +480,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                   onClick={() => removeVenueBlock(i)}
                   className="absolute top-2.5 right-2.5 w-6 h-6 rounded-md flex items-center justify-center text-pepo-t3 hover:bg-pepo-su hover:text-[#C0021A]"
                 >
-                  <i className="ti ti-x text-sm" />
+                  <Icon name="x" size={20} />
                 </button>
               )}
               <Field label="Navn på arbejdssted/venue">
@@ -522,7 +528,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             onClick={addVenueBlock}
             className="w-full h-10 rounded-[9px] border border-dashed border-pepo-bds bg-pepo-wh text-pepo-p text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-pepo-pl mt-1"
           >
-            <i className="ti ti-plus" />
+            <Icon name="plus" size={16} />
             Knyt endnu et arbejdssted/venue til denne kunde
           </button>
 
@@ -542,7 +548,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
               disabled={isPending}
               className="w-11 h-11 flex-shrink-0 rounded-[10px] bg-pepo-wh text-[#C0021A] border border-[#F3C9C9] flex items-center justify-center disabled:opacity-40"
             >
-              <i className="ti ti-trash" />
+              <Icon name="trash" size={18} />
             </button>
           )}
           <button
@@ -550,7 +556,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             disabled={isPending}
             className="flex-1 h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
           >
-            <i className="ti ti-check" />
+            <Icon name="check" size={18} />
             {isPending ? "Gemmer..." : "Gem kunde"}
           </button>
         </div>

@@ -18,6 +18,7 @@ type FormState = {
   categoryIds: string[];
   bio: string;
   socialMediaUrl: string;
+  hasLicense: boolean;
 };
 
 const EMPTY_FORM: FormState = {
@@ -30,6 +31,7 @@ const EMPTY_FORM: FormState = {
   categoryIds: [],
   bio: "",
   socialMediaUrl: "",
+  hasLicense: false,
 };
 
 const STEP_NAMES = ["Om dig", "Arbejdskategorier", "Din profil", "Bekræft og send"];
@@ -86,6 +88,7 @@ export default function RegistrationForm({ categories }: Props) {
     fd.set("phone", form.phone.trim());
     fd.set("bio", form.bio.trim());
     fd.set("socialMediaUrl", form.socialMediaUrl.trim());
+    fd.set("hasLicense", String(form.hasLicense));
     form.categoryIds.forEach((id) => fd.append("categoryIds", id));
     if (profileImage) fd.set("profileImage", profileImage);
 
@@ -304,6 +307,16 @@ function Step1({
         />
       </Field>
 
+      <label className="flex items-center gap-2 text-[13px] text-pepo-t1 mb-4 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={form.hasLicense}
+          onChange={(e) => update("hasLicense", e.target.checked)}
+          className="w-4 h-4 rounded border-pepo-bds accent-pepo-p"
+        />
+        Jeg har kørekort
+      </label>
+
       <div className="flex gap-2.5 mt-2">
         <PrimaryButton onClick={onNext} disabled={!canContinue}>
           Fortsæt
@@ -484,6 +497,7 @@ function Step4({
     { label: "Mobil", value: form.phone || "—" },
     { label: "By", value: form.location || "—" },
     { label: "Kategorier", value: categoryNames.length ? categoryNames.join(", ") : "—" },
+    { label: "Kørekort", value: form.hasLicense ? "Ja" : "Nej" },
   ];
 
   return (

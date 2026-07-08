@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -21,13 +21,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="da" className={`${inter.variable} h-full antialiased`}>
-      <head>
-        {/* Ikonsæt brugt i prototyperne og adminsystemet (Tabler Icons) */}
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"
-        />
-      </head>
+      {/* Ikonsæt (Tabler) renderes som rigtige SVG-komponenter via
+          components/Icon.tsx, ligesom i prototyperne — ikke som webfont. */}
       <body className="min-h-full flex flex-col bg-pepo-su">{children}</body>
     </html>
   );

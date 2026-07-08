@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Icon from "@/components/Icon";
 import type {
   CategoryOption,
   ClientOption,
@@ -25,7 +26,6 @@ const STATUS_LABEL: Record<ShiftStatus, string> = {
   open: "Mangler",
   for_resale: "Til salg",
   assigned: "Tildelt",
-  completed: "Afsluttet",
   cancelled: "Slettet",
 };
 
@@ -33,7 +33,6 @@ const STATUS_BADGE_CLASS: Record<ShiftStatus, string> = {
   open: "bg-[#FDECEA] text-[#C0021A]",
   for_resale: "bg-[#FEF3E2] text-[#9A5F00]",
   assigned: "bg-[#EAF6EE] text-[#1A7A34]",
-  completed: "bg-pepo-su text-pepo-t2",
   cancelled: "bg-pepo-su text-pepo-t3",
 };
 
@@ -44,7 +43,6 @@ const SHIFT_BORDER_CLASS: Record<ShiftStatus, string> = {
   open: "border-[#FDECEA] hover:border-[#C0021A]",
   for_resale: "border-[#FEF3E2] hover:border-[#9A5F00]",
   assigned: "border-[#EAF6EE] hover:border-[#1A7A34]",
-  completed: "border-pepo-bd hover:border-pepo-t3",
   cancelled: "border-pepo-bd hover:border-pepo-t3",
 };
 
@@ -52,7 +50,6 @@ const STATUS_TEXT_CLASS: Record<ShiftStatus, string> = {
   open: "text-[#C0021A]",
   for_resale: "text-[#9A5F00]",
   assigned: "text-[#1A7A34]",
-  completed: "text-pepo-t3",
   cancelled: "text-pepo-t3",
 };
 
@@ -61,7 +58,7 @@ function dateStatusDot(events: EventListItem[], dateStr: string): "green" | "red
   if (dayEvents.length === 0) return "none";
   const activeShifts = dayEvents.flatMap((e) => e.shifts).filter((s) => s.status !== "cancelled");
   if (activeShifts.length === 0) return "gray";
-  return activeShifts.every((s) => s.status === "assigned" || s.status === "completed") ? "green" : "red";
+  return activeShifts.every((s) => s.status === "assigned") ? "green" : "red";
 }
 
 export default function ShiftBoard({
@@ -145,7 +142,7 @@ export default function ShiftBoard({
             onClick={() => setWizard({ mode: "new", presetDate: selectedDate ?? undefined })}
             className="h-[38px] px-4 rounded-[9px] bg-pepo-p text-white text-[13.5px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
           >
-            <i className="ti ti-plus" />
+            <Icon name="plus" size={17} />
             Ny event
           </button>
         </div>
@@ -159,7 +156,7 @@ export default function ShiftBoard({
               key={t}
               onClick={() => setTab(t)}
               className={
-                "py-2.5 mr-[22px] text-[13.5px] font-medium border-b-2 -mb-px transition-colors " +
+                "py-2.5 px-1 mr-[22px] text-[13.5px] font-medium border-b-2 -mb-px transition-colors " +
                 (tab === t ? "text-pepo-p border-pepo-p" : "text-pepo-t2 border-transparent hover:text-pepo-t1")
               }
             >
@@ -172,30 +169,42 @@ export default function ShiftBoard({
       <div className="border-t border-pepo-bd" />
       <div className="flex items-center justify-between px-8 py-4">
         {viewMode === "list" ? (
-          <div className="relative">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onFocus={() => setSearchOpen(true)}
-              placeholder="Søg titel, kunde, kategori eller freelancer..."
+          <div className="relative w-[38px] h-[38px] flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              title="Søg"
+              className="w-[38px] h-[38px] rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t2 flex items-center justify-center hover:bg-pepo-su"
+            >
+              <Icon name="search" size={20} />
+            </button>
+            <div
               className={
-                "h-[38px] border border-pepo-bds rounded-[9px] pl-[34px] pr-3 text-[13.5px] outline-none bg-pepo-wh focus:border-pepo-p transition-all " +
-                (searchOpen || search ? "w-[300px]" : "w-[38px] cursor-pointer")
+                "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
+                (searchOpen
+                  ? "w-[300px] border-pepo-bds opacity-100 pointer-events-auto"
+                  : "w-0 border-transparent opacity-0 pointer-events-none")
               }
-            />
-            <i className="ti ti-search absolute left-[11px] top-1/2 -translate-y-1/2 text-[15px] text-pepo-t3 pointer-events-none" />
-            {search && (
-              <button
+            >
+              <Icon name="search" size={19} className="absolute left-[11px] top-1/2 -translate-y-1/2 text-pepo-t3 pointer-events-none" />
+              <input
+                type="text"
+                autoFocus={searchOpen}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Søg..."
+                className="w-full h-full border-none outline-none px-[34px] text-[13.5px] bg-transparent"
+              />
+              <div
                 onClick={() => {
                   setSearch("");
                   setSearchOpen(false);
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-pepo-t3 hover:text-pepo-t1"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-[6px] flex items-center justify-center cursor-pointer text-pepo-t3 hover:bg-pepo-su hover:text-pepo-t1"
               >
-                <i className="ti ti-x text-[13px]" />
-              </button>
-            )}
+                <Icon name="x" size={20} />
+              </div>
+            </div>
           </div>
         ) : (
           <div />
@@ -209,7 +218,7 @@ export default function ShiftBoard({
             }
             title="Listevisning"
           >
-            <i className="ti ti-list text-[16px]" />
+            <Icon name="list" size={20} />
           </button>
           <button
             onClick={() => setViewMode("calendar")}
@@ -219,7 +228,7 @@ export default function ShiftBoard({
             }
             title="Kalendervisning"
           >
-            <i className="ti ti-calendar text-[16px]" />
+            <Icon name="calendar" size={20} />
           </button>
         </div>
       </div>
@@ -228,15 +237,15 @@ export default function ShiftBoard({
       <div className="flex-1 overflow-y-auto px-8 py-[22px] pb-10 max-w-[760px]">
         {viewMode === "list" ? (
           groupedByDate.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-pepo-t3">
-              <i className="ti ti-calendar-event text-[32px] mb-2.5" />
-              <span className="text-[13.5px]">Ingen events i denne visning</span>
+            <div className="flex flex-col items-center justify-center py-[60px] text-pepo-t3">
+              <Icon name="calendar-event" size={32} className="mb-2.5" />
+              <span className="text-[13.5px]">Ingen vagter i denne visning</span>
             </div>
           ) : (
             <div className="flex flex-col gap-6">
               {groupedByDate.map(([date, dayEvents]) => (
                 <div key={date}>
-                  <div className="text-[12.5px] font-medium text-pepo-t2 capitalize mb-2.5">
+                  <div className="text-[13px] font-semibold text-pepo-t2 capitalize mb-2.5">
                     {formatDayHeading(date)}
                   </div>
                   <div className="flex flex-col gap-2.5">
@@ -255,53 +264,55 @@ export default function ShiftBoard({
             </div>
           )
         ) : (
-          <CalendarView
-            events={events}
-            calYear={calYear}
-            calMonth={calMonth}
-            selectedDate={selectedDate}
-            onNav={(delta) => {
-              let m = calMonth + delta;
-              let y = calYear;
-              if (m < 0) {
-                m = 11;
-                y -= 1;
-              } else if (m > 11) {
-                m = 0;
-                y += 1;
-              }
-              setCalMonth(m);
-              setCalYear(y);
-            }}
-            onToday={() => {
-              const d = new Date();
-              setCalYear(d.getFullYear());
-              setCalMonth(d.getMonth());
-              setSelectedDate(now);
-            }}
-            onSelectDay={setSelectedDate}
-          >
-            <div className="mt-5">
-              <div className="text-[12.5px] font-medium text-pepo-t2 capitalize mb-2.5">
-                {formatDayHeading(agendaDate)}
-              </div>
-              {agendaEvents.length === 0 ? (
-                <div className="text-[13px] text-pepo-t3 py-6 text-center">Ingen vagter denne dag</div>
-              ) : (
-                <div className="flex flex-col gap-2.5">
-                  {agendaEvents.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      onEditEvent={() => openEditEvent(event)}
-                      onAddShift={() => openAddShift(event)}
-                      onOpenShift={(s) => openShiftDetail(s, event)}
-                    />
-                  ))}
-                </div>
-              )}
+          <>
+            <CalendarView
+              events={events}
+              calYear={calYear}
+              calMonth={calMonth}
+              selectedDate={selectedDate}
+              onNav={(delta) => {
+                let m = calMonth + delta;
+                let y = calYear;
+                if (m < 0) {
+                  m = 11;
+                  y -= 1;
+                } else if (m > 11) {
+                  m = 0;
+                  y += 1;
+                }
+                setCalMonth(m);
+                setCalYear(y);
+              }}
+              onToday={() => {
+                const d = new Date();
+                setCalYear(d.getFullYear());
+                setCalMonth(d.getMonth());
+                setSelectedDate(now);
+              }}
+              onSelectDay={setSelectedDate}
+            />
+            <div className="text-[13px] font-semibold text-pepo-t2 capitalize mb-2.5">
+              {formatDayHeading(agendaDate)}
             </div>
-          </CalendarView>
+            {agendaEvents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-[30px] text-pepo-t3">
+                <Icon name="calendar-event" size={32} className="mb-2.5" />
+                <span className="text-[13.5px]">Ingen vagter denne dag</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {agendaEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    onEditEvent={() => openEditEvent(event)}
+                    onAddShift={() => openAddShift(event)}
+                    onOpenShift={(s) => openShiftDetail(s, event)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -318,14 +329,10 @@ export default function ShiftBoard({
         <ShiftDetailPanel
           shift={openShift.shift}
           event={openShift.event}
+          clients={clients}
           categories={categories}
           freelancers={freelancers}
           onClose={() => setOpenShift(null)}
-          onEditEvent={() => {
-            const event = openShift.event;
-            setOpenShift(null);
-            openEditEvent(event);
-          }}
         />
       )}
     </div>
@@ -353,12 +360,12 @@ function EventCard({
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] font-semibold text-pepo-t1 py-px">{event.title}</div>
           <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-            <i className="ti ti-building-store text-xs text-pepo-t3 w-[13px] text-center flex-shrink-0" />
+            <Icon name="building-store" size={14} className="text-pepo-t3 flex-shrink-0" />
             {event.clientName}
           </div>
           {event.venueLabel && (
             <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-              <i className="ti ti-map-pin text-xs text-pepo-t3 w-[13px] text-center flex-shrink-0" />
+              <Icon name="map-pin" size={14} className="text-pepo-t3 flex-shrink-0" />
               {event.venueLabel}
             </div>
           )}
@@ -370,7 +377,7 @@ function EventCard({
           }}
           className="flex-shrink-0 h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center gap-1.5 whitespace-nowrap"
         >
-          <i className="ti ti-plus text-xs" />
+          <Icon name="plus" size={14} />
           Tilføj vagt til event
         </button>
       </div>
@@ -402,7 +409,7 @@ function ShiftCard({ shift, onClick }: { shift: ShiftListItem; onClick: () => vo
     >
       <div className="absolute -left-4 top-8 w-3.5 h-[1.5px] bg-pepo-bds" />
       <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">
-        <i className="ti ti-briefcase" />
+        <Icon name="briefcase" size={20} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[13.5px] font-medium text-pepo-t1">{shift.category}</div>
@@ -435,7 +442,6 @@ function CalendarView({
   onNav,
   onToday,
   onSelectDay,
-  children,
 }: {
   events: EventListItem[];
   calYear: number;
@@ -444,7 +450,6 @@ function CalendarView({
   onNav: (delta: number) => void;
   onToday: () => void;
   onSelectDay: (date: string) => void;
-  children: React.ReactNode;
 }) {
   const now = todayIso();
   const monthLabel = new Date(calYear, calMonth, 1).toLocaleDateString("da-DK", {
@@ -471,20 +476,20 @@ function CalendarView({
   };
 
   return (
-    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-[22px]">
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-[22px] mb-7">
       <div className="flex items-center justify-between mb-3.5">
-        <span className="text-[14.5px] font-semibold capitalize">{monthLabel}</span>
-        <div className="flex items-center gap-1.5">
-          <button onClick={onToday} className="text-[12px] font-medium text-pepo-p px-2.5 py-1 rounded-lg hover:bg-pepo-su">
+        <button onClick={() => onNav(-1)} className="w-[30px] h-[30px] rounded-lg border border-pepo-bd flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
+          <Icon name="chevron-left" size={16} />
+        </button>
+        <div className="text-center">
+          <div className="text-[14.5px] font-semibold capitalize">{monthLabel}</div>
+          <button onClick={onToday} className="text-[12px] font-medium text-pepo-p">
             I dag
           </button>
-          <button onClick={() => onNav(-1)} className="w-[30px] h-[30px] rounded-lg border border-pepo-bd flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
-            <i className="ti ti-chevron-left text-[15px]" />
-          </button>
-          <button onClick={() => onNav(1)} className="w-[30px] h-[30px] rounded-lg border border-pepo-bd flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
-            <i className="ti ti-chevron-right text-[15px]" />
-          </button>
         </div>
+        <button onClick={() => onNav(1)} className="w-[30px] h-[30px] rounded-lg border border-pepo-bd flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
+          <Icon name="chevron-right" size={16} />
+        </button>
       </div>
       <div className="grid grid-cols-7 gap-[3px]">
         {["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"].map((d) => (
@@ -507,7 +512,7 @@ function CalendarView({
                   : otherMonth
                   ? "text-pepo-t3 opacity-35"
                   : "text-pepo-t1 hover:bg-pepo-su") +
-                (isToday && !isSelected ? " border border-pepo-p font-medium" : "")
+                (isToday ? " border-[1.5px] border-pepo-p font-medium" : "")
               }
             >
               <span>{date.getDate()}</span>
@@ -516,7 +521,6 @@ function CalendarView({
           );
         })}
       </div>
-      {children}
     </div>
   );
 }

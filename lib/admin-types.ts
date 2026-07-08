@@ -1,11 +1,21 @@
 export type ApplicationStatus = "pending" | "approved" | "rejected";
 
+// En priskategori ejer timelønnen — én eller flere jobfunktioner kan tilhøre
+// den samme priskategori og dermed dele løn. En jobfunktion uden groupId (se
+// CategoryListItem.groupId) vises samlet under "Ikke tildelt priskategori".
+export type CategoryGroupListItem = {
+  id: string;
+  name: string;
+  clientRatePerHour: number;
+  freelancerRatePerHour: number;
+};
+
 export type CategoryListItem = {
   id: string;
   name: string;
   freelancerCount: number;
-  clientRatePerHour: number;
-  freelancerRatePerHour: number;
+  groupId: string | null;
+  icon: string | null;
 };
 
 export type ClientListItem = {
@@ -35,10 +45,11 @@ export type FreelancerListItem = {
   socialMediaUrl: string | null;
   applicationStatus: ApplicationStatus;
   appliedAt: string; // ISO timestamp
-  categories: string[];
+  categories: { id: string; name: string; icon: string | null }[];
+  hasLicense: boolean;
 };
 
-export type ShiftStatus = "open" | "for_resale" | "assigned" | "completed" | "cancelled";
+export type ShiftStatus = "open" | "for_resale" | "assigned" | "cancelled";
 export type InterestStatus = "pending" | "accepted" | "declined";
 
 export type VenueItem = {
@@ -105,6 +116,7 @@ export type ClientOption = {
 export type CategoryOption = {
   id: string;
   name: string;
+  icon?: string | null;
 };
 
 export type FreelancerOption = {

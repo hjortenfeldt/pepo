@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CategoryOption, FreelancerOption, MessageListItem } from "@/lib/admin-types";
 import { sendMessage } from "@/app/tenant/(protected)/messages/actions";
+import Icon from "@/components/Icon";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" });
@@ -96,44 +97,58 @@ export default function MessageBoard({
             onClick={openCompose}
             className="h-[38px] px-4 rounded-[9px] bg-pepo-p text-white text-[13.5px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
           >
-            <i className="ti ti-plus" />
+            <Icon name="plus" size={17} />
             Ny besked
           </button>
         </div>
+      </div>
 
-        <div className="flex items-center border-b border-pepo-bd pb-4">
-          <div className="relative">
+      <div className="border-t border-pepo-bd" />
+      <div className="flex items-center px-8 py-4">
+        <div className="relative w-[38px] h-[38px] flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            title="Søg"
+            className="w-[38px] h-[38px] rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t2 flex items-center justify-center hover:bg-pepo-su"
+          >
+            <Icon name="search" size={20} />
+          </button>
+          <div
+            className={
+              "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
+              (searchOpen
+                ? "w-[300px] border-pepo-bds opacity-100 pointer-events-auto"
+                : "w-0 border-transparent opacity-0 pointer-events-none")
+            }
+          >
+            <Icon name="search" size={19} className="absolute left-[11px] top-1/2 -translate-y-1/2 text-pepo-t3 pointer-events-none" />
             <input
               type="text"
+              autoFocus={searchOpen}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onFocus={() => setSearchOpen(true)}
               placeholder="Søg..."
-              className={
-                "h-[38px] border border-pepo-bds rounded-[9px] pl-[34px] pr-3 text-[13.5px] outline-none bg-pepo-wh focus:border-pepo-p transition-all " +
-                (searchOpen || search ? "w-[280px]" : "w-9 cursor-pointer")
-              }
+              className="w-full h-full border-none outline-none px-[34px] text-[13.5px] bg-transparent"
             />
-            <i className="ti ti-search absolute left-[11px] top-1/2 -translate-y-1/2 text-[15px] text-pepo-t3 pointer-events-none" />
-            {search && (
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setSearchOpen(false);
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-pepo-t3 hover:text-pepo-t1"
-              >
-                <i className="ti ti-x text-[13px]" />
-              </button>
-            )}
+            <div
+              onClick={() => {
+                setSearch("");
+                setSearchOpen(false);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-[6px] flex items-center justify-center cursor-pointer text-pepo-t3 hover:bg-pepo-su hover:text-pepo-t1"
+            >
+              <Icon name="x" size={20} />
+            </div>
           </div>
         </div>
       </div>
+      <div className="border-t border-pepo-bd" />
 
       <div className="flex-1 overflow-y-auto px-8 py-[22px] pb-10">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-pepo-t3">
-            <i className="ti ti-message-2 text-[32px] mb-2.5" />
+            <Icon name="message-2" size={40} className="mb-2.5" />
             <span className="text-[13.5px]">
               {search ? "Ingen beskeder matcher søgningen" : "Ingen beskeder sendt endnu"}
             </span>
@@ -149,11 +164,11 @@ export default function MessageBoard({
                   className="w-full text-left flex items-center gap-3.5 px-4 py-3.5 border-b border-pepo-bd last:border-none hover:bg-pepo-su transition-colors"
                 >
                   <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">
-                    <i className="ti ti-message-2" />
+                    <Icon name="message-2" size={20} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[13.5px] font-medium text-pepo-t1">{m.subject}</div>
-                    <div className="text-xs text-pepo-t2 mt-0.5 truncate">{firstLine(m.body)}</div>
+                    <div className="text-[12.5px] text-pepo-t2 mt-0.5 truncate">{firstLine(m.body)}</div>
                   </div>
                   <span
                     className={
@@ -176,7 +191,7 @@ export default function MessageBoard({
 
       <div
         className={
-          "fixed inset-0 bg-[#1D1D1F]/30 transition-opacity z-10 " +
+          "fixed inset-0 bg-[#1D1D1F]/[0.32] transition-opacity z-10 " +
           (panelOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none")
         }
         onClick={closePanel}
@@ -192,7 +207,7 @@ export default function MessageBoard({
             <div className="flex items-center justify-between px-5 py-[18px] border-b border-pepo-bd flex-shrink-0">
               <span className="text-sm font-medium">Ny besked</span>
               <button onClick={closePanel} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
-                <i className="ti ti-x" />
+                <Icon name="x" size={20} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 pt-[22px]">
@@ -236,7 +251,7 @@ export default function MessageBoard({
               )}
 
               <div className="text-xs text-pepo-t2 flex items-center gap-1.5 -mt-2 mb-4">
-                <i className="ti ti-users text-pepo-t3" />
+                <Icon name="users" size={18} className="text-pepo-t3" />
                 Sendes til {recipientCount} freelancer{recipientCount === 1 ? "" : "e"}
               </div>
 
@@ -264,13 +279,13 @@ export default function MessageBoard({
                 {error}
               </p>
             )}
-            <div className="px-6 py-[22px] border-t border-pepo-bd flex-shrink-0">
+            <div className="px-6 pt-4 pb-[22px] border-t border-pepo-bd flex-shrink-0">
               <button
                 onClick={submit}
                 disabled={isPending}
                 className="w-full h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
               >
-                <i className="ti ti-send" />
+                <Icon name="send" size={18} />
                 {isPending ? "Sender..." : "Send besked"}
               </button>
             </div>
@@ -282,13 +297,13 @@ export default function MessageBoard({
             <div className="flex items-center justify-between px-5 py-[18px] border-b border-pepo-bd flex-shrink-0">
               <span className="text-sm font-medium">Besked</span>
               <button onClick={closePanel} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
-                <i className="ti ti-x" />
+                <Icon name="x" size={20} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 pt-[22px]">
               <span
                 className={
-                  "text-[11px] font-medium px-[9px] py-[3px] rounded-full inline-block mb-2 " +
+                  "text-[11px] font-medium px-[9px] py-[3px] rounded-full inline-block mb-1 " +
                   (viewing.sentToAll ? "bg-pepo-pl text-pepo-p" : "bg-pepo-su text-pepo-t2")
                 }
               >
@@ -299,25 +314,25 @@ export default function MessageBoard({
                 Sendt {formatDate(viewing.sentAt)}
                 {viewing.senderName ? ` af ${viewing.senderName}` : ""}
               </div>
-              <div className="text-[13.5px] text-pepo-t1 leading-relaxed whitespace-pre-line mb-5">{viewing.body}</div>
+              <div className="text-[13.5px] text-pepo-t1 leading-relaxed whitespace-pre-line mb-1">{viewing.body}</div>
 
-              <div className="border-t border-pepo-bd pt-4">
+              <div className="border-t border-pepo-bd mt-5 pt-[18px]">
                 <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2">
                   Modtagere — {viewing.recipients.filter((r) => r.read).length} af {viewing.recipients.length} har læst
                 </div>
                 {viewing.recipients.map((r) => (
                   <div
                     key={r.freelancerId}
-                    className="flex items-center justify-between py-2.5 border-b border-pepo-bd last:border-none text-[13px]"
+                    className="flex items-center justify-between py-[9px] border-b border-pepo-bd last:border-none text-[13px]"
                   >
                     <span>{r.freelancerName}</span>
                     <span
                       className={
                         "text-[11.5px] font-medium flex items-center gap-1.5 " +
-                        (r.read ? "text-[#1A7A34]" : "text-pepo-t3")
+                        (r.read ? "text-pepo-gr" : "text-pepo-t3")
                       }
                     >
-                      <i className={"ti " + (r.read ? "ti-circle-check" : "ti-circle-dashed")} />
+                      <Icon name={r.read ? "circle-check" : "circle-dashed"} size={14} />
                       {r.read ? "Læst" : "Ikke læst"}
                     </span>
                   </div>

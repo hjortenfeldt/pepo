@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { DashboardEventItem, MonthlyFinancials } from "@/lib/admin-types";
 import { eventFullyStaffed } from "@/lib/dashboard";
 import { formatDateDisplay, relativeDateLabel } from "@/lib/format";
+import Icon from "@/components/Icon";
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"];
 const PLOT_HEIGHT = 260;
@@ -28,14 +29,12 @@ function computeBarMetrics(colWidth: number) {
 }
 
 export default function DashboardBoard({
-  year,
   monthly,
   eventCounts,
   freelancerStats,
   upcoming,
   recent,
 }: {
-  year: number;
   monthly: MonthlyFinancials[];
   eventCounts: { booket: number; afviklet: number; kommende: number };
   freelancerStats: { ansatte: number; timerArbejdet: number; timerPlanlagt: number };
@@ -61,7 +60,7 @@ export default function DashboardBoard({
             stats={[
               { icon: "heart-handshake", value: eventCounts.booket, label: "Booket" },
               { icon: "check", value: eventCounts.afviklet, label: "Afviklet" },
-              { icon: "calendar-event", value: eventCounts.kommende, label: "Kommende" },
+              { icon: "calendar", value: eventCounts.kommende, label: "Kommende" },
             ]}
           />
           <StatCard
@@ -89,7 +88,7 @@ export default function DashboardBoard({
         </div>
 
         <div className="mt-4">
-          <RevenueChart year={year} monthly={monthly} />
+          <RevenueChart monthly={monthly} />
         </div>
       </div>
     </div>
@@ -116,7 +115,7 @@ function StatCard({
           <Fragment key={s.label}>
             {i > 0 && <div className="w-px bg-pepo-bd" />}
             <div className="flex-1 text-center">
-              <i className={`ti ti-${s.icon} text-[30px] ${valueColor} block mb-1.5`} />
+              <Icon name={s.icon} size={30} className={`${valueColor} block mx-auto mb-1.5`} />
               <div className={`text-[32px] font-semibold tracking-tight ${valueColor}`}>
                 {s.isHours ? hourFmt.format(s.value) : numberFmt.format(s.value)}
               </div>
@@ -151,7 +150,7 @@ function EventListCard({
       <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
       {events.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-pepo-t3">
-          <i className="ti ti-calendar-event text-[28px] mb-2" />
+          <Icon name="calendar-event" size={40} className="mb-2" />
           <span className="text-[13px]">{emptyText}</span>
         </div>
       ) : (
@@ -206,7 +205,7 @@ function RoleBadge({ count, category, tone }: { count: number; category: string;
   );
 }
 
-function RevenueChart({ year, monthly }: { year: number; monthly: MonthlyFinancials[] }) {
+function RevenueChart({ monthly }: { monthly: MonthlyFinancials[] }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [barMetrics, setBarMetrics] = useState({ barW: MAX_BAR, offset: MAX_OFFSET, radius: 4 });
   const [tooltip, setTooltip] = useState<{ monthIndex: number; x: number; y: number } | null>(null);
@@ -317,9 +316,7 @@ function RevenueChart({ year, monthly }: { year: number; monthly: MonthlyFinanci
           className="fixed bg-pepo-wh border border-pepo-bd rounded-[10px] shadow-[0_8px_28px_rgba(0,0,0,0.16)] px-3.5 py-2.5 text-[12.5px] z-[100] pointer-events-none min-w-[160px]"
           style={{ left: tooltip.x + 18, top: tooltip.y - 14 }}
         >
-          <div className="font-semibold mb-1.5">
-            {MONTH_LABELS[tooltip.monthIndex]} {year}
-          </div>
+          <div className="font-semibold mb-1.5">{MONTH_LABELS[tooltip.monthIndex]}</div>
           <div className="flex justify-between gap-4 mb-1">
             <span className="font-medium text-[#1A7A34]">Indtægt</span>
             <span className="font-medium text-pepo-t1">{numberFmt.format(hovered.revenue)} kr</span>

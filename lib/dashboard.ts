@@ -24,7 +24,7 @@ function hasActiveShift(event: DashboardEvent): boolean {
 /**
  * Omsætning/udgift pr. måned for et givent kalenderår. Indtjening tælles
  * for alle ikke-annullerede vagter (kunden faktureres for det bestilte,
- * uanset bemandingsstatus). Udbetaling tælles kun for assigned/completed
+ * uanset bemandingsstatus). Udbetaling tælles kun for assigned
  * (man betaler ikke honorar for en vagt ingen er tildelt).
  */
 export function monthlyFinancials(events: DashboardEvent[], year: number): MonthlyFinancials[] {
@@ -37,7 +37,7 @@ export function monthlyFinancials(events: DashboardEvent[], year: number): Month
       if (shift.status === "cancelled") continue;
       const hours = hoursBetween(shift.startTime, shift.endTime);
       months[monthIndex].revenue += hours * shift.clientRatePerHour;
-      if (shift.status === "assigned" || shift.status === "completed") {
+      if (shift.status === "assigned") {
         months[monthIndex].expense += hours * shift.freelancerRatePerHour;
       }
     }
@@ -61,7 +61,7 @@ export function freelancerHourStats(events: DashboardEvent[], approvedCount: num
   for (const event of events) {
     for (const shift of event.shifts) {
       const hours = hoursBetween(shift.startTime, shift.endTime);
-      if (event.eventDate < today && (shift.status === "assigned" || shift.status === "completed")) {
+      if (event.eventDate < today && (shift.status === "assigned")) {
         timerArbejdet += hours;
       } else if (event.eventDate >= today && shift.status !== "cancelled") {
         timerPlanlagt += hours;
@@ -82,7 +82,7 @@ function computeRoles(shifts: DashboardShift[]): DashboardEventRole[] {
       open: 0,
       forResale: 0,
     };
-    if (shift.status === "assigned" || shift.status === "completed") role.assigned += 1;
+    if (shift.status === "assigned") role.assigned += 1;
     else if (shift.status === "open") role.open += 1;
     else if (shift.status === "for_resale") role.forResale += 1;
     byCategory.set(shift.category, role);

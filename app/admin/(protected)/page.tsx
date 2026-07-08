@@ -84,7 +84,6 @@ export default async function AdminDashboardPage() {
 
   return (
     <DashboardBoard
-      year={year}
       monthly={monthlyFinancials(events, year)}
       eventCounts={eventCounts(events, today)}
       freelancerStats={freelancerHourStats(events, freelancerCountResult.count ?? 0, today)}

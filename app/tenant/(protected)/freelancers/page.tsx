@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import FreelancerBoard from "@/components/admin/FreelancerBoard";
-import type { FreelancerListItem } from "@/lib/admin-types";
+import type { FreelancerListItem, CategoryOption } from "@/lib/admin-types";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // freelancer_companies og henter profilen som en relation. RLS på
 // freelancer_companies sørger for at kun rækker for admins egen
 // virksomhed kommer med.
-type WorkCategoryRef = { name: string };
+type WorkCategoryRef = { id: string; name: string; icon: string | null };
 type RawProfile = {
   id: string;
   full_name: string;
@@ -26,6 +26,7 @@ type RawProfile = {
   bio: string | null;
   profile_image_url: string | null;
   social_media_url: string | null;
+  has_license: boolean;
   freelancer_categories: { work_categories: WorkCategoryRef | WorkCategoryRef[] | null }[] | null;
 };
 type RawMembershipRow = {
@@ -47,13 +48,29 @@ export default async function AdminFreelancersPage() {
     .select(
       `application_status, applied_at,
        freelancer_profiles(id, full_name, email, gender, birth_date, location, phone, bio,
-         profile_image_url, social_media_url, freelancer_categories(work_categories(name)))`
+         profile_image_url, social_media_url, has_license, freelancer_categories(work_categories(id, name, icon)))`
     )
     .order("applied_at", { ascending: false });
 
   if (error) {
     console.error("AdminFreelancersPage: kunne ikke hente profiler", error);
   }
+
+  type RawCategoryRow = { id: string; name: string; icon: string | null };
+  const { data: categoriesData, error: categoriesError } = await supabase
+    .from("work_categories")
+    .select("id, name, icon")
+    .order("name", { ascending: true });
+
+  if (categoriesError) {
+    console.error("AdminFreelancersPage: kunne ikke hente jobfunktioner", categoriesError);
+  }
+
+  const allCategories: CategoryOption[] = ((categoriesData ?? []) as RawCategoryRow[]).map((c) => ({
+    id: c.id,
+    name: c.name,
+    icon: c.icon,
+  }));
 
   // NB: Uden genererede Supabase-databasetyper (Database-typen) er de
   // indlejrede relationer typet løst her. PostgREST kan returnere en
@@ -64,13 +81,14 @@ export default async function AdminFreelancersPage() {
       const p = one(m.freelancer_profiles);
       if (!p) return null;
 
-      const categories: string[] = (p.freelancer_categories ?? [])
+      const categories: { id: string; name: string; icon: string | null }[] = (p.freelancer_categories ?? [])
         .map((fc) => {
           const wc = fc.work_categories;
           if (!wc) return undefined;
-          return Array.isArray(wc) ? wc[0]?.name : wc.name;
+          return Array.isArray(wc) ? wc[0] : wc;
         })
-        .filter((name: string | undefined): name is string => Boolean(name));
+        .filter((wc): wc is WorkCategoryRef => Boolean(wc))
+        .map((wc) => ({ id: wc.id, name: wc.name, icon: wc.icon }));
 
       const item: FreelancerListItem = {
         id: p.id,
@@ -86,10 +104,11 @@ export default async function AdminFreelancersPage() {
         applicationStatus: m.application_status,
         appliedAt: m.applied_at,
         categories,
+        hasLicense: p.has_license,
       };
       return item;
     })
     .filter((item): item is FreelancerListItem => item !== null);
 
-  return <FreelancerBoard freelancers={items} />;
+  return <FreelancerBoard freelancers={items} allCategories={allCategories} />;
 }

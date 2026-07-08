@@ -14,13 +14,16 @@ export const dynamic = "force-dynamic";
 
 // Rå formen af rækkerne Supabase returnerer. Skrevet i hånden, fordi
 // projektet endnu ikke bruger genererede Supabase-databasetyper.
-type RawWorkCategoryRef = {
-  name: string;
+type RawGroupRef = {
   client_rate_per_hour: number | string;
   freelancer_rate_per_hour: number | string;
+} | null;
+type RawWorkCategoryRef = {
+  name: string;
+  work_category_groups: RawGroupRef | RawGroupRef[] | null;
 };
 type RawShiftRow = {
-  status: "open" | "for_resale" | "assigned" | "completed" | "cancelled";
+  status: "open" | "for_resale" | "assigned" | "cancelled";
   start_time: string;
   end_time: string;
   work_categories: RawWorkCategoryRef | RawWorkCategoryRef[] | null;
@@ -46,7 +49,7 @@ export default async function AdminDashboardPage() {
       .select(
         `id, title, event_date,
          shifts(status, start_time, end_time,
-           work_categories(name, client_rate_per_hour, freelancer_rate_per_hour))`
+           work_categories(name, work_category_groups(client_rate_per_hour, freelancer_rate_per_hour)))`
       )
       .order("event_date", { ascending: true }),
     // Godkendte freelancere for DENNE virksomhed — status hører til
@@ -71,13 +74,14 @@ export default async function AdminDashboardPage() {
     eventDate: e.event_date,
     shifts: (e.shifts ?? []).map((s) => {
       const category = one(s.work_categories);
+      const group = category ? one(category.work_category_groups) : null;
       return {
         category: category?.name ?? "",
         status: s.status,
         startTime: s.start_time.slice(0, 5),
         endTime: s.end_time.slice(0, 5),
-        clientRatePerHour: Number(category?.client_rate_per_hour ?? 0),
-        freelancerRatePerHour: Number(category?.freelancer_rate_per_hour ?? 0),
+        clientRatePerHour: Number(group?.client_rate_per_hour ?? 0),
+        freelancerRatePerHour: Number(group?.freelancer_rate_per_hour ?? 0),
       };
     }),
   }));
@@ -87,7 +91,6 @@ export default async function AdminDashboardPage() {
 
   return (
     <DashboardBoard
-      year={year}
       monthly={monthlyFinancials(events, year)}
       eventCounts={eventCounts(events, today)}
       freelancerStats={freelancerHourStats(events, freelancerCountResult.count ?? 0, today)}
