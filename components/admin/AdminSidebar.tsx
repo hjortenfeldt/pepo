@@ -109,8 +109,8 @@ export default function AdminSidebar({
               {hasChildren && (
                 <Icon
                   name={isOpen ? "chevron-down" : "chevron-right"}
-                  size={16}
-                  className="ml-auto flex-shrink-0 text-pepo-t3"
+                  size={24}
+                  className="ml-auto flex-shrink-0 text-pepo-t2"
                 />
               )}
             </span>

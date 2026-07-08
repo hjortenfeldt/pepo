@@ -121,8 +121,8 @@ export default function CalendarSyncSettings({
               <span className="text-[13px] font-medium text-pepo-t1">Avanceret</span>
               <Icon
                 name={showAdvanced ? "chevron-down" : "chevron-right"}
-                size={16}
-                className="text-pepo-t3 flex-shrink-0"
+                size={24}
+                className="text-pepo-t2 flex-shrink-0"
               />
             </button>
             {showAdvanced && (
