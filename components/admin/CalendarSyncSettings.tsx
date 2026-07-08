@@ -48,7 +48,7 @@ export default function CalendarSyncSettings({
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col">
       <div className="px-8 pt-[22px]">
         <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Sync med kalender</div>
         <div className="text-[13.5px] text-pepo-t2 mt-[3px]">
@@ -56,7 +56,7 @@ export default function CalendarSyncSettings({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 py-[22px] pb-10 max-w-2xl">
+      <div className="px-8 py-[22px] pb-10 max-w-2xl">
         <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
           <div className="flex items-start gap-3 mb-5">
             <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0">

@@ -84,7 +84,7 @@ export default function MessageBoard({
   const panelOpen = composing || viewing !== null;
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col">
       <div className="px-8 pt-[22px]">
         <div className="flex items-start justify-between mb-[18px]">
           <div>
@@ -145,7 +145,7 @@ export default function MessageBoard({
       </div>
       <div className="border-t border-pepo-bd" />
 
-      <div className="flex-1 overflow-y-auto px-8 py-[22px] pb-10">
+      <div className="px-8 py-[22px] pb-10">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-pepo-t3">
             <Icon name="message-2" size={40} className="mb-2.5" />

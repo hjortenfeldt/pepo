@@ -53,10 +53,15 @@ export default async function ProtectedTenantLayout({
     ? admin!.full_name
     : `${superAdmin!.full_name} (Pepo support)`;
 
+  // Hele det lysegrå indholdsområde er ÉT samlet scroll-panel (denne div),
+  // adskilt fra venstremenuens eget scroll-panel — se AdminSidebar.tsx.
+  // Sideindholdet (children) må derfor IKKE selv sætte h-screen eller sit
+  // eget overflow-y-auto, ellers opstår der to indlejrede scroll-rammer,
+  // og noget indhold kan blive skåret af midt på siden.
   return (
-    <div className="flex min-h-screen bg-pepo-su">
+    <div className="flex h-screen overflow-hidden bg-pepo-su">
       <AdminSidebar name={displayName} onLogout={logout} companyName={company.name} />
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 overflow-y-auto">
         {isSupportVisit && (
           <div className="bg-amber-400 text-amber-950 text-sm font-medium px-4 py-2 text-center">
             Support-tilstand — du er logget ind som Pepo-superadmin i {company.name}s system.

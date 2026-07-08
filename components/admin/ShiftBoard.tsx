@@ -147,7 +147,7 @@ export default function ShiftBoard({
   const agendaEvents = events.filter((e) => e.eventDate === agendaDate);
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col">
       <div className="px-8 pt-[22px]">
         <div className="flex items-start justify-between mb-[18px]">
           <div>
@@ -250,7 +250,7 @@ export default function ShiftBoard({
       </div>
       <div className="border-t border-pepo-bd" />
 
-      <div className="flex-1 overflow-y-auto px-8 py-[22px] pb-10 max-w-[760px]">
+      <div className="px-8 py-[22px] pb-10 max-w-[760px]">
         {viewMode === "list" ? (
           groupedByDate.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-[60px] text-pepo-t3">

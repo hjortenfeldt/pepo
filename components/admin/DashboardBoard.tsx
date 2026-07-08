@@ -44,7 +44,7 @@ export default function DashboardBoard({
   const router = useRouter();
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col">
       <div className="px-8 pt-[22px]">
         <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Dashboard</div>
         <div className="text-[13.5px] text-pepo-t2 mt-[3px]">
@@ -52,7 +52,7 @@ export default function DashboardBoard({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 py-[22px] pb-10">
+      <div className="px-8 py-[22px] pb-10">
         <div className="flex gap-4">
           <StatCard
             title="Events i alt"

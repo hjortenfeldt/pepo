@@ -183,7 +183,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col">
       <div className="px-8 pt-[22px]">
         <div className="flex items-start justify-between mb-[18px]">
           <div>
@@ -272,7 +272,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
       </div>
       <div className="border-t border-pepo-bd" />
 
-      <div className="flex-1 overflow-y-auto px-8 py-[22px] pb-10">
+      <div className="px-8 py-[22px] pb-10">
         <div className="text-[12.5px] text-pepo-t2 mb-3.5">
           {clients.length} {clients.length === 1 ? "kunde" : "kunder"}
         </div>
