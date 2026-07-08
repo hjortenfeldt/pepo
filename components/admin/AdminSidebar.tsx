@@ -75,7 +75,8 @@ export default function AdminSidebar({
                 name={item.icon}
                 size={26}
                 className={
-                  "flex-shrink-0 " + (isCurrent ? "text-pepo-p" : "text-pepo-t3")
+                  "flex-shrink-0 " +
+                  (isCurrent ? "text-pepo-p" : item.active ? "text-pepo-t2" : "text-pepo-t3")
                 }
               />
               {item.label}
