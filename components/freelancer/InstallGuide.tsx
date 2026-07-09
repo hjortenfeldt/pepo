@@ -1,6 +1,7 @@
 "use client";
 
 import Icon from "@/components/Icon";
+import ShareIosIcon from "./ShareIosIcon";
 
 export type Platform =
   | "ios-safari"
@@ -27,11 +28,12 @@ const CLOSING_STEP = "Luk derefter denne side og åbn Pepo-appen via app-ikonet 
 // pegende animation nederst på skærmen viste sig forvirrende på iPhone —
 // brugere troede de kunne trykke på selve pilen/ikonet oven på siden.
 //
-// "square-arrow-up" bruges bevidst i stedet for Tablers "share"-ikon
-// (som faktisk er tre cirkler forbundet af to streger — et helt andet
-// symbol) for at matche Apples rigtige Del-ikon: et kvadrat med en pil op.
+// ShareIosIcon (håndtegnet, se ShareIosIcon.tsx) bruges i stedet for et
+// Tabler-ikon, da hverken deres "share" (tre cirkler forbundet af streger)
+// eller "square-arrow-up" (lukket firkant med pil indeni) matcher Apples
+// rigtige Del-ikon — en kasse med åben top og en pil op igennem åbningen.
 const SHARE_ICON_INLINE = (
-  <Icon name="square-arrow-up" size={15} className="inline-block align-[-2px] mx-0.5 text-pepo-p" strokeWidth={1.75} />
+  <ShareIosIcon size={15} className="inline-block align-[-2px] mx-0.5 text-pepo-p" strokeWidth={1.75} />
 );
 
 const CONTENT: Record<Platform, GuideContent> = {
@@ -44,7 +46,7 @@ const CONTENT: Record<Platform, GuideContent> = {
       CLOSING_STEP,
     ],
     pointer: "none",
-    pointerIcon: "square-arrow-up",
+    pointerIcon: "share-ios",
   },
   "ios-other": {
     heading: "Sådan installerer du Pepo",
@@ -56,7 +58,7 @@ const CONTENT: Record<Platform, GuideContent> = {
       CLOSING_STEP,
     ],
     pointer: "top-right",
-    pointerIcon: "square-arrow-up",
+    pointerIcon: "share-ios",
   },
   "android-chrome": {
     heading: "Sådan installerer du Pepo på din Android-telefon",
@@ -111,6 +113,15 @@ const CONTENT: Record<Platform, GuideContent> = {
   },
 };
 
+// "share-ios" er ikke et Tabler-ikonnavn — det er vores håndtegnede
+// ShareIosIcon (se kommentar ved SHARE_ICON_INLINE ovenfor).
+function PointerIcon({ name, size }: { name: string; size: number }) {
+  if (name === "share-ios") {
+    return <ShareIosIcon size={size} className="text-pepo-p" strokeWidth={1.75} />;
+  }
+  return <Icon name={name} size={size} className="text-pepo-p" strokeWidth={1.75} />;
+}
+
 export default function InstallGuide({
   platform,
   onSkip,
@@ -126,12 +137,12 @@ export default function InstallGuide({
     <div className="min-h-screen flex flex-col bg-pepo-su relative overflow-hidden">
       {content.pointer === "bottom-center" && (
         <div className="fixed bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pepo-point-down z-10">
-          <Icon name={content.pointerIcon} size={30} className="text-pepo-p" strokeWidth={1.75} />
+          <PointerIcon name={content.pointerIcon} size={30} />
         </div>
       )}
       {content.pointer === "top-right" && (
         <div className="fixed top-3 right-3 flex flex-col items-end gap-1 pepo-point-up z-10">
-          <Icon name={content.pointerIcon} size={28} className="text-pepo-p" strokeWidth={1.75} />
+          <PointerIcon name={content.pointerIcon} size={28} />
         </div>
       )}
 
