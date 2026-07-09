@@ -89,7 +89,7 @@ export default function LoginForm() {
           <div className="mb-5">
             <div className="text-xl font-medium text-pepo-t1 tracking-tight">Indtast koden</div>
             <div className="text-sm text-pepo-t2 mt-1">
-              Vi har sendt en 6-cifret kode til <span className="text-pepo-t1 font-medium">{email}</span>
+              Vi har sendt en login-kode til <span className="text-pepo-t1 font-medium">{email}</span>
             </div>
           </div>
 
@@ -101,11 +101,11 @@ export default function LoginForm() {
               name="code"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
+              maxLength={10}
               required
               autoFocus
-              className="w-full border border-pepo-bds rounded-[10px] px-[13px] py-2.5 text-[20px] text-pepo-t1 bg-pepo-wh outline-none transition-colors focus:border-pepo-p tracking-[0.3em] text-center font-medium"
-              placeholder="000000"
+              className="w-full border border-pepo-bds rounded-[10px] px-[13px] py-2.5 text-[20px] text-pepo-t1 bg-pepo-wh outline-none transition-colors focus:border-pepo-p tracking-[0.2em] text-center font-medium"
+              placeholder="Koden fra emailen"
             />
           </div>
 
