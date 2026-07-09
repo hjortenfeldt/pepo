@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Icon from "@/components/Icon";
 import ShareIosIcon from "./ShareIosIcon";
 
@@ -122,6 +123,72 @@ function PointerIcon({ name, size }: { name: string; size: number }) {
   return <Icon name={name} size={size} className="text-pepo-p" strokeWidth={1.75} />;
 }
 
+// "Fortsæt uden at installere" fører ikke direkte videre — først skal
+// brugeren bekræfte, at de forstår konsekvensen (ingen push-beskeder om nye
+// vagter uden installation, se PushToggle.tsx/detectPushStatus for hvorfor
+// det især gælder på iPhone). "confirming" = advarslen vises;
+// "confirmed" = brugeren har trykket "Ja, fortsæt i browseren", og ser nu
+// kun en kort kvittering med vej tilbage til install-guiden via Mere-menuen.
+type SkipDialogStep = "confirming" | "confirmed";
+
+function SkipConfirmDialog({
+  step,
+  onCancel,
+  onConfirm,
+  onDone,
+}: {
+  step: SkipDialogStep;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onDone: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-6">
+      <div className="w-full max-w-[340px] bg-pepo-wh rounded-[18px] p-6 pepo-rise text-left">
+        {step === "confirming" ? (
+          <>
+            <div className="text-[15px] text-pepo-t1 leading-snug">
+              Hvis du bruger appen i din browser i stedet for at installere den, så vil du ikke
+              automatisk få besked om nye vagter og anden relevant information. Er du sikker på at
+              du vil fortsætte i browseren, uden at installere appen?
+            </div>
+            <div className="flex flex-col gap-2 mt-5">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-full h-11 rounded-[10px] text-[14px] font-medium bg-pepo-p text-white transition-opacity hover:opacity-90"
+              >
+                Nej, installér app&apos;en (anbefalet)
+              </button>
+              <button
+                type="button"
+                onClick={onConfirm}
+                className="w-full h-11 rounded-[10px] text-[14px] font-medium text-pepo-t2 hover:text-pepo-t1 transition-colors"
+              >
+                Ja, fortsæt i browseren
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-[15px] text-pepo-t1 leading-snug">
+              Du vil nu bruge Pepo-appen i browseren, men du kan når som helst installere appen ved
+              at vælge menupunktet &quot;Mere&quot; &gt; &quot;Installér Pepo App&apos;en&quot;.
+            </div>
+            <button
+              type="button"
+              onClick={onDone}
+              className="w-full h-11 mt-5 rounded-[10px] text-[14px] font-medium bg-pepo-p text-white transition-opacity hover:opacity-90"
+            >
+              Forstået 👍
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function InstallGuide({
   platform,
   onSkip,
@@ -132,6 +199,7 @@ export default function InstallGuide({
   nativeInstall?: () => void;
 }) {
   const content = CONTENT[platform];
+  const [skipDialog, setSkipDialog] = useState<SkipDialogStep | null>(null);
 
   return (
     <div className="min-h-screen flex flex-col bg-pepo-su relative overflow-hidden">
@@ -184,13 +252,22 @@ export default function InstallGuide({
 
           <button
             type="button"
-            onClick={onSkip}
+            onClick={() => setSkipDialog("confirming")}
             className="w-full h-9 mt-4 text-[13px] font-medium text-pepo-t2 hover:text-pepo-t1 transition-colors"
           >
             Fortsæt uden at installere
           </button>
         </div>
       </div>
+
+      {skipDialog && (
+        <SkipConfirmDialog
+          step={skipDialog}
+          onCancel={() => setSkipDialog(null)}
+          onConfirm={() => setSkipDialog("confirmed")}
+          onDone={onSkip}
+        />
+      )}
     </div>
   );
 }
