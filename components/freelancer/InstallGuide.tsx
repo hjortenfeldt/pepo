@@ -16,23 +16,30 @@ type Pointer = "bottom-center" | "top-right" | "none";
 type GuideContent = {
   heading: string;
   intro?: string;
-  steps: string[];
+  steps: React.ReactNode[];
   pointer: Pointer;
   pointerIcon: string;
 };
 
 const CLOSING_STEP = "Luk derefter denne side og åbn Pepo-appen via app-ikonet på din hjemmeskærm.";
 
+// Ikonet er indsat direkte i teksten (i stedet for kun som pegepil), fordi en
+// pegende animation nederst på skærmen viste sig forvirrende på iPhone —
+// brugere troede de kunne trykke på selve pilen/ikonet oven på siden.
+const SHARE_ICON_INLINE = (
+  <Icon name="share" size={15} className="inline-block align-[-2px] mx-0.5 text-pepo-p" strokeWidth={1.75} />
+);
+
 const CONTENT: Record<Platform, GuideContent> = {
   "ios-safari": {
     heading: "Sådan installerer du Pepo på din iPhone",
     steps: [
-      "Tryk på Del-ikonet nederst i Safari (kvadrat med pil op).",
-      'Scroll ned i menuen og vælg "Føj til hjemmeskærm".',
-      'Bekræft ved at trykke "Tilføj" øverst til højre.',
+      <>Tryk på &quot;{SHARE_ICON_INLINE}Del&quot;.</>,
+      <>Scroll ned i menuen og vælg &quot;Føj til hjemmeskærm&quot;.</>,
+      <>Bekræft ved at trykke &quot;Tilføj&quot; øverst til højre.</>,
       CLOSING_STEP,
     ],
-    pointer: "bottom-center",
+    pointer: "none",
     pointerIcon: "share",
   },
   "ios-other": {
@@ -125,12 +132,9 @@ export default function InstallGuide({
       )}
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center">
-        <div className="flex items-center gap-2.5 mb-8">
+        <div className="mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/pepo-logo.svg" alt="Pepo" className="w-10 h-10 flex-shrink-0" />
-          <span className="text-xl font-medium text-pepo-t1">
-            pepo <span className="text-pepo-t3 font-normal">freelancer</span>
-          </span>
+          <img src="/pepo-logo.svg" alt="Pepo" className="w-[120px] h-[120px] flex-shrink-0" />
         </div>
 
         <div className="w-full max-w-[380px] bg-pepo-wh rounded-[20px] p-7 shadow-[0_4px_32px_rgba(62,31,138,0.10)] pepo-rise text-left">
