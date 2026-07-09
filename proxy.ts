@@ -135,5 +135,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Udelukker også statiske filer i /public (fx pepo-logo.svg) — uden
+  // dette blev enhver anmodning om en fil i /public rewritet til
+  // "/tenant/<filnavn>" ligesom almindelige sider, hvilket gjorde at
+  // billedet 404'ede og browseren viste et "knækket billede"-ikon.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpe?g|gif|webp|ico|css|js|map|woff2?)$).*)",
+  ],
 };

@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProfileSettings from "@/components/admin/ProfileSettings";
-import { updateOwnProfile } from "./actions";
+import { updateOwnSuperAdminProfile } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProfilePage() {
+export default async function SuperAdminProfilePage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -13,26 +13,24 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login");
 
-  const { data: admin, error } = await supabase
-    .from("admin_users")
+  const { data: superAdmin, error } = await supabase
+    .from("super_admins")
     .select("full_name, email, profile_image_url")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (error || !admin) {
-    // Fx en Pepo-superadmin uden egen admin_users-række (support-besøg) —
-    // de har ikke en tenant-profil at redigere her.
+  if (error || !superAdmin) {
     redirect("/");
   }
 
   return (
     <ProfileSettings
       initial={{
-        fullName: admin.full_name,
-        email: admin.email,
-        profileImageUrl: admin.profile_image_url,
+        fullName: superAdmin.full_name,
+        email: superAdmin.email,
+        profileImageUrl: superAdmin.profile_image_url,
       }}
-      onSave={updateOwnProfile}
+      onSave={updateOwnSuperAdminProfile}
     />
   );
 }

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import AdminTopBar from "@/components/admin/AdminTopBar";
 import { logout } from "./actions";
 
 export default async function ProtectedSuperAdminLayout({
@@ -19,7 +20,7 @@ export default async function ProtectedSuperAdminLayout({
 
   const { data: superAdmin } = await supabase
     .from("super_admins")
-    .select("full_name")
+    .select("full_name, profile_image_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -28,30 +29,20 @@ export default async function ProtectedSuperAdminLayout({
     redirect("/login?error=not_super_admin");
   }
 
+  // Samme top-bar som tenant-adminsystemet (logo, versionsnummer, bløde
+  // skygge, bruger-dropdown) — kun rollebetegnelsen ("superadmin" i stedet
+  // for "admin") og fraværet af et virksomhedsnavn adskiller dem, da denne
+  // side ikke hører til én bestemt virksomhed.
   return (
-    <div className="min-h-screen bg-pepo-su">
-      <header className="flex items-center justify-between px-8 py-5 border-b border-pepo-bds bg-pepo-wh">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-[10px] bg-pepo-t1 flex items-center justify-center">
-            <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
-              <circle cx="8.5" cy="11" r="5.5" fill="white" />
-              <circle cx="17" cy="11" r="3.5" fill="white" opacity="0.6" />
-            </svg>
-          </div>
-          <span className="text-lg font-medium text-pepo-t1">
-            pepo <span className="text-pepo-t3 font-normal">super-admin</span>
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-pepo-t2">{superAdmin.full_name}</span>
-          <form action={logout}>
-            <button type="submit" className="text-sm text-pepo-t2 hover:text-pepo-t1 underline">
-              Log ud
-            </button>
-          </form>
-        </div>
-      </header>
-      <main className="px-8 py-8">{children}</main>
+    <div className="flex flex-col h-screen overflow-hidden bg-pepo-su">
+      <AdminTopBar
+        name={superAdmin.full_name}
+        onLogout={logout}
+        roleLabel="superadmin"
+        profileImageUrl={superAdmin.profile_image_url}
+        profileHref="/profile"
+      />
+      <main className="flex-1 min-h-0 overflow-y-auto px-8 py-8">{children}</main>
     </div>
   );
 }

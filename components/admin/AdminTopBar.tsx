@@ -23,11 +23,16 @@ export default function AdminTopBar({
   companyName,
   profileImageUrl,
   onLogout,
+  roleLabel = "admin",
+  profileHref = "/profile",
 }: {
   name: string;
   onLogout: () => Promise<void>;
   companyName?: string;
   profileImageUrl?: string | null;
+  /** "admin" på et virksomheds-subdomæne, "superadmin" på admin.pepo.team. */
+  roleLabel?: string;
+  profileHref?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
@@ -54,15 +59,11 @@ export default function AdminTopBar({
   return (
     <div className="h-16 flex-shrink-0 bg-pepo-wh flex items-center justify-between px-5 shadow-[0_2px_10px_rgba(29,29,31,0.06)] z-20 relative">
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-pepo-p flex items-center justify-center flex-shrink-0">
-          <svg width="16" height="16" viewBox="0 0 22 22" fill="none">
-            <circle cx="8.5" cy="11" r="5.5" fill="white" />
-            <circle cx="17" cy="11" r="3.5" fill="white" opacity="0.6" />
-          </svg>
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/pepo-logo.svg" alt="Pepo" className="w-8 h-8 flex-shrink-0" />
         <div className="flex flex-col leading-tight">
           <span className="text-base font-semibold tracking-tight text-pepo-t1">
-            {companyName ?? "pepo"} <span className="text-pepo-t3 font-normal">admin</span>
+            {companyName ?? "pepo"} <span className="text-pepo-t3 font-normal">{roleLabel}</span>
           </span>
           <span className="text-[10px] text-pepo-t3">v{APP_VERSION}</span>
         </div>
@@ -120,7 +121,7 @@ export default function AdminTopBar({
             ) : (
               <>
                 <Link
-                  href="/profile"
+                  href={profileHref}
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-[9px] text-[13px] font-medium text-pepo-t1 hover:bg-pepo-su transition-colors"
                 >

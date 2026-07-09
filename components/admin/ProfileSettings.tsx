@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
-import { updateOwnProfile } from "@/app/tenant/(protected)/profile/actions";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -12,10 +11,25 @@ function initials(name: string) {
   return "?";
 }
 
+export type ProfileSaveResult =
+  | { success: true; profileImageUrl: string | null }
+  | { success: false; error: string };
+
 export default function ProfileSettings({
   initial,
+  onSave,
 }: {
   initial: { fullName: string; email: string; profileImageUrl: string | null };
+  /**
+   * Server action der rent faktisk gemmer ændringerne. Genbruges af både
+   * tenant-adminnernes og Pepo-superadminnernes profilside — de rammer
+   * hver deres tabel (admin_users hhv. super_admins).
+   */
+  onSave: (input: {
+    fullName: string;
+    email: string;
+    photoDataUrl: string | null;
+  }) => Promise<ProfileSaveResult>;
 }) {
   const router = useRouter();
   const [fullName, setFullName] = useState(initial.fullName);
@@ -38,7 +52,7 @@ export default function ProfileSettings({
     setError(null);
     setSaved(false);
     startTransition(async () => {
-      const res = await updateOwnProfile({ fullName, email, photoDataUrl });
+      const res = await onSave({ fullName, email, photoDataUrl });
       if (!res.success) {
         setError(res.error);
         return;
