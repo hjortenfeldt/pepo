@@ -26,8 +26,12 @@ const CLOSING_STEP = "Luk derefter denne side og åbn Pepo-appen via app-ikonet 
 // Ikonet er indsat direkte i teksten (i stedet for kun som pegepil), fordi en
 // pegende animation nederst på skærmen viste sig forvirrende på iPhone —
 // brugere troede de kunne trykke på selve pilen/ikonet oven på siden.
+//
+// "square-arrow-up" bruges bevidst i stedet for Tablers "share"-ikon
+// (som faktisk er tre cirkler forbundet af to streger — et helt andet
+// symbol) for at matche Apples rigtige Del-ikon: et kvadrat med en pil op.
 const SHARE_ICON_INLINE = (
-  <Icon name="share" size={15} className="inline-block align-[-2px] mx-0.5 text-pepo-p" strokeWidth={1.75} />
+  <Icon name="square-arrow-up" size={15} className="inline-block align-[-2px] mx-0.5 text-pepo-p" strokeWidth={1.75} />
 );
 
 const CONTENT: Record<Platform, GuideContent> = {
@@ -40,7 +44,7 @@ const CONTENT: Record<Platform, GuideContent> = {
       CLOSING_STEP,
     ],
     pointer: "none",
-    pointerIcon: "share",
+    pointerIcon: "square-arrow-up",
   },
   "ios-other": {
     heading: "Sådan installerer du Pepo",
@@ -52,7 +56,7 @@ const CONTENT: Record<Platform, GuideContent> = {
       CLOSING_STEP,
     ],
     pointer: "top-right",
-    pointerIcon: "share",
+    pointerIcon: "square-arrow-up",
   },
   "android-chrome": {
     heading: "Sådan installerer du Pepo på din Android-telefon",
