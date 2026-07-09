@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getFreelancerMemberships } from "@/lib/freelancer";
 import { logout } from "../login/actions";
 import BottomNav from "@/components/freelancer/BottomNav";
-import InstallGate from "@/components/freelancer/InstallGate";
 import Icon from "@/components/Icon";
 
 export default async function ProtectedFreelancerLayout({
@@ -24,18 +23,19 @@ export default async function ProtectedFreelancerLayout({
   // Ingen firma-relation overhovedet — burde ikke kunne ske, da man kun
   // kan logge ind med en email der har ansøgt, men vis en klar besked
   // frem for en tom/forvirrende side.
-  let content: React.ReactNode;
   if (memberships.length === 0) {
-    content = (
+    return (
       <PendingScreen
         title="Ingen ansøgning fundet"
         body="Vi kan ikke finde en ansøgning tilknyttet din konto. Har du ansøgt på pepo.team?"
       />
     );
-  } else if (!approved) {
-    // Ingen godkendt endnu — men mindst én ansøgning er under behandling.
+  }
+
+  // Ingen godkendt endnu — men mindst én ansøgning er under behandling.
+  if (!approved) {
     const rejectedOnly = memberships.every((m) => m.application_status === "rejected");
-    content = (
+    return (
       <PendingScreen
         title={rejectedOnly ? "Ansøgning afvist" : "Afventer godkendelse"}
         body={
@@ -45,20 +45,14 @@ export default async function ProtectedFreelancerLayout({
         }
       />
     );
-  } else {
-    content = (
-      <div className="flex flex-col h-screen overflow-hidden bg-pepo-su">
-        <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
-        <BottomNav />
-      </div>
-    );
   }
 
-  // InstallGate afgør client-side (standalone-status kan ikke ses fra
-  // serveren) om brugeren skal se "installér som app"-guiden i stedet for
-  // ovenstående indhold — gælder uanset godkendelsesstatus, da målet er at
-  // få alle væk fra browserfanen og over på hjemmeskærm-ikonet tidligst muligt.
-  return <InstallGate>{content}</InstallGate>;
+  return (
+    <div className="flex flex-col h-screen overflow-hidden bg-pepo-su">
+      <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+      <BottomNav />
+    </div>
+  );
 }
 
 function PendingScreen({ title, body }: { title: string; body: string }) {

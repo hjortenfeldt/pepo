@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import InstallGate from "@/components/freelancer/InstallGate";
 
 /**
  * Overskriver root-metadata (app/layout.tsx) for hele freelancer-appen,
@@ -30,6 +31,11 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+// InstallGate sidder her (øverst for HELE freelancer-appen, dvs. også
+// /login), ikke i (protected)/layout.tsx — brugeren skal se "installér som
+// app"-guiden allerede FØR login-prompten, med det samme de rammer
+// app.pepo.team i en almindelig browserfane. Se komponenten for hvorfor
+// detektionen kun kan ske client-side.
 export default function FreelancerRootLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <InstallGate>{children}</InstallGate>;
 }
