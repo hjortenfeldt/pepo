@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import InstallGuide, { type Platform } from "./InstallGuide";
 
-const DISMISS_KEY = "pepo-install-guide-dismissed";
+// Eksporteret så "Installér Pepo App'en"-rækken under Mere (se
+// InstallAppMenuRow.tsx) kan nulstille valget og fremtvinge guiden igen —
+// uden denne skal man rydde Safaris webstedsdata for at se guiden igen efter
+// at have trykket "Fortsæt uden at installere".
+export const DISMISS_KEY = "pepo-install-guide-dismissed";
 
 // Chrome/Edge/Samsung Internet fyrer dette event i stedet for et almindeligt
 // "Tilføj til hjemmeskærm"-menupunkt, når browseren selv vurderer at siden

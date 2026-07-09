@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logout } from "../../login/actions";
 import Icon from "@/components/Icon";
 import PushToggle from "@/components/freelancer/PushToggle";
+import InstallAppMenuRow from "@/components/freelancer/InstallAppMenuRow";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export default async function FreelancerMerePage() {
       <PushToggle />
 
       <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] mt-4 divide-y divide-pepo-bd pepo-rise">
+        <InstallAppMenuRow />
         <MenuRow icon="help-circle" label="Hjælp og support" />
       </div>
 
