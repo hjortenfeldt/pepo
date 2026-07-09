@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCompanyBySubdomain } from "@/lib/tenant";
+import { provisionAdminAsFreelancer } from "@/lib/freelancer";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -55,6 +56,12 @@ export async function inviteAdmin(fullName: string, email: string) {
     await supabase.auth.admin.deleteUser(userData.user.id);
     return { success: false as const, error: "Kunne ikke oprette admin-brugeren. Prøv igen." };
   }
+
+  // Admins bliver automatisk godkendte freelancere i egen virksomhed med
+  // alle nuværende jobfunktioner slået til, så de også kan bruge
+  // freelancer-appen. Fejler dette, er admin-brugeren stadig oprettet
+  // korrekt — se provisionAdminAsFreelancer for detaljer.
+  await provisionAdminAsFreelancer(userData.user.id, trimmedName, trimmedEmail, company.id);
 
   // Sender et link til at sætte adgangskode første gang, samme flow som
   // det almindelige "glemt adgangskode".

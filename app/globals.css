@@ -62,3 +62,24 @@ select {
   background-position: right 14px center;
   padding-right: 34px;
 }
+
+/* ---------------------------------------------------------------------
+   Delte, subtile animationer — brugt i freelancer-appen for at give
+   skærme et "levende" indtryk uden at det bliver distraherende. Holdt
+   generiske (ikke sidespecifikke), så de kan genbruges andre steder.
+   --------------------------------------------------------------------- */
+@keyframes pepo-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(74, 222, 128, 0); }
+}
+.pepo-pulse-dot {
+  animation: pepo-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pepo-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pepo-rise {
+  animation: pepo-rise 0.4s ease both;
+}

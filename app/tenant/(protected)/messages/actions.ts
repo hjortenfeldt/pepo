@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { sendPushToFreelancers } from "@/lib/push";
 
 export type MessageFormInput = {
   subject: string;
@@ -83,6 +84,21 @@ export async function sendMessage(input: MessageFormInput) {
     if (insertError) {
       console.error("sendMessage: kunne ikke oprette modtagerrækker", insertError);
       return { success: false, error: "Beskeden blev gemt, men modtagerlisten kunne ikke oprettes." };
+    }
+
+    // Push-notifikation til dem, der har aktiveret det i appen. Afventes
+    // bevidst her (i stedet for "fire and forget"), da baggrundsarbejde
+    // uden await kan blive afbrudt af Vercels serverless-runtime, så snart
+    // denne funktion returnerer. Fejler aldrig selve beskeden, hvis
+    // push-afsendelsen fejler (se lib/push.ts) — beskeden er allerede gemt.
+    try {
+      await sendPushToFreelancers(recipientIds, {
+        title: input.subject.trim(),
+        body: input.body.trim(),
+        url: "/beskeder",
+      });
+    } catch (err) {
+      console.error("sendMessage: push-afsendelse fejlede", err);
     }
   }
 

@@ -14,12 +14,16 @@ import { cookieDomainOptions } from "@/lib/supabase/cookie-domain";
  *    - pepo.team / www.pepo.team → den offentlige registreringsside
  *      (uændret, ingen rewrite).
  *    - admin.pepo.team → Pepos eget super-admin-system.
+ *    - app.pepo.team → freelancer-appen. Ligger på sit eget subdomæne
+ *      (ikke under en virksomheds <slug>.pepo.team), fordi en freelancer
+ *      kan være godkendt hos flere virksomheder på samme tid.
  *    - <slug>.pepo.team (inkl. pepo.pepo.team) → den virksomheds eget
  *      adminsystem/dashboard, uden "/tenant"-præfiks i den synlige URL.
  */
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
 const SUPER_ADMIN_SUBDOMAIN = "admin";
+const FREELANCER_APP_SUBDOMAIN = "app";
 
 function resolveSubdomain(hostname: string): string | null {
   const host = hostname.split(":")[0].toLowerCase();
@@ -111,6 +115,24 @@ export async function proxy(request: NextRequest) {
     return withRefreshedCookies(NextResponse.rewrite(url), refreshed);
   }
 
+  // app.pepo.team — freelancer-appen. Samme login/rewrite-mønster som
+  // super-admin-systemet, blot med sit eget "/freelancer"-præfiks.
+  if (subdomain === FREELANCER_APP_SUBDOMAIN) {
+    if (!isLoginRoute && !user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return withRefreshedCookies(NextResponse.redirect(url), refreshed);
+    }
+    if (isLoginRoute && user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return withRefreshedCookies(NextResponse.redirect(url), refreshed);
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = `/freelancer${pathname}`;
+    return withRefreshedCookies(NextResponse.rewrite(url), refreshed);
+  }
+
   // Alle andre subdomæner er en virksomheds eget adminsystem, fx
   // kulturbyen.pepo.team eller pepo.pepo.team (Pepo selv).
   if (!isLoginRoute && !isPublicCalendarFeed && !user) {
@@ -140,6 +162,6 @@ export const config = {
   // "/tenant/<filnavn>" ligesom almindelige sider, hvilket gjorde at
   // billedet 404'ede og browseren viste et "knækket billede"-ikon.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpe?g|gif|webp|ico|css|js|map|woff2?)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpe?g|gif|webp|ico|css|js|map|woff2?|json)$).*)",
   ],
 };
