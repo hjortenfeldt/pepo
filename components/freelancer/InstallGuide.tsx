@@ -202,7 +202,7 @@ export default function InstallGuide({
   const [skipDialog, setSkipDialog] = useState<SkipDialogStep | null>(null);
 
   return (
-    <div className="min-h-screen flex flex-col bg-pepo-su relative overflow-hidden">
+    <div className="min-h-dvh flex flex-col bg-pepo-su relative overflow-hidden">
       {content.pointer === "bottom-center" && (
         <div className="fixed bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pepo-point-down z-10">
           <PointerIcon name={content.pointerIcon} size={30} />

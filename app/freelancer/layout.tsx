@@ -29,6 +29,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  // Slår pinch-to-zoom helt fra i freelancer-appen — den skal opføres som
+  // en "rigtig" app, ikke en zoombar hjemmeside. maximumScale:1 alene
+  // blokerer det ikke konsekvent på tværs af browsere/OS-versioner.
+  userScalable: false,
 };
 
 // InstallGate sidder her (øverst for HELE freelancer-appen, dvs. også

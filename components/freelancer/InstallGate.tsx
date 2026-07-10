@@ -105,7 +105,7 @@ export default function InstallGate({ children }: { children: React.ReactNode })
   if (state === "checking") {
     // Kort, tomt øjeblik mens vi afgør standalone-status — undgår flash af
     // enten app-indhold eller guide, hvis det ender med at være forkert.
-    return <div className="min-h-screen bg-pepo-su" />;
+    return <div className="min-h-dvh bg-pepo-su" />;
   }
 
   if (state === "guide") {

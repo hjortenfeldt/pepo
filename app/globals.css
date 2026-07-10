@@ -49,6 +49,15 @@ body {
   font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* Ingen steder i systemet skal indhold kunne scrolles sidelæns — det sker
+   normalt kun ved et layout-uheld (fx et element der er en anelse for
+   bredt), og virker forkert/utilsigtet for brugeren når det sker. Global
+   sikkerhedsforanstaltning, især vigtig i freelancer-appen på mobil, hvor
+   sidelæns scroll nemt forveksles med "swipe mellem faner". */
+html, body {
+  overflow-x: hidden;
+}
+
 /* Native <select>-elementer ignorerer ofte border-radius og bruger OS'ets egen
    afrunding — appearance:none + eget chevron-ikon sikrer at hjørnerne matcher
    de andre inputfelter præcist, på tværs af browser/OS. Global regel, så alle

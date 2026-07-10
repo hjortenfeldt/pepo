@@ -48,8 +48,15 @@ export default async function ProtectedFreelancerLayout({
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-pepo-su">
-      <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+    // h-dvh (dynamic viewport height), IKKE h-screen (100vh) — 100vh er
+    // låst til browserens *største* mulige visningsområde (adresselinje
+    // skjult), så på mobil endte bundnavigationen halvvejs neden for det
+    // faktiske synlige skærmbillede, når adresselinjen var synlig. dvh
+    // følger derimod det aktuelt synlige område live, og holder dermed
+    // bundnavigationen sticky lige over browserens UI, både i Safari/Chrome
+    // og i den installerede standalone-app.
+    <div className="flex flex-col h-dvh overflow-hidden bg-pepo-su">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-none">{children}</div>
       <BottomNav />
     </div>
   );
@@ -57,7 +64,7 @@ export default async function ProtectedFreelancerLayout({
 
 function PendingScreen({ title, body }: { title: string; body: string }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-pepo-su px-8 text-center gap-4">
+    <div className="min-h-dvh flex flex-col items-center justify-center bg-pepo-su px-8 text-center gap-4">
       <div className="w-14 h-14 rounded-full bg-pepo-pl flex items-center justify-center">
         <Icon name="clock" size={26} className="text-pepo-p" />
       </div>
