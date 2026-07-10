@@ -41,5 +41,15 @@ export const viewport: Viewport = {
 // app.pepo.team i en almindelig browserfane. Se komponenten for hvorfor
 // detektionen kun kan ske client-side.
 export default function FreelancerRootLayout({ children }: { children: React.ReactNode }) {
-  return <InstallGate>{children}</InstallGate>;
+  return (
+    // "fixed inset-0" tager hele freelancer-appen ud af dokument-flowet, så
+    // <body> selv aldrig kan scrolle/bounce på mobil Safari — al scroll skal
+    // ske i et bevidst udpeget indre element (fx (protected)/layout.tsx's
+    // egen overflow-y-auto-container). Uden dette kunne hele siden, inkl.
+    // bundnavigationen, rykke sig ved swipe, fordi <body> selv fungerede som
+    // en (uønsket) scroll-container ved siden af den indre.
+    <div className="fixed inset-0 overflow-y-auto overscroll-none bg-pepo-su">
+      <InstallGate>{children}</InstallGate>
+    </div>
+  );
 }

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import BeskederClient, { type FreelancerMessage } from "@/components/freelancer/BeskederClient";
 
 export const dynamic = "force-dynamic";
@@ -17,11 +17,10 @@ function one<T>(rel: T | T[] | null | undefined): T | null {
 }
 
 export default async function FreelancerBeskederPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return null;
+
+  const supabase = await createClient();
 
   const { data } = await supabase
     .from("message_recipients")

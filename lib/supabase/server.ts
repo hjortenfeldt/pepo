@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { cookieDomainOptions } from "./cookie-domain";
@@ -41,3 +42,27 @@ export async function createClient() {
     }
   );
 }
+
+/**
+ * `supabase.auth.getUser()` verificerer altid sessionen mod Supabases
+ * Auth-server over netværket (med vilje — det er den sikre variant, i
+ * modsætning til `getSession()` som kun læser JWT'en lokalt uden at tjekke
+ * om den er tilbagekaldt). Problemet er at layoutet OG selve siden (og for
+ * freelancer-appens vedkommende helt op til 5-6 sider) hver kaldte den
+ * uafhængigt af hinanden i samme navigation — det gav flere sekventielle
+ * netværkskald til Supabase for hver eneste sideskift, hvilket var
+ * hovedårsagen til at freelancer-appen føltes langsom at bruge.
+ *
+ * `cache()` fra React sikrer at kaldet kun sker én gang pr. request,
+ * uanset hvor mange komponenter (layout + side) der beder om brugeren —
+ * så længe de kaldes inden for samme server-render. Løser IKKE at
+ * proxy.ts (kører i en helt separat middleware-request) også må kalde det
+ * selv, men fjerner de reelt overflødige ekstra kald under selve renderet.
+ */
+export const getAuthUser = cache(async function getAuthUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});

@@ -34,11 +34,11 @@ export default function BottomNav() {
             <Icon
               name={tab.icon}
               size={22}
-              className={isActive ? "text-pepo-p transition-colors" : "text-pepo-t3 transition-colors"}
+              className={isActive ? "text-pepo-p transition-colors" : "text-pepo-t2 transition-colors"}
             />
             <span
               className={`text-[10.5px] font-medium transition-colors ${
-                isActive ? "text-pepo-p" : "text-pepo-t3"
+                isActive ? "text-pepo-p" : "text-pepo-t2"
               }`}
             >
               {tab.label}

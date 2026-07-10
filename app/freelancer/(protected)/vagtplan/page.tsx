@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { todayIso } from "@/lib/format";
 import VagtplanClient, { type ScheduledShift } from "@/components/freelancer/VagtplanClient";
 
@@ -26,11 +26,10 @@ function hhmm(time: string): string {
 }
 
 export default async function FreelancerVagtplanPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return null;
+
+  const supabase = await createClient();
 
   const { data } = await supabase
     .from("shifts")

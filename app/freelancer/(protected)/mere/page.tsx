@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { logout } from "../../login/actions";
 import Icon from "@/components/Icon";
 import PushToggle from "@/components/freelancer/PushToggle";
@@ -14,11 +14,10 @@ function initials(name: string) {
 }
 
 export default async function FreelancerMerePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return null;
+
+  const supabase = await createClient();
 
   const { data: profile } = await supabase
     .from("freelancer_profiles")

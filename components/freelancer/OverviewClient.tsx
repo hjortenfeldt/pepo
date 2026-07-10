@@ -50,12 +50,14 @@ function elapsed(clockInAt: string, now: number) {
 export default function OverviewClient({
   greetingName,
   greetingDate,
+  companyName,
   activeShift,
   upcomingShifts,
   openShifts,
 }: {
   greetingName: string;
   greetingDate: string;
+  companyName: string | null;
   activeShift: ActiveShift | null;
   upcomingShifts: UpcomingShift[];
   openShifts: OpenShift[];
@@ -108,12 +110,26 @@ export default function OverviewClient({
   }
 
   return (
-    <div className="px-5 pt-4 pb-6">
-      <div className="pepo-rise">
+    <div>
+      {/* sticky, ikke fixed — skal stadig sidde inde i layoutets egen
+          overflow-y-auto-container (se (protected)/layout.tsx), så den kun
+          låser sig fast i toppen AF DEN scroll-container, i stedet for at
+          overlappe bundnavigationen eller browserens egen UI. Samme
+          baggrundsfarve som resten af siden (bg-pepo-su), så den smelter
+          sammen med indholdet i ro, men en bund-border gør den synligt
+          adskilt fra indholdet, når det scroller op bagved. */}
+      <div className="sticky top-0 z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise">
         <div className="text-[20px] font-bold text-pepo-t1">Hej, {greetingName}</div>
         <div className="text-[13px] text-pepo-t2 mt-0.5">{greetingDate}</div>
+        {companyName && (
+          <div className="flex items-center gap-1.5 mt-1.5 text-[12px] text-pepo-t2">
+            <Icon name="building-store" size={14} className="text-pepo-t3" />
+            {companyName}
+          </div>
+        )}
       </div>
 
+      <div className="px-5 pt-4 pb-6">
       {error && (
         <p className="mt-3 text-[12.5px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {error}
@@ -163,7 +179,17 @@ export default function OverviewClient({
             Start vagt
           </button>
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-4 rounded-[14px] p-4 bg-pepo-wh border border-pepo-bd flex items-start gap-3 pepo-rise">
+          <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0">
+            <Icon name="clock" size={18} />
+          </div>
+          <div className="text-[12.5px] text-pepo-t2 leading-relaxed pt-1">
+            På datoer hvor du har vagter vil stempeluret vises her, så du kan starte og stoppe
+            tidsregistreringen af din vagt.
+          </div>
+        </div>
+      )}
 
       <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide mt-6 mb-2.5">
         Kommende vagter
@@ -237,6 +263,7 @@ export default function OverviewClient({
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

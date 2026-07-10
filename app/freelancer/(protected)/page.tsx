@@ -1,5 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { todayIso } from "@/lib/format";
+import { getPrimaryCompany } from "@/lib/freelancer";
 import OverviewClient, { type ActiveShift, type OpenShift, type UpcomingShift } from "@/components/freelancer/OverviewClient";
 
 export const dynamic = "force-dynamic";
@@ -43,15 +44,13 @@ function greetingDate(): string {
 }
 
 export default async function FreelancerOverviewPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return null;
 
+  const supabase = await createClient();
   const today = todayIso();
 
-  const [profileResult, myShiftsResult, openShiftsResult, activeClockResult] = await Promise.all([
+  const [profileResult, myShiftsResult, openShiftsResult, activeClockResult, company] = await Promise.all([
     supabase.from("freelancer_profiles").select("full_name").eq("id", user.id).maybeSingle(),
     supabase
       .from("shifts")
@@ -76,6 +75,7 @@ export default async function FreelancerOverviewPage() {
       .eq("freelancer_id", user.id)
       .is("clock_out_at", null)
       .maybeSingle(),
+    getPrimaryCompany(user.id),
   ]);
 
   const myShifts = (myShiftsResult.data ?? []) as unknown as RawShiftRow[];
@@ -140,6 +140,7 @@ export default async function FreelancerOverviewPage() {
     <OverviewClient
       greetingName={firstName}
       greetingDate={greetingDate()}
+      companyName={company?.name ?? null}
       activeShift={activeShift}
       upcomingShifts={upcomingShifts}
       openShifts={openShifts}

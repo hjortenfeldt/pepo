@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { getFreelancerMemberships } from "@/lib/freelancer";
 import { logout } from "../login/actions";
 import BottomNav from "@/components/freelancer/BottomNav";
@@ -10,10 +10,7 @@ export default async function ProtectedFreelancerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   if (!user) redirect("/login");
 

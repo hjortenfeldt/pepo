@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { getPrimaryCompany } from "@/lib/freelancer";
 import Icon from "@/components/Icon";
 
@@ -12,12 +12,10 @@ export const dynamic = "force-dynamic";
  * udbygges med en liste over kolleger/andre kontakter senere.
  */
 export default async function FreelancerKontakterPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return null;
 
+  const supabase = await createClient();
   const company = await getPrimaryCompany(user.id);
   const { data: companyDetails } = company
     ? await supabase
