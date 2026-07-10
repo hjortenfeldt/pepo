@@ -1,11 +1,18 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { submitRegistration } from "@/app/actions";
-import type { WorkCategory } from "@/lib/types";
+import type { RegistrationResult, WorkCategory } from "@/lib/types";
 
 type Props = {
   categories: WorkCategory[];
+  // Hvilken virksomhed ansøgningen gælder for afgøres af hvilken
+  // server action der sendes ind — hver virksomheds egen ansøgningsside
+  // (app/tenant/apply/page.tsx) sender submitTenantApplication
+  // (bestemt af subdomænet, se lib/tenant.ts's getCompanyBySubdomain).
+  onSubmit: (formData: FormData) => Promise<RegistrationResult>;
+  // Vises i logo-rækken og som undertekst — udelades (falder tilbage til
+  // "pepo") på Pepos egen ansøgningsside.
+  companyName?: string;
 };
 
 type FormState = {
@@ -45,7 +52,7 @@ function getInitials(fullName: string) {
   return "?";
 }
 
-export default function RegistrationForm({ categories }: Props) {
+export default function RegistrationForm({ categories, onSubmit, companyName }: Props) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [profileImage, setProfileImage] = useState<File | null>(null);
@@ -93,7 +100,7 @@ export default function RegistrationForm({ categories }: Props) {
     if (profileImage) fd.set("profileImage", profileImage);
 
     startTransition(async () => {
-      const result = await submitRegistration(fd);
+      const result = await onSubmit(fd);
       if (result.success) {
         setSubmitted(true);
       } else {
@@ -116,15 +123,19 @@ export default function RegistrationForm({ categories }: Props) {
   return (
     <div className="bg-pepo-wh rounded-[20px] w-full max-w-[480px] p-8 shadow-[0_4px_32px_rgba(62,31,138,0.10)]">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 mb-7">
+      <div className="flex items-center gap-2.5 mb-1">
         <div className="w-10 h-10 rounded-[10px] bg-pepo-p flex items-center justify-center">
           <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
             <circle cx="8.5" cy="11" r="5.5" fill="white" />
             <circle cx="17" cy="11" r="3.5" fill="white" opacity="0.6" />
           </svg>
         </div>
-        <span className="text-xl font-medium text-pepo-t1">pepo</span>
+        <span className="text-xl font-medium text-pepo-t1">{companyName ?? "pepo"}</span>
       </div>
+      {companyName && (
+        <div className="text-[13px] text-pepo-t2 mb-6">Ansøg som freelancer hos {companyName}</div>
+      )}
+      {!companyName && <div className="mb-6" />}
 
       {submitted ? (
         <SuccessScreen

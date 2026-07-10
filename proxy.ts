@@ -98,6 +98,13 @@ export async function proxy(request: NextRequest) {
   // /tenant-præfikset som alt andet på virksomhedens subdomæne.
   const isPublicCalendarFeed = pathname.startsWith("/api/calendar/");
 
+  // Hver virksomheds egen offentlige ansøgningsside (fx
+  // kulturbyen.pepo.team/apply) — freelancere skal kunne ansøge uden at
+  // være logget ind, og virksomheden afgøres automatisk af subdomænet
+  // (se app/tenant/apply/actions.ts), så freelanceren aldrig selv skal
+  // indtaste eller vælge en organisations-URL.
+  const isPublicApplicationPage = pathname === "/apply";
+
   // admin.pepo.team — Pepos eget super-admin-system.
   if (subdomain === SUPER_ADMIN_SUBDOMAIN) {
     if (!isLoginRoute && !user) {
@@ -135,7 +142,7 @@ export async function proxy(request: NextRequest) {
 
   // Alle andre subdomæner er en virksomheds eget adminsystem, fx
   // kulturbyen.pepo.team eller pepo.pepo.team (Pepo selv).
-  if (!isLoginRoute && !isPublicCalendarFeed && !user) {
+  if (!isLoginRoute && !isPublicCalendarFeed && !isPublicApplicationPage && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return withRefreshedCookies(NextResponse.redirect(url), refreshed);
