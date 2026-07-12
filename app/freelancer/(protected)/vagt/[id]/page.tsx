@@ -25,11 +25,11 @@ type RawShiftRow = {
 };
 
 type RawSiblingRow = {
-  id: string;
+  shift_id: string;
   start_time: string;
   end_time: string;
   status: "open" | "for_resale" | "assigned" | "completed" | "cancelled";
-  work_categories: RawCategoryRef | RawCategoryRef[] | null;
+  category_name: string | null;
 };
 
 function one<T>(rel: T | T[] | null | undefined): T | null {
@@ -73,12 +73,7 @@ export default async function OpenShiftDetailPage({ params }: { params: Promise<
       .eq("freelancer_id", user.id)
       .maybeSingle(),
     shift.event_id
-      ? supabase
-          .from("shifts")
-          .select("id, start_time, end_time, status, work_categories(name)")
-          .eq("event_id", shift.event_id)
-          .neq("status", "cancelled")
-          .order("start_time")
+      ? supabase.rpc("get_event_shift_summary", { p_event_id: shift.event_id })
       : Promise.resolve({ data: [] as RawSiblingRow[] }),
     shift.event_id
       ? supabase
@@ -92,12 +87,12 @@ export default async function OpenShiftDetailPage({ params }: { params: Promise<
   const venue = one(shift.client_venues);
 
   const siblingShifts: SiblingShift[] = ((siblingRows ?? []) as unknown as RawSiblingRow[]).map((s) => ({
-    id: s.id,
+    id: s.shift_id,
     startTime: hhmm(s.start_time),
     endTime: hhmm(s.end_time),
-    categoryName: one(s.work_categories)?.name ?? "Ukendt kategori",
+    categoryName: s.category_name ?? "Ukendt kategori",
     status: s.status,
-    isCurrent: s.id === shift.id,
+    isCurrent: s.shift_id === shift.id,
   }));
 
   const attachments: ShiftAttachment[] = (attachmentRows ?? []).map((a) => ({
