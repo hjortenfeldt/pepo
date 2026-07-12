@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Icon from "@/components/Icon";
 import type {
@@ -79,6 +79,24 @@ export default function ShiftBoard({
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [wizard, setWizard] = useState<WizardState | null>(null);
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
+  const [flashShiftId, setFlashShiftId] = useState<string | null>(null);
+  const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Kaldes fra ShiftDetailPanel lige efter en vellykket tildeling — panelet
+  // lukker sig selv (closeOnSuccess), så dette er brugerens eneste visuelle
+  // bekræftelse af HVILKEN vagt der lige blev opdateret. 1300ms matcher
+  // .pepo-flash-green-animationens varighed (se globals.css).
+  function flashShift(shiftId: string) {
+    if (flashTimeout.current) clearTimeout(flashTimeout.current);
+    setFlashShiftId(shiftId);
+    flashTimeout.current = setTimeout(() => setFlashShiftId(null), 1300);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (flashTimeout.current) clearTimeout(flashTimeout.current);
+    };
+  }, []);
 
   const now = todayIso();
 
@@ -269,6 +287,7 @@ export default function ShiftBoard({
                       <EventCard
                         key={event.id}
                         event={event}
+                        flashShiftId={flashShiftId}
                         onEditEvent={() => openEditEvent(event)}
                         onAddShift={() => openAddShift(event)}
                         onOpenShift={(s) => openShiftDetail(s, event)}
@@ -321,6 +340,7 @@ export default function ShiftBoard({
                   <EventCard
                     key={event.id}
                     event={event}
+                    flashShiftId={flashShiftId}
                     onEditEvent={() => openEditEvent(event)}
                     onAddShift={() => openAddShift(event)}
                     onOpenShift={(s) => openShiftDetail(s, event)}
@@ -349,6 +369,7 @@ export default function ShiftBoard({
           categories={categories}
           freelancers={freelancers}
           onClose={() => setOpenShift(null)}
+          onAssigned={flashShift}
         />
       )}
     </div>
@@ -357,11 +378,13 @@ export default function ShiftBoard({
 
 function EventCard({
   event,
+  flashShiftId,
   onEditEvent,
   onAddShift,
   onOpenShift,
 }: {
   event: EventListItem;
+  flashShiftId: string | null;
   onEditEvent: () => void;
   onAddShift: () => void;
   onOpenShift: (shift: ShiftListItem) => void;
@@ -401,7 +424,12 @@ function EventCard({
         <div className="relative pl-6 flex flex-col gap-2">
           <div className="absolute left-2 -top-2 bottom-8 w-[1.5px] bg-pepo-bds" />
           {activeShifts.map((shift) => (
-            <ShiftCard key={shift.id} shift={shift} onClick={() => onOpenShift(shift)} />
+            <ShiftCard
+              key={shift.id}
+              shift={shift}
+              isFlashing={shift.id === flashShiftId}
+              onClick={() => onOpenShift(shift)}
+            />
           ))}
         </div>
       )}
@@ -409,7 +437,15 @@ function EventCard({
   );
 }
 
-function ShiftCard({ shift, onClick }: { shift: ShiftListItem; onClick: () => void }) {
+function ShiftCard({
+  shift,
+  isFlashing,
+  onClick,
+}: {
+  shift: ShiftListItem;
+  isFlashing: boolean;
+  onClick: () => void;
+}) {
   const rightText = shift.assignedFreelancerName
     ? shift.assignedFreelancerName
     : shift.interests.length > 0
@@ -420,7 +456,8 @@ function ShiftCard({ shift, onClick }: { shift: ShiftListItem; onClick: () => vo
       onClick={onClick}
       className={
         "relative text-left bg-pepo-wh border rounded-xl px-[15px] py-[13px] flex items-center gap-3 transition-colors hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] " +
-        SHIFT_BORDER_CLASS[shift.status]
+        SHIFT_BORDER_CLASS[shift.status] +
+        (isFlashing ? " pepo-flash-green" : "")
       }
     >
       <div className="absolute -left-4 top-8 w-3.5 h-[1.5px] bg-pepo-bds" />

@@ -110,3 +110,27 @@ select {
 .pepo-point-up {
   animation: pepo-point-up 1.4s ease-in-out infinite;
 }
+
+/* Kort "blink grønt" på et vagtkort lige efter det er blevet tildelt (fra
+   ShiftDetailPanel, i adminsystemets vagtoversigt) — panelet lukker sig selv
+   automatisk med det samme, så uden dette ville brugeren ikke kunne se
+   hvilken vagt der lige blev opdateret. To hurtige pulser af en grøn
+   baggrund + ring, falder så tilbage til kortets normale styling (som i
+   forvejen er grøn-kantet for tildelte vagter). */
+@keyframes pepo-flash-green {
+  0%, 100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(26, 122, 52, 0);
+  }
+  20%, 60% {
+    background-color: #eaf6ee;
+    box-shadow: 0 0 0 3px rgba(26, 122, 52, 0.25);
+  }
+  40% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(26, 122, 52, 0);
+  }
+}
+.pepo-flash-green {
+  animation: pepo-flash-green 1.3s ease-out;
+}

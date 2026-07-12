@@ -52,6 +52,7 @@ export default function ShiftDetailPanel({
   categories,
   freelancers,
   onClose,
+  onAssigned,
 }: {
   shift: ShiftListItem;
   event: EventListItem;
@@ -59,6 +60,7 @@ export default function ShiftDetailPanel({
   categories: CategoryOption[];
   freelancers: FreelancerOption[];
   onClose: () => void;
+  onAssigned?: (shiftId: string) => void;
 }) {
   // Vagt-panelet viser OG redigerer samme vagt (inkl. event-fælles felter
   // som dato/titel/briefing/kunde&sted) — ingen separat "redigér event"-
@@ -97,7 +99,10 @@ export default function ShiftDetailPanel({
     eventForm.venueId !== event.venueId;
   const dirty = shiftDirty || eventDirty;
 
-  function run(action: () => Promise<{ success: boolean; error?: string }>, opts?: { closeOnSuccess?: boolean }) {
+  function run(
+    action: () => Promise<{ success: boolean; error?: string }>,
+    opts?: { closeOnSuccess?: boolean; onSuccess?: () => void }
+  ) {
     setError(null);
     startTransition(async () => {
       const result = await action();
@@ -106,6 +111,7 @@ export default function ShiftDetailPanel({
         return;
       }
       router.refresh();
+      opts?.onSuccess?.();
       if (opts?.closeOnSuccess) close();
     });
   }
@@ -233,7 +239,12 @@ export default function ShiftDetailPanel({
                         <span className="badge bg-[#EAF6EE] text-[#1A7A34]">Tildelt</span>
                       ) : (
                         <button
-                          onClick={() => run(() => assignFreelancer(shift.id, i.freelancerId))}
+                          onClick={() =>
+                            run(() => assignFreelancer(shift.id, i.freelancerId), {
+                              closeOnSuccess: true,
+                              onSuccess: () => onAssigned?.(shift.id),
+                            })
+                          }
                           disabled={isPending}
                           className="h-[30px] px-3 rounded-[7px] bg-pepo-p text-white text-[12px] font-medium"
                         >
@@ -252,7 +263,13 @@ export default function ShiftDetailPanel({
               </div>
               <select
                 value=""
-                onChange={(e) => e.target.value && run(() => assignFreelancer(shift.id, e.target.value))}
+                onChange={(e) =>
+                  e.target.value &&
+                  run(() => assignFreelancer(shift.id, e.target.value), {
+                    closeOnSuccess: true,
+                    onSuccess: () => onAssigned?.(shift.id),
+                  })
+                }
                 disabled={isPending}
                 className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p bg-pepo-wh"
               >
