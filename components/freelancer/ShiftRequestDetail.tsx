@@ -16,6 +16,8 @@ export type SiblingShift = {
   categoryName: string;
   status: ShiftStatus;
   isCurrent: boolean;
+  isMine: boolean;
+  assignedFreelancerName: string | null;
 };
 
 export type ShiftAttachment = {
@@ -30,6 +32,7 @@ export type OpenShiftDetail = {
   startTime: string;
   endTime: string;
   status: ShiftStatus;
+  isMine: boolean;
   categoryName: string;
   eventTitle: string;
   briefing: string | null;
@@ -55,6 +58,14 @@ const SIBLING_STATUS_CLASS: Record<ShiftStatus, string> = {
   completed: "bg-pepo-su text-pepo-t3",
   cancelled: "bg-pepo-su text-pepo-t3",
 };
+
+function siblingPillLabel(s: SiblingShift): string {
+  if (s.status === "assigned") {
+    if (s.isMine) return "Din vagt";
+    return s.assignedFreelancerName ?? SIBLING_STATUS_LABEL.assigned;
+  }
+  return SIBLING_STATUS_LABEL[s.status];
+}
 
 function formatDuration(startTime: string, endTime: string): string {
   const hours = hoursBetween(startTime, endTime);
@@ -102,7 +113,7 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
       <div className="sticky top-0 z-10 bg-pepo-wh px-4 py-3 border-b border-pepo-bd flex items-center">
         <Link href="/" className="flex items-center gap-2 text-pepo-t1 -ml-1 px-1 py-0.5">
           <Icon name="arrow-left" size={18} />
-          <span className="text-[14px] font-medium">Ledige vagter</span>
+          <span className="text-[14px] font-medium">Vagtdetaljer</span>
         </Link>
       </div>
 
@@ -157,7 +168,7 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
                   <span
                     className={"flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold " + SIBLING_STATUS_CLASS[s.status]}
                   >
-                    {SIBLING_STATUS_LABEL[s.status]}
+                    {siblingPillLabel(s)}
                   </span>
                 </div>
               ))}
@@ -198,7 +209,9 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
       <div className="sticky bottom-0 bg-pepo-wh border-t border-pepo-bd px-5 py-3.5">
         {!requestable ? (
           <div className="text-center text-[12.5px] text-pepo-t3 py-2.5">
-            Denne vagt er ikke længere ledig.
+            {shift.status === "assigned" && shift.isMine
+              ? "Dette er din vagt."
+              : "Denne vagt er ikke længere ledig."}
           </div>
         ) : alreadyApplied ? (
           <>

@@ -174,7 +174,7 @@ export default function OverviewClient({
       )}
 
       <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide mt-6 mb-2.5">
-        Kommende vagter
+        Mine vagter
       </div>
       {upcomingShifts.length === 0 ? (
         <EmptyRow text="Ingen kommende vagter lige nu." />
@@ -183,9 +183,10 @@ export default function OverviewClient({
           {upcomingShifts.map((shift, i) => {
             const badge = dateBadge(shift.date);
             return (
-              <div
+              <Link
                 key={shift.id}
-                className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3"
+                href={`/vagt/${shift.id}`}
+                className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
                 style={{ animationDelay: `${i * 0.05}s` }}
               >
                 <div className="bg-pepo-pl rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
@@ -200,7 +201,7 @@ export default function OverviewClient({
                   </div>
                 </div>
                 <Icon name="chevron-right" size={16} className="text-pepo-t3 flex-shrink-0" />
-              </div>
+              </Link>
             );
           })}
         </div>

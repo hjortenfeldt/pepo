@@ -19,6 +19,7 @@ type RawShiftRow = {
   end_time: string;
   status: "open" | "for_resale" | "assigned" | "completed" | "cancelled";
   event_id: string | null;
+  assigned_freelancer_id: string | null;
   work_categories: RawCategoryRef | RawCategoryRef[] | null;
   client_venues: RawVenueRef | RawVenueRef[] | null;
   events: RawEventRef | RawEventRef[] | null;
@@ -30,6 +31,8 @@ type RawSiblingRow = {
   end_time: string;
   status: "open" | "for_resale" | "assigned" | "completed" | "cancelled";
   category_name: string | null;
+  assigned_freelancer_id: string | null;
+  assigned_freelancer_name: string | null;
 };
 
 function one<T>(rel: T | T[] | null | undefined): T | null {
@@ -51,7 +54,7 @@ export default async function OpenShiftDetailPage({ params }: { params: Promise<
   const { data: shiftRow } = await supabase
     .from("shifts")
     .select(
-      "id, shift_date, start_time, end_time, status, event_id, work_categories(name), client_venues(name, address, postal_code, city), events(id, title, description)"
+      "id, shift_date, start_time, end_time, status, event_id, assigned_freelancer_id, work_categories(name), client_venues(name, address, postal_code, city), events(id, title, description)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -93,6 +96,8 @@ export default async function OpenShiftDetailPage({ params }: { params: Promise<
     categoryName: s.category_name ?? "Ukendt kategori",
     status: s.status,
     isCurrent: s.shift_id === shift.id,
+    isMine: s.assigned_freelancer_id === user.id,
+    assignedFreelancerName: s.assigned_freelancer_name,
   }));
 
   const attachments: ShiftAttachment[] = (attachmentRows ?? []).map((a) => ({
@@ -107,6 +112,7 @@ export default async function OpenShiftDetailPage({ params }: { params: Promise<
     startTime: hhmm(shift.start_time),
     endTime: hhmm(shift.end_time),
     status: shift.status,
+    isMine: shift.assigned_freelancer_id === user.id,
     categoryName: one(shift.work_categories)?.name ?? "Ukendt kategori",
     eventTitle: event?.title ?? "Vagt",
     briefing: event?.description ?? null,
