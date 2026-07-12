@@ -72,6 +72,7 @@ export type ShiftListItem = {
   eventId: string;
   categoryId: string;
   category: string; // jobfunktionens navn
+  categoryIcon: string | null; // jobfunktionens ikon (Tabler-navn)
   shiftDate: string; // ISO dato — denormaliseret kopi af eventets dato
   startTime: string; // "HH:MM"
   endTime: string; // "HH:MM"

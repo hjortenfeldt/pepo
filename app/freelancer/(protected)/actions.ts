@@ -60,12 +60,15 @@ export async function stopShift(entryId: string) {
 }
 
 /**
- * "Meld dig" på en åben/videresalgs-vagt. shift_interests har ingen
- * databaseunik-begrænsning på (shift_id, freelancer_id) endnu, så vi
- * tjekker selv for en eksisterende ansøgning frem for at stole på en
- * konflikt fra databasen.
+ * Anmoder om en åben/videresalgs-vagt (shift_interests-række). Anmodningen
+ * lander hos vagt-administratoren hos den pågældende virksomhed, som
+ * derefter tildeler vagten til én af dem der har anmodet — se
+ * ShiftDetailPanel.tsx's "Interesserede freelancere"-liste i adminsystemet.
+ * shift_interests har en unik-begrænsning på (shift_id, freelancer_id), men
+ * vi tjekker selv for en eksisterende anmodning først for at kunne give en
+ * pæn fejlbesked frem for en rå databasefejl.
  */
-export async function applyToShift(shiftId: string) {
+export async function requestShift(shiftId: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -80,7 +83,7 @@ export async function applyToShift(shiftId: string) {
     .maybeSingle();
 
   if (existing) {
-    return { success: false as const, error: "Du har allerede meldt dig til denne vagt." };
+    return { success: false as const, error: "Du har allerede anmodet om denne vagt." };
   }
 
   const { error } = await supabase.from("shift_interests").insert({
@@ -89,11 +92,41 @@ export async function applyToShift(shiftId: string) {
   });
 
   if (error) {
-    console.error("applyToShift fejlede", error);
-    return { success: false as const, error: "Kunne ikke melde dig til vagten. Prøv igen." };
+    console.error("requestShift fejlede", error);
+    return { success: false as const, error: "Kunne ikke sende anmodningen. Prøv igen." };
   }
 
   revalidatePath("/");
+  revalidatePath(`/vagt/${shiftId}`);
+  return { success: true as const };
+}
+
+/**
+ * Fortryder en anmodning ("Annuller anmodning" i vagt-detaljevisningen), så
+ * længe admin ikke allerede har tildelt vagten til nogen — tildeling sker i
+ * adminsystemet og ændrer shifts.status, ikke denne række, så en freelancer
+ * kan ikke "fortryde" en vagt der reelt er givet væk.
+ */
+export async function withdrawShiftRequest(shiftId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false as const, error: "Du er ikke logget ind." };
+
+  const { error } = await supabase
+    .from("shift_interests")
+    .delete()
+    .eq("shift_id", shiftId)
+    .eq("freelancer_id", user.id);
+
+  if (error) {
+    console.error("withdrawShiftRequest fejlede", error);
+    return { success: false as const, error: "Kunne ikke annullere anmodningen. Prøv igen." };
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/vagt/${shiftId}`);
   return { success: true as const };
 }
 

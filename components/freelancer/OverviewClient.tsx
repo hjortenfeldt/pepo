@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import Icon from "@/components/Icon";
-import { startShift, stopShift, applyToShift } from "@/app/freelancer/(protected)/actions";
+import { startShift, stopShift } from "@/app/freelancer/(protected)/actions";
 
 export type ActiveShift = {
   entryId: string;
@@ -65,9 +66,6 @@ export default function OverviewClient({
   const [now, setNow] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [appliedIds, setAppliedIds] = useState<Set<string>>(
-    new Set(openShifts.filter((s) => s.alreadyApplied).map((s) => s.id))
-  );
 
   useEffect(() => {
     if (!activeShift) return;
@@ -90,22 +88,6 @@ export default function OverviewClient({
     startTransition(async () => {
       const res = await stopShift(entryId);
       if (!res.success) setError(res.error);
-    });
-  }
-
-  function handleApply(shiftId: string) {
-    setError(null);
-    setAppliedIds((prev) => new Set(prev).add(shiftId));
-    startTransition(async () => {
-      const res = await applyToShift(shiftId);
-      if (!res.success) {
-        setError(res.error);
-        setAppliedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(shiftId);
-          return next;
-        });
-      }
     });
   }
 
@@ -225,7 +207,7 @@ export default function OverviewClient({
       )}
 
       <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide mt-6 mb-2.5">
-        Ledige vagter til dig
+        Ledige vagter
       </div>
       {openShifts.length === 0 ? (
         <EmptyRow text="Ingen ledige vagter matcher dine kategorier lige nu." />
@@ -233,11 +215,11 @@ export default function OverviewClient({
         <div className="flex flex-col gap-2">
           {openShifts.map((shift, i) => {
             const badge = dateBadge(shift.date);
-            const applied = appliedIds.has(shift.id);
             return (
-              <div
+              <Link
                 key={shift.id}
-                className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3"
+                href={`/vagt/${shift.id}`}
+                className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
                 style={{ animationDelay: `${i * 0.05}s` }}
               >
                 <div className="bg-[#eaf3de] rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
@@ -250,15 +232,14 @@ export default function OverviewClient({
                     {shift.startTime}–{shift.endTime}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  disabled={applied || isPending}
-                  onClick={() => handleApply(shift.id)}
-                  className="flex-shrink-0 bg-pepo-pl text-pepo-p rounded-[16px] px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50 transition-opacity"
-                >
-                  {applied ? "Ansøgt" : "Meld dig"}
-                </button>
-              </div>
+                {shift.alreadyApplied ? (
+                  <span className="flex-shrink-0 bg-[#FEF3E2] text-[#9A5F00] rounded-[16px] px-3 py-1.5 text-[12px] font-semibold">
+                    Anmodet
+                  </span>
+                ) : (
+                  <Icon name="chevron-right" size={16} className="text-pepo-t3 flex-shrink-0" />
+                )}
+              </Link>
             );
           })}
         </div>

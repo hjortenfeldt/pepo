@@ -425,7 +425,7 @@ function ShiftCard({ shift, onClick }: { shift: ShiftListItem; onClick: () => vo
     >
       <div className="absolute -left-4 top-8 w-3.5 h-[1.5px] bg-pepo-bds" />
       <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">
-        <Icon name="briefcase" size={20} />
+        <Icon name={shift.categoryIcon || "briefcase"} size={20} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[13.5px] font-medium text-pepo-t1">{shift.category}</div>

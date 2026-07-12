@@ -22,7 +22,7 @@ type RawVenueRef = {
   city: string | null;
 };
 type RawClientRef = { name: string | null; contact_person: string | null };
-type RawWorkCategoryRef = { name: string };
+type RawWorkCategoryRef = { name: string; icon: string | null };
 type RawFreelancerRef = { full_name: string };
 type RawAttachmentRow = { id: string; file_name: string; file_url: string; file_type: string | null };
 type RawInterestRow = {
@@ -65,7 +65,7 @@ type RawClientWithVenuesRow = {
   notes: string | null;
   client_venues: RawVenueRef[] | null;
 };
-type RawCategoryRow = { id: string; name: string };
+type RawCategoryRow = { id: string; name: string; icon: string | null };
 type RawFreelancerProfileOption = {
   id: string;
   full_name: string;
@@ -102,7 +102,7 @@ export default async function AdminShiftsPage() {
          shift_attachments(id, file_name, file_url, file_type),
          shifts(id, category_id, shift_date, start_time, end_time, status, previous_status,
            assigned_freelancer_id,
-           work_categories(name),
+           work_categories(name, icon),
            freelancer_profiles(full_name),
            shift_interests(freelancer_id, status, freelancer_profiles(full_name)))`
       )
@@ -113,7 +113,7 @@ export default async function AdminShiftsPage() {
         "id, name, cvr_number, contact_person, contact_phone, contact_email, notes, client_venues(id, client_id, name, address, postal_code, city)"
       )
       .order("name"),
-    supabase.from("work_categories").select("id, name").order("name"),
+    supabase.from("work_categories").select("id, name, icon").order("name"),
     supabase
       .from("freelancer_companies")
       .select("freelancer_profiles(id, full_name, freelancer_categories(work_categories(name)))")
@@ -166,6 +166,7 @@ export default async function AdminShiftsPage() {
           eventId: e.id,
           categoryId: s.category_id,
           category: category?.name ?? "",
+          categoryIcon: category?.icon ?? null,
           shiftDate: s.shift_date,
           startTime: hhmm(s.start_time),
           endTime: hhmm(s.end_time),
@@ -204,6 +205,7 @@ export default async function AdminShiftsPage() {
   const categories: CategoryOption[] = ((categoriesResult.data ?? []) as RawCategoryRow[]).map((c) => ({
     id: c.id,
     name: c.name,
+    icon: c.icon,
   }));
 
   const freelancers: FreelancerOption[] = ((freelancersResult.data ?? []) as RawFreelancerMembershipRow[])

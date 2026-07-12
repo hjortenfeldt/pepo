@@ -3,6 +3,7 @@ import { logout } from "../../login/actions";
 import Icon from "@/components/Icon";
 import PushToggle from "@/components/freelancer/PushToggle";
 import InstallAppMenuRow from "@/components/freelancer/InstallAppMenuRow";
+import { APP_VERSION } from "@/lib/version";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,8 @@ export default async function FreelancerMerePage() {
           Log ud
         </button>
       </form>
+
+      <div className="text-center text-[11px] text-pepo-t3 mt-5">v{APP_VERSION}</div>
     </div>
   );
 }
