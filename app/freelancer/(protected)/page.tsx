@@ -1,7 +1,7 @@
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayIso } from "@/lib/format";
-import { getPrimaryCompany } from "@/lib/freelancer";
+import { getActiveCompany } from "@/lib/freelancer";
 import OverviewClient, { type ActiveShift, type OpenShift, type UpcomingShift } from "@/components/freelancer/OverviewClient";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +39,15 @@ export default async function FreelancerOverviewPage() {
   const supabase = await createClient();
   const today = todayIso();
 
+  // Skal kendes FØR de øvrige forespørgsler, da både "Mine vagter" og
+  // "Ledige vagter" nu filtreres til freelancerens aktive virksomhed (se
+  // getActiveCompany i lib/freelancer.ts) — uden dette ville en freelancer
+  // med flere godkendte virksomheder se vagter fra ALLE sine virksomheder
+  // blandet sammen på ét Overblik, uanset hvilken arbejdsplads de har
+  // valgt i "Mere".
+  const activeCompany = await getActiveCompany(user.id);
+  const companyId = activeCompany?.id ?? "";
+
   // Bevidst IKKE awaitet her, men sendt videre som et promise til
   // OverviewClient (som læser det med Reacts use()-hook inde i sin egen
   // <Suspense>). Denne forespørgsel scanner alle åbne/videresalgs-vagter på
@@ -46,15 +55,16 @@ export default async function FreelancerOverviewPage() {
   // forespørgsler på denne side — ved ikke at vente på den her, kan resten
   // af Overblik (hilsen, stempelur, Mine vagter) vises så snart DE er
   // klar, mens "Ledige vagter" strømmer ind separat lige efter.
-  const openShiftsPromise = getOpenShifts(supabase, user.id, today);
+  const openShiftsPromise = getOpenShifts(supabase, user.id, today, companyId);
 
-  const [profileResult, myShiftsResult, activeClockResult, company] = await Promise.all([
+  const [profileResult, myShiftsResult, activeClockResult] = await Promise.all([
     supabase.from("freelancer_profiles").select("full_name, profile_image_url").eq("id", user.id).maybeSingle(),
     supabase
       .from("shifts")
       .select("id, shift_date, start_time, end_time, status, events(title), client_venues(name, address, postal_code, city)")
       .eq("assigned_freelancer_id", user.id)
       .eq("status", "assigned")
+      .eq("company_id", companyId)
       .gte("shift_date", today)
       .order("shift_date")
       .order("start_time")
@@ -65,7 +75,6 @@ export default async function FreelancerOverviewPage() {
       .eq("freelancer_id", user.id)
       .is("clock_out_at", null)
       .maybeSingle(),
-    getPrimaryCompany(user.id),
   ]);
 
   const myShifts = (myShiftsResult.data ?? []) as unknown as RawShiftRow[];
@@ -109,8 +118,8 @@ export default async function FreelancerOverviewPage() {
       firstName={firstName}
       userFullName={fullName}
       userPhotoUrl={profileResult.data?.profile_image_url ?? null}
-      companyName={company?.name ?? null}
-      companyLogoUrl={company?.logo_url ?? null}
+      companyName={activeCompany?.name ?? null}
+      companyLogoUrl={activeCompany?.logo_url ?? null}
       activeShift={activeShift}
       upcomingShifts={upcomingShifts}
       openShiftsPromise={openShiftsPromise}
@@ -121,11 +130,13 @@ export default async function FreelancerOverviewPage() {
 async function getOpenShifts(
   supabase: SupabaseClient,
   freelancerId: string,
-  today: string
+  today: string,
+  companyId: string
 ): Promise<OpenShift[]> {
   const { data: openShiftsData } = await supabase
     .from("shifts")
     .select("id, shift_date, start_time, end_time, status, work_categories(name)")
+    .eq("company_id", companyId)
     .in("status", ["open", "for_resale"])
     .gte("shift_date", today)
     .order("shift_date")

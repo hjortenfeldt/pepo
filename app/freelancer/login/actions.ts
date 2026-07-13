@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -19,6 +20,23 @@ export async function sendLoginCode(email: string) {
   const trimmedEmail = email.trim().toLowerCase();
   if (!trimmedEmail || !EMAIL_RE.test(trimmedEmail)) {
     return { success: false as const, error: "Indtast en gyldig emailadresse." };
+  }
+
+  // Rydder en evt. "du er blevet inviteret til [firma]"-sætning sat af
+  // sendFreelancerInvitation (freelancers/actions.ts i tenant-admin) — den
+  // skal kun vises i netop DEN mail admin selv udløser, ikke ved
+  // fremtidige almindelige login-koder freelanceren selv beder om. Fejler
+  // dette (fx ukendt email), blokerer det ikke selve kode-afsendelsen.
+  const adminClient = createAdminClient();
+  const { data: profile } = await adminClient
+    .from("freelancer_profiles")
+    .select("id")
+    .eq("email", trimmedEmail)
+    .maybeSingle();
+  if (profile) {
+    await adminClient.auth.admin.updateUserById(profile.id, {
+      user_metadata: { invited_company_name: null },
+    });
   }
 
   const supabase = await createClient();

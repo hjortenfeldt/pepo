@@ -1,4 +1,5 @@
 import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { getActiveCompany } from "@/lib/freelancer";
 import BeskederClient, { type FreelancerMessage } from "@/components/freelancer/BeskederClient";
 
 export const dynamic = "force-dynamic";
@@ -22,10 +23,19 @@ export default async function FreelancerBeskederPage() {
 
   const supabase = await createClient();
 
+  // Kun beskeder fra den arbejdsplads freelanceren har valgt i "Mere" —
+  // samme begrundelse som Overblik/Vagtplan. messages!inner (i stedet for
+  // messages) tvinger PostgREST til at joine, så .eq("messages.company_id",
+  // ...) rent faktisk filtrerer resultatet og ikke bare returnerer null for
+  // den indlejrede relation på ikke-matchende rækker.
+  const activeCompany = await getActiveCompany(user.id);
+  if (!activeCompany) return <BeskederClient messages={[]} />;
+
   const { data } = await supabase
     .from("message_recipients")
-    .select("message_id, read_at, messages(id, subject, body, created_at)")
-    .eq("freelancer_id", user.id);
+    .select("message_id, read_at, messages!inner(id, subject, body, created_at, company_id)")
+    .eq("freelancer_id", user.id)
+    .eq("messages.company_id", activeCompany.id);
 
   const rows = (data ?? []) as unknown as RawRecipientRow[];
 

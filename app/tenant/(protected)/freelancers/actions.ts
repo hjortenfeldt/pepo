@@ -107,42 +107,79 @@ export async function createFreelancer(input: FreelancerFormInput) {
   }
 
   const supabase = createAdminClient();
-  const email = input.email.trim().toLowerCase() || undefined;
+  const email = input.email.trim().toLowerCase() || null;
 
-  const { data: userData, error: userError } = await supabase.auth.admin.createUser({
-    email,
-    email_confirm: true,
-  });
+  // En freelancer kan arbejde for flere virksomheder samtidig (se
+  // freelancer_companies) — findes der allerede en freelancer med denne
+  // email, skal vi bare tilknytte DEM til denne virksomhed i stedet for at
+  // forsøge at oprette endnu en konto (som ville fejle, da emailen allerede
+  // er i brug — det er jo reelt samme person).
+  const existingProfile = email
+    ? (await supabase.from("freelancer_profiles").select("id").eq("email", email).maybeSingle()).data
+    : null;
 
-  if (userError || !userData?.user) {
-    if (userError?.message?.toLowerCase().includes("already been registered")) {
-      return { success: false as const, error: "Der findes allerede en freelancer med denne emailadresse." };
+  let freelancerId: string;
+  const alreadyExisted = Boolean(existingProfile);
+
+  if (existingProfile) {
+    freelancerId = existingProfile.id;
+
+    const { data: existingMembership } = await supabase
+      .from("freelancer_companies")
+      .select("freelancer_id")
+      .eq("freelancer_id", freelancerId)
+      .eq("company_id", company.id)
+      .maybeSingle();
+
+    if (existingMembership) {
+      return {
+        success: false as const,
+        error: "Denne freelancer er allerede tilknyttet jeres virksomhed.",
+      };
     }
-    console.error("createFreelancer: createUser fejlede", userError);
-    return { success: false as const, error: "Der opstod en fejl. Prøv igen." };
-  }
+  } else {
+    const { data: userData, error: userError } = await supabase.auth.admin.createUser({
+      email: email ?? undefined,
+      email_confirm: true,
+    });
 
-  const freelancerId = userData.user.id;
-  const profileImageUrl = await uploadPhotoIfNeeded(supabase, freelancerId, input.photoDataUrl);
+    if (userError || !userData?.user) {
+      if (userError?.message?.toLowerCase().includes("already been registered")) {
+        // Emailen findes som en auth-konto, men IKKE som freelancer endnu
+        // (fx en administrator der endnu ikke selv er freelancer noget
+        // sted) — sjældnere kant-tilfælde, som vi ikke kan løse sikkert
+        // her uden at vide hvem kontoen tilhører.
+        return {
+          success: false as const,
+          error: "Denne emailadresse er allerede i brug af en anden konto i Pepo.",
+        };
+      }
+      console.error("createFreelancer: createUser fejlede", userError);
+      return { success: false as const, error: "Der opstod en fejl. Prøv igen." };
+    }
 
-  const { error: profileError } = await supabase.from("freelancer_profiles").insert({
-    id: freelancerId,
-    full_name: input.fullName.trim(),
-    email: input.email.trim() || null,
-    gender: null,
-    birth_date: null,
-    location: input.location.trim() || null,
-    phone: normalizePhone(input.phone.trim()),
-    bio: input.bio.trim() || null,
-    profile_image_url: profileImageUrl,
-    social_media_url: null,
-    has_license: input.hasLicense,
-  });
+    freelancerId = userData.user.id;
+    const profileImageUrl = await uploadPhotoIfNeeded(supabase, freelancerId, input.photoDataUrl);
 
-  if (profileError) {
-    console.error("createFreelancer: profil-insert fejlede", profileError);
-    await supabase.auth.admin.deleteUser(freelancerId);
-    return { success: false as const, error: "Kunne ikke oprette freelanceren. Prøv igen." };
+    const { error: profileError } = await supabase.from("freelancer_profiles").insert({
+      id: freelancerId,
+      full_name: input.fullName.trim(),
+      email: input.email.trim() || null,
+      gender: null,
+      birth_date: null,
+      location: input.location.trim() || null,
+      phone: normalizePhone(input.phone.trim()),
+      bio: input.bio.trim() || null,
+      profile_image_url: profileImageUrl,
+      social_media_url: null,
+      has_license: input.hasLicense,
+    });
+
+    if (profileError) {
+      console.error("createFreelancer: profil-insert fejlede", profileError);
+      await supabase.auth.admin.deleteUser(freelancerId);
+      return { success: false as const, error: "Kunne ikke oprette freelanceren. Prøv igen." };
+    }
   }
 
   const { error: membershipError } = await supabase.from("freelancer_companies").insert({
@@ -153,24 +190,112 @@ export async function createFreelancer(input: FreelancerFormInput) {
 
   if (membershipError) {
     console.error("createFreelancer: membership-insert fejlede", membershipError);
-    await supabase.auth.admin.deleteUser(freelancerId);
+    if (!alreadyExisted) await supabase.auth.admin.deleteUser(freelancerId);
     return { success: false as const, error: "Kunne ikke oprette freelanceren. Prøv igen." };
   }
 
   if (input.categoryIds.length > 0) {
-    const { error: categoriesError } = await supabase.from("freelancer_categories").insert(
-      input.categoryIds.map((categoryId) => ({
-        freelancer_id: freelancerId,
-        category_id: categoryId,
-      }))
-    );
-    if (categoriesError) {
-      console.error("createFreelancer: kategori-insert fejlede", categoriesError);
+    // Ved en eksisterende freelancer må vi ikke forsøge at indsætte
+    // kategorier de allerede har (fx fra en anden virksomhed) igen — det
+    // rammer unique-constrainten på (freelancer_id, category_id).
+    let categoryIdsToInsert = input.categoryIds;
+    if (alreadyExisted) {
+      const { data: existingCategories } = await supabase
+        .from("freelancer_categories")
+        .select("category_id")
+        .eq("freelancer_id", freelancerId);
+      const existingIds = new Set((existingCategories ?? []).map((c) => c.category_id as string));
+      categoryIdsToInsert = input.categoryIds.filter((id) => !existingIds.has(id));
+    }
+
+    if (categoryIdsToInsert.length > 0) {
+      const { error: categoriesError } = await supabase.from("freelancer_categories").insert(
+        categoryIdsToInsert.map((categoryId) => ({
+          freelancer_id: freelancerId,
+          category_id: categoryId,
+        }))
+      );
+      if (categoriesError) {
+        console.error("createFreelancer: kategori-insert fejlede", categoriesError);
+      }
     }
   }
 
   revalidatePath("/freelancers");
-  return { success: true as const, id: freelancerId };
+  return { success: true as const, id: freelancerId, alreadyExisted };
+}
+
+/**
+ * Sender en login-kode til freelanceren, så de kan komme i gang uden selv
+ * at skulle vide at de skal bede om en kode på login-siden — nøjagtig
+ * samme mekanisme som freelancer-appens egen "send login-kode"
+ * (signInWithOtp), blot udløst af admin. Kaldbar både lige efter oprettelse
+ * og senere fra freelancerens profil, indtil første login (se
+ * hasFreelancerLoggedIn nedenfor).
+ *
+ * user_metadata sættes med virksomhedens navn lige før afsendelse, så
+ * mail-skabelonen (Supabase Dashboard > Authentication > Email Templates >
+ * Magic Link) kan vise {{ .Data.invited_company_name }} i teksten.
+ */
+export async function sendFreelancerInvitation(freelancerId: string) {
+  const company = await getCompanyBySubdomain();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
+  const adminClient = createAdminClient();
+
+  // Samme tilknytnings-tjek som updateFreelancer — kun freelancere der rent
+  // faktisk hører til DENNE virksomhed kan inviteres herfra.
+  const { data: membership } = await adminClient
+    .from("freelancer_companies")
+    .select("freelancer_id")
+    .eq("freelancer_id", freelancerId)
+    .eq("company_id", company.id)
+    .maybeSingle();
+
+  if (!membership) {
+    return { success: false as const, error: "Freelanceren er ikke tilknyttet denne virksomhed." };
+  }
+
+  const { data: profile } = await adminClient
+    .from("freelancer_profiles")
+    .select("email")
+    .eq("id", freelancerId)
+    .maybeSingle();
+
+  if (!profile?.email) {
+    return { success: false as const, error: "Freelanceren har ingen emailadresse registreret." };
+  }
+
+  await adminClient.auth.admin.updateUserById(freelancerId, {
+    user_metadata: { invited_company_name: company.name },
+  });
+
+  // Samme klient/kald som freelancerens egen login-side (sendLoginCode i
+  // app/freelancer/login/actions.ts), ikke admin-klienten — for at bruge
+  // nøjagtig samme, allerede afprøvede afsendelsesvej.
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email: profile.email,
+    options: { shouldCreateUser: false },
+  });
+
+  if (error) {
+    console.error("sendFreelancerInvitation fejlede", error);
+    return { success: false as const, error: "Kunne ikke sende invitationen. Prøv igen." };
+  }
+
+  return { success: true as const };
+}
+
+/**
+ * Har freelanceren nogensinde logget ind? Bruges til kun at vise
+ * "Send invitation" indtil freelanceren har logget ind første gang.
+ */
+export async function hasFreelancerLoggedIn(freelancerId: string): Promise<boolean> {
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient.auth.admin.getUserById(freelancerId);
+  if (error || !data?.user) return false;
+  return Boolean(data.user.last_sign_in_at);
 }
 
 /**

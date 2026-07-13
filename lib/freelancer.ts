@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { unstable_cache, updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -61,16 +62,40 @@ export const getFreelancerMemberships = cache(
   )
 );
 
-/**
- * Den virksomhed, appen viser data for lige nu. Se MVP-bemærkningen ovenfor
- * — vælger den første godkendte virksomhed. `cache()` sikrer at både
- * layout.tsx og den enkelte side kan kalde denne uden at ramme databasen
- * to gange i samme request.
- */
-export async function getPrimaryCompany(freelancerId: string) {
+export type ActiveCompany = { id: string; name: string; slug: string; logo_url: string | null };
+
+// Navnet på cookien der husker hvilken virksomhed freelanceren sidst
+// skiftede til (se setActiveCompany i mere/actions.ts). Sat på selve
+// app.pepo.team (freelancer-appens eget subdomæne, ikke roddomænet som
+// login-sessionen i lib/supabase/server.ts) — den behøver ikke virke på
+// tværs af subdomæner, kun i freelancer-appen.
+export const ACTIVE_COMPANY_COOKIE = "pepo_active_company";
+
+/** Alle virksomheder freelanceren er godkendt hos — bruges af firma-skifteren i "Mere". */
+export async function getApprovedCompanies(freelancerId: string): Promise<ActiveCompany[]> {
   const memberships = await getFreelancerMemberships(freelancerId);
-  const approved = memberships.find((m) => m.application_status === "approved" && m.companies);
-  return approved?.companies ?? null;
+  return memberships
+    .filter((m) => m.application_status === "approved" && m.companies)
+    .map((m) => m.companies as ActiveCompany);
+}
+
+/**
+ * Hvilken af freelancerens godkendte virksomheder appen viser data for lige
+ * nu. En freelancer kan arbejde for flere virksomheder samtidig og skifter
+ * mellem dem via "Mere" (se setActiveCompany) — valget gemmes i en cookie.
+ * Findes cookien ikke, eller peger den på en virksomhed freelanceren ikke
+ * (længere) er godkendt hos, falder vi tilbage til den første godkendte,
+ * ligesom appen altid har gjort (tidligere getPrimaryCompany).
+ */
+export async function getActiveCompany(freelancerId: string): Promise<ActiveCompany | null> {
+  const approved = await getApprovedCompanies(freelancerId);
+  if (approved.length === 0) return null;
+
+  const cookieStore = await cookies();
+  const selectedId = cookieStore.get(ACTIVE_COMPANY_COOKIE)?.value;
+  const selected = selectedId ? approved.find((c) => c.id === selectedId) : undefined;
+
+  return selected ?? approved[0];
 }
 
 export type CompanyContactInfo = {
@@ -139,9 +164,11 @@ export type CompanyColleague = {
  * bankoplysninger læsbare for enhver der selv forespørger tabellen direkte.
  * Funktionen returnerer derfor eksplicit kun de felter en kollega må se.
  */
-export async function getCompanyColleagueDirectory(): Promise<CompanyColleague[]> {
+export async function getCompanyColleagueDirectory(companyId: string): Promise<CompanyColleague[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_company_colleague_directory");
+  const { data, error } = await supabase.rpc("get_company_colleague_directory", {
+    p_company_id: companyId,
+  });
 
   if (error) {
     console.error("getCompanyColleagueDirectory fejlede", error);

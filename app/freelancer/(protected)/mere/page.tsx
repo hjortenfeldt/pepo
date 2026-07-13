@@ -1,8 +1,10 @@
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { logout } from "../../login/actions";
+import { getActiveCompany, getApprovedCompanies } from "@/lib/freelancer";
 import Icon from "@/components/Icon";
 import PushToggle from "@/components/freelancer/PushToggle";
 import InstallAppMenuRow from "@/components/freelancer/InstallAppMenuRow";
+import CompanySwitcher from "@/components/freelancer/CompanySwitcher";
 import { APP_VERSION } from "@/lib/version";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +28,13 @@ export default async function FreelancerMerePage() {
     .eq("id", user.id)
     .maybeSingle();
 
+  // Firma-skifteren vises kun hvis freelanceren rent faktisk er godkendt
+  // hos mere end én virksomhed — se CompanySwitcher.tsx.
+  const [approvedCompanies, activeCompany] = await Promise.all([
+    getApprovedCompanies(user.id),
+    getActiveCompany(user.id),
+  ]);
+
   return (
     <div className="px-5 pt-4 pb-6">
       <div className="text-[20px] font-bold text-pepo-t1 mb-4 pepo-rise">Mere</div>
@@ -44,6 +53,10 @@ export default async function FreelancerMerePage() {
           <div className="text-[12.5px] text-pepo-t2 truncate">{profile?.email}</div>
         </div>
       </div>
+
+      {approvedCompanies.length > 1 && activeCompany && (
+        <CompanySwitcher companies={approvedCompanies} activeCompanyId={activeCompany.id} />
+      )}
 
       <PushToggle />
 
