@@ -1,9 +1,21 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import { logout } from "./actions";
 import { getCompanyBySubdomain } from "@/lib/tenant";
+
+// Title-template: hver side under tenant-admin sætter sin egen `title`
+// (matcher menupunktet i AdminSidebar), som automatisk bliver flettet ind
+// her, fx "Pepo - Vagter". Sider uden egen title (bør ikke forekomme, men
+// virker som sikkerhedsnet) falder tilbage til "Pepo".
+export const metadata: Metadata = {
+  title: {
+    template: "Pepo - %s",
+    default: "Pepo",
+  },
+};
 
 export default async function ProtectedTenantLayout({
   children,

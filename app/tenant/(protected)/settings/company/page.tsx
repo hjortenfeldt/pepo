@@ -1,8 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import CompanyProfileSettings from "@/components/admin/CompanyProfileSettings";
 
+export const metadata: Metadata = { title: "Firmaoplysninger" };
 export const dynamic = "force-dynamic";
 
 export default async function CompanyProfilePage() {

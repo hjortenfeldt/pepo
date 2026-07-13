@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import DashboardBoard from "@/components/admin/DashboardBoard";
 import { todayIso } from "@/lib/format";
@@ -10,6 +11,7 @@ import {
   type DashboardEvent,
 } from "@/lib/dashboard";
 
+export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
 // Rå formen af rækkerne Supabase returnerer. Skrevet i hånden, fordi

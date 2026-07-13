@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import { logout } from "./actions";
+
+// Statisk titel for hele superadmin-området — der er ingen undermenupunkter
+// at variere titlen efter, i modsætning til tenant-admin (se
+// app/tenant/(protected)/layout.tsx, som i stedet bruger en title-template).
+export const metadata: Metadata = {
+  title: "Pepo - Superadmin",
+};
 
 export default async function ProtectedSuperAdminLayout({
   children,

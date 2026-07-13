@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import ClientBoard from "@/components/admin/ClientBoard";
 import type { ClientListItem } from "@/lib/admin-types";
 
+export const metadata: Metadata = { title: "Kunder" };
 export const dynamic = "force-dynamic";
 
 // Rå formen af en række, som Supabase returnerer for select-kaldet nedenfor.

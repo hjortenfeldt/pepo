@@ -1,8 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import CalendarSyncSettings from "@/components/admin/CalendarSyncSettings";
 
+export const metadata: Metadata = { title: "Sync med kalender" };
 export const dynamic = "force-dynamic";
 
 export default async function CalendarSyncPage() {

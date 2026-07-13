@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import MessageBoard from "@/components/admin/MessageBoard";
 import type { MessageListItem, CategoryOption, FreelancerOption } from "@/lib/admin-types";
 
+export const metadata: Metadata = { title: "Beskeder" };
 export const dynamic = "force-dynamic";
 
 // Rå formen af rækkerne Supabase returnerer. Skrevet i hånden, fordi

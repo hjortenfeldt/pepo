@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import ShiftBoard from "@/components/admin/ShiftBoard";
 import { venueLabel } from "@/lib/format";
@@ -10,6 +11,7 @@ import type {
   InterestStatus,
 } from "@/lib/admin-types";
 
+export const metadata: Metadata = { title: "Vagter" };
 export const dynamic = "force-dynamic";
 
 // Rå formen af rækkerne Supabase returnerer. Skrevet i hånden, fordi

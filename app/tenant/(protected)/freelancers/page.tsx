@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import FreelancerBoard from "@/components/admin/FreelancerBoard";
 import type { FreelancerListItem, CategoryOption } from "@/lib/admin-types";
 
+export const metadata: Metadata = { title: "Freelancere" };
 export const dynamic = "force-dynamic";
 
 // Rå formen af en række, som Supabase returnerer for select-kaldet nedenfor.

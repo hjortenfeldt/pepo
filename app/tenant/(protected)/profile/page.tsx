@@ -1,8 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProfileSettings from "@/components/admin/ProfileSettings";
 import { updateOwnProfile } from "./actions";
 
+export const metadata: Metadata = { title: "Profil" };
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {

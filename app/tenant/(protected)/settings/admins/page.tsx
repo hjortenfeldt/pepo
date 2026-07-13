@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import AdminUsersSettings from "@/components/admin/AdminUsersSettings";
 
+export const metadata: Metadata = { title: "Admin brugere" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {

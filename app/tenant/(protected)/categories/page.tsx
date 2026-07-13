@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import CategoryList from "@/components/admin/CategoryList";
 import type { CategoryGroupListItem, CategoryListItem } from "@/lib/admin-types";
 
+export const metadata: Metadata = { title: "Jobfunktioner" };
 export const dynamic = "force-dynamic";
 
 // Rå formen af rækkerne, som Supabase returnerer for select-kaldene nedenfor.
