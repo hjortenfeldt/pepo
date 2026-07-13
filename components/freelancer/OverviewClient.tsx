@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { Suspense, use, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { startShift, stopShift } from "@/app/freelancer/(protected)/actions";
@@ -54,14 +54,14 @@ export default function OverviewClient({
   companyName,
   activeShift,
   upcomingShifts,
-  openShifts,
+  openShiftsPromise,
 }: {
   greetingName: string;
   greetingDate: string;
   companyName: string | null;
   activeShift: ActiveShift | null;
   upcomingShifts: UpcomingShift[];
-  openShifts: OpenShift[];
+  openShiftsPromise: Promise<OpenShift[]>;
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
@@ -210,42 +210,57 @@ export default function OverviewClient({
       <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide mt-6 mb-2.5">
         Ledige vagter
       </div>
-      {openShifts.length === 0 ? (
-        <EmptyRow text="Ingen ledige vagter matcher dine kategorier lige nu." />
-      ) : (
-        <div className="flex flex-col gap-2">
-          {openShifts.map((shift, i) => {
-            const badge = dateBadge(shift.date);
-            return (
-              <Link
-                key={shift.id}
-                href={`/vagt/${shift.id}`}
-                className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
-                style={{ animationDelay: `${i * 0.05}s` }}
-              >
-                <div className="bg-[#eaf3de] rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
-                  <div className="text-[9.5px] font-semibold text-[#3b6d11] uppercase">{badge.month}</div>
-                  <div className="text-[15px] font-bold text-[#3b6d11]">{badge.day}</div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13.5px] font-semibold text-pepo-t1 truncate">{shift.categoryName}</div>
-                  <div className="text-[12px] text-pepo-t2 mt-0.5">
-                    {shift.startTime}–{shift.endTime}
-                  </div>
-                </div>
-                {shift.alreadyApplied ? (
-                  <span className="flex-shrink-0 bg-[#FEF3E2] text-[#9A5F00] rounded-[16px] px-3 py-1.5 text-[12px] font-semibold">
-                    Anmodet
-                  </span>
-                ) : (
-                  <Icon name="chevron-right" size={16} className="text-pepo-t3 flex-shrink-0" />
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      {/* Egen <Suspense>-grænse omkring kun selve listen — typisk den
+          tungeste forespørgsel på siden (se page.tsx). Resten af Overblik
+          (hilsen, stempelur, Mine vagter) venter derfor ikke på den; denne
+          liste popper ind for sig selv når den er klar, med en skeleton der
+          matcher varigheden af de rigtige rækker i mellemtiden. */}
+      <Suspense fallback={<OpenShiftsSkeleton />}>
+        <OpenShiftsList promise={openShiftsPromise} />
+      </Suspense>
       </div>
+    </div>
+  );
+}
+
+function OpenShiftsList({ promise }: { promise: Promise<OpenShift[]> }) {
+  const openShifts = use(promise);
+
+  if (openShifts.length === 0) {
+    return <EmptyRow text="Ingen ledige vagter matcher dine kategorier lige nu." />;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {openShifts.map((shift, i) => {
+        const badge = dateBadge(shift.date);
+        return (
+          <Link
+            key={shift.id}
+            href={`/vagt/${shift.id}`}
+            className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
+            style={{ animationDelay: `${i * 0.05}s` }}
+          >
+            <div className="bg-[#eaf3de] rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
+              <div className="text-[9.5px] font-semibold text-[#3b6d11] uppercase">{badge.month}</div>
+              <div className="text-[15px] font-bold text-[#3b6d11]">{badge.day}</div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13.5px] font-semibold text-pepo-t1 truncate">{shift.categoryName}</div>
+              <div className="text-[12px] text-pepo-t2 mt-0.5">
+                {shift.startTime}–{shift.endTime}
+              </div>
+            </div>
+            {shift.alreadyApplied ? (
+              <span className="flex-shrink-0 bg-[#FEF3E2] text-[#9A5F00] rounded-[16px] px-3 py-1.5 text-[12px] font-semibold">
+                Anmodet
+              </span>
+            ) : (
+              <Icon name="chevron-right" size={16} className="text-pepo-t3 flex-shrink-0" />
+            )}
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -254,6 +269,18 @@ function EmptyRow({ text }: { text: string }) {
   return (
     <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-4 text-center text-[13px] text-pepo-t3">
       {text}
+    </div>
+  );
+}
+
+// Matcher formen af de rigtige rækker (samme højde/rounding som
+// pepo-wh-kortene ovenfor), så indsættelsen ikke giver et synligt hop i
+// layoutet når de rigtige rækker popper ind.
+function OpenShiftsSkeleton() {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="h-[60px] rounded-[14px] bg-pepo-bd animate-pulse" />
+      <div className="h-[60px] rounded-[14px] bg-pepo-bd animate-pulse" />
     </div>
   );
 }

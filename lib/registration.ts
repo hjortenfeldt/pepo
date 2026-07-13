@@ -2,6 +2,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone } from "@/lib/format";
 import type { RegistrationResult, WorkCategory } from "@/lib/types";
+import { updateTag } from "next/cache";
+import { FREELANCER_MEMBERSHIPS_TAG } from "@/lib/freelancer";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -123,6 +125,7 @@ export async function submitRegistrationForCompany(
     await supabase.auth.admin.deleteUser(userId);
     return { success: false, error: "Der opstod en fejl. Prøv venligst igen om lidt." };
   }
+  updateTag(FREELANCER_MEMBERSHIPS_TAG);
 
   // 4. Kobl valgte arbejdskategorier på
   const { error: categoriesError } = await supabase

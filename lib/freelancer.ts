@@ -1,11 +1,21 @@
 import "server-only";
 import { cache } from "react";
+import { unstable_cache, updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type FreelancerMembership = {
   application_status: "pending" | "approved" | "rejected";
   companies: { id: string; name: string; slug: string } | null;
 };
+
+// Genbruges af enhver mutation der ændrer freelancer_companies (godkend/
+// afvis en ansøgning, admin-selv-provisionering, en ny ansøgning) — se
+// updateTag(FREELANCER_MEMBERSHIPS_TAG) i provisionAdminAsFreelancer
+// nedenfor, i app/tenant/(protected)/freelancers/actions.ts og i
+// lib/registration.ts. Én fælles tag frem for ét pr. freelancer-ID, da det
+// er langt simplere at holde alle invalideringssteder korrekte, og disse
+// mutationer er sjældne nok til at en bred invalidering ikke koster noget.
+export const FREELANCER_MEMBERSHIPS_TAG = "freelancer-memberships";
 
 /**
  * Firmaer freelanceren har ansøgt til/arbejder for, med status. Bruges af
@@ -18,22 +28,37 @@ export type FreelancerMembership = {
  * virksomheder samtidig (se pepo-migration-multi-tenant.sql), men appen
  * viser lige nu kun data for den første godkendte virksomhed. Et
  * firma-skift i appen er en fremtidig udbygning, når det bliver relevant.
+ *
+ * Kaldes på HVER ENESTE sidenavigation i freelancer-appen (layoutets
+ * godkendelsestjek), men ændrer sig kun når en admin godkender/afviser en
+ * ansøgning — en sjælden begivenhed. unstable_cache undgår derfor et
+ * databasekald ved hver sidenavigation; revalidate: 30 er et sikkerhedsnet
+ * (data er aldrig mere end 30 sek. forældet, selv hvis et
+ * invalideringssted skulle mangle), mens updateTag() ved de faktiske
+ * mutationer (kun kaldbar fra Server Actions) gør det øjeblikkeligt uden at
+ * vente på sikkerhedsnettet — se next/cache's updateTag vs. revalidateTag.
+ * Den ydre React cache() sikrer stadig at selve opslaget kun sker én gang
+ * pr. request/render.
  */
-export const getFreelancerMemberships = cache(async function getFreelancerMemberships(
-  freelancerId: string
-): Promise<FreelancerMembership[]> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("freelancer_companies")
-    .select("application_status, companies(id, name, slug)")
-    .eq("freelancer_id", freelancerId);
+export const getFreelancerMemberships = cache(
+  unstable_cache(
+    async function getFreelancerMemberships(freelancerId: string): Promise<FreelancerMembership[]> {
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("freelancer_companies")
+        .select("application_status, companies(id, name, slug)")
+        .eq("freelancer_id", freelancerId);
 
-  if (error) {
-    console.error("getFreelancerMemberships fejlede", error);
-    return [];
-  }
-  return data as unknown as FreelancerMembership[];
-});
+      if (error) {
+        console.error("getFreelancerMemberships fejlede", error);
+        return [];
+      }
+      return data as unknown as FreelancerMembership[];
+    },
+    ["freelancer-memberships"],
+    { tags: [FREELANCER_MEMBERSHIPS_TAG], revalidate: 30 }
+  )
+);
 
 /**
  * Den virksomhed, appen viser data for lige nu. Se MVP-bemærkningen ovenfor
@@ -46,6 +71,46 @@ export async function getPrimaryCompany(freelancerId: string) {
   const approved = memberships.find((m) => m.application_status === "approved" && m.companies);
   return approved?.companies ?? null;
 }
+
+export type CompanyContactInfo = {
+  name: string;
+  contact_person: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+};
+
+// Delt med de to mutationer i settings/company/actions.ts, som skal
+// invalidere begge tags (firmanavn/slug er også indlejret i den cachede
+// medlemskabsliste ovenfor).
+export const COMPANY_INFO_TAG = "company-info";
+
+/**
+ * Kontaktoplysninger på virksomheden, vist på freelancer-appens
+ * Kontakter-side. Ændrer sig kun når en admin gemmer virksomhedens
+ * profil (settings/company) — sjældnere end selv medlemskabsstatus —
+ * derfor et lidt længere sikkerhedsnet (60 sek.) end
+ * FREELANCER_MEMBERSHIPS_TAG ovenfor.
+ */
+export const getCompanyContactInfo = cache(
+  unstable_cache(
+    async function getCompanyContactInfo(companyId: string): Promise<CompanyContactInfo | null> {
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("companies")
+        .select("name, contact_person, contact_phone, contact_email")
+        .eq("id", companyId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("getCompanyContactInfo fejlede", error);
+        return null;
+      }
+      return data;
+    },
+    ["company-contact-info"],
+    { tags: [COMPANY_INFO_TAG], revalidate: 60 }
+  )
+);
 
 /**
  * Giver en nyoprettet admin-bruger automatisk status som godkendt
@@ -97,6 +162,7 @@ export async function provisionAdminAsFreelancer(
     console.error("provisionAdminAsFreelancer: freelancer_companies-insert fejlede", membershipError);
     return;
   }
+  updateTag(FREELANCER_MEMBERSHIPS_TAG);
 
   const { data: categories, error: categoriesError } = await supabase
     .from("work_categories")

@@ -1,5 +1,5 @@
-import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { getPrimaryCompany } from "@/lib/freelancer";
+import { getAuthUser } from "@/lib/supabase/server";
+import { getPrimaryCompany, getCompanyContactInfo } from "@/lib/freelancer";
 import Icon from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
@@ -15,15 +15,8 @@ export default async function FreelancerKontakterPage() {
   const user = await getAuthUser();
   if (!user) return null;
 
-  const supabase = await createClient();
   const company = await getPrimaryCompany(user.id);
-  const { data: companyDetails } = company
-    ? await supabase
-        .from("companies")
-        .select("name, contact_person, contact_phone, contact_email")
-        .eq("id", company.id)
-        .maybeSingle()
-    : { data: null };
+  const companyDetails = company ? await getCompanyContactInfo(company.id) : null;
 
   return (
     <div className="px-5 pt-4 pb-6">

@@ -3,7 +3,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { normalizePhone } from "@/lib/format";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { COMPANY_INFO_TAG, FREELANCER_MEMBERSHIPS_TAG } from "@/lib/freelancer";
 
 /**
  * companies kan kun opdateres af super-admins ifølge RLS ("Super admins
@@ -54,6 +55,12 @@ export async function updateCompanyProfile(input: CompanyProfileInput) {
   }
 
   revalidatePath("/settings/company");
+  // Freelancer-appens Kontakter-side (getCompanyContactInfo) og dens
+  // cachede medlemskabsliste (som indlejrer firmanavnet) cacher denne
+  // information — uden disse to ville en ændring her først slå igennem
+  // for freelancerne op til 60 sek. senere.
+  updateTag(COMPANY_INFO_TAG);
+  updateTag(FREELANCER_MEMBERSHIPS_TAG);
   return { success: true as const };
 }
 
@@ -96,5 +103,8 @@ export async function updateCompanySlug(newSlug: string) {
   }
 
   revalidatePath("/settings/company");
+  // Slug er indlejret i den cachede medlemskabsliste (companies.slug) —
+  // se samme begrundelse i updateCompanyProfile ovenfor.
+  updateTag(FREELANCER_MEMBERSHIPS_TAG);
   return { success: true as const, slug: cleaned };
 }

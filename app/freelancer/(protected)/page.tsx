@@ -1,4 +1,5 @@
 import { createClient, getAuthUser } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayIso } from "@/lib/format";
 import { getPrimaryCompany } from "@/lib/freelancer";
 import OverviewClient, { type ActiveShift, type OpenShift, type UpcomingShift } from "@/components/freelancer/OverviewClient";
@@ -50,21 +51,22 @@ export default async function FreelancerOverviewPage() {
   const supabase = await createClient();
   const today = todayIso();
 
-  const [profileResult, myShiftsResult, openShiftsResult, activeClockResult, company] = await Promise.all([
+  // Bevidst IKKE awaitet her, men sendt videre som et promise til
+  // OverviewClient (som læser det med Reacts use()-hook inde i sin egen
+  // <Suspense>). Denne forespørgsel scanner alle åbne/videresalgs-vagter på
+  // tværs af kategorier og er derfor typisk den tungeste af de fem
+  // forespørgsler på denne side — ved ikke at vente på den her, kan resten
+  // af Overblik (hilsen, stempelur, Mine vagter) vises så snart DE er
+  // klar, mens "Ledige vagter" strømmer ind separat lige efter.
+  const openShiftsPromise = getOpenShifts(supabase, user.id, today);
+
+  const [profileResult, myShiftsResult, activeClockResult, company] = await Promise.all([
     supabase.from("freelancer_profiles").select("full_name").eq("id", user.id).maybeSingle(),
     supabase
       .from("shifts")
       .select("id, shift_date, start_time, end_time, status, events(title), client_venues(name, address, postal_code, city)")
       .eq("assigned_freelancer_id", user.id)
       .eq("status", "assigned")
-      .gte("shift_date", today)
-      .order("shift_date")
-      .order("start_time")
-      .limit(6),
-    supabase
-      .from("shifts")
-      .select("id, shift_date, start_time, end_time, status, work_categories(name)")
-      .in("status", ["open", "for_resale"])
       .gte("shift_date", today)
       .order("shift_date")
       .order("start_time")
@@ -79,21 +81,7 @@ export default async function FreelancerOverviewPage() {
   ]);
 
   const myShifts = (myShiftsResult.data ?? []) as unknown as RawShiftRow[];
-  const openShiftsRaw = (openShiftsResult.data ?? []) as unknown as RawShiftRow[];
   const activeClock = activeClockResult.data as RawTimeClockRow | null;
-
-  let existingInterestShiftIds: string[] = [];
-  if (openShiftsRaw.length > 0) {
-    const { data: interests } = await supabase
-      .from("shift_interests")
-      .select("shift_id")
-      .eq("freelancer_id", user.id)
-      .in(
-        "shift_id",
-        openShiftsRaw.map((s) => s.id)
-      );
-    existingInterestShiftIds = (interests ?? []).map((i) => i.shift_id as string);
-  }
 
   // Den vagt, der evt. er stemplet ind på, vises i stempel-ur-kortet og
   // udelades derfor fra "Kommende vagter"-listen for ikke at optræde to
@@ -125,15 +113,6 @@ export default async function FreelancerOverviewPage() {
       isToday: s.shift_date === today,
     }));
 
-  const openShifts: OpenShift[] = openShiftsRaw.map((s) => ({
-    id: s.id,
-    date: s.shift_date,
-    startTime: hhmm(s.start_time),
-    endTime: hhmm(s.end_time),
-    categoryName: one(s.work_categories)?.name ?? "Ukendt kategori",
-    alreadyApplied: existingInterestShiftIds.includes(s.id),
-  }));
-
   const firstName = (profileResult.data?.full_name ?? "").split(" ")[0] || "der";
 
   return (
@@ -143,7 +122,46 @@ export default async function FreelancerOverviewPage() {
       companyName={company?.name ?? null}
       activeShift={activeShift}
       upcomingShifts={upcomingShifts}
-      openShifts={openShifts}
+      openShiftsPromise={openShiftsPromise}
     />
   );
+}
+
+async function getOpenShifts(
+  supabase: SupabaseClient,
+  freelancerId: string,
+  today: string
+): Promise<OpenShift[]> {
+  const { data: openShiftsData } = await supabase
+    .from("shifts")
+    .select("id, shift_date, start_time, end_time, status, work_categories(name)")
+    .in("status", ["open", "for_resale"])
+    .gte("shift_date", today)
+    .order("shift_date")
+    .order("start_time")
+    .limit(6);
+
+  const openShiftsRaw = (openShiftsData ?? []) as unknown as RawShiftRow[];
+
+  let existingInterestShiftIds: string[] = [];
+  if (openShiftsRaw.length > 0) {
+    const { data: interests } = await supabase
+      .from("shift_interests")
+      .select("shift_id")
+      .eq("freelancer_id", freelancerId)
+      .in(
+        "shift_id",
+        openShiftsRaw.map((s) => s.id)
+      );
+    existingInterestShiftIds = (interests ?? []).map((i) => i.shift_id as string);
+  }
+
+  return openShiftsRaw.map((s) => ({
+    id: s.id,
+    date: s.shift_date,
+    startTime: hhmm(s.start_time),
+    endTime: hhmm(s.end_time),
+    categoryName: one(s.work_categories)?.name ?? "Ukendt kategori",
+    alreadyApplied: existingInterestShiftIds.includes(s.id),
+  }));
 }

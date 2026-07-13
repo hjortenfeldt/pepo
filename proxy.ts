@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { SUBDOMAIN_HEADER } from "@/lib/tenant-constants";
+import { SUBDOMAIN_HEADER, VERIFIED_USER_ID_HEADER } from "@/lib/tenant-constants";
 import { cookieDomainOptions } from "@/lib/supabase/cookie-domain";
 
 /**
@@ -49,6 +49,22 @@ function withRefreshedCookies(target: NextResponse, source: NextResponse) {
     target.cookies.set(cookie.name, cookie.value, cookieDomainOptions());
   });
   return target;
+}
+
+// Bygger de request-headers der sendes videre til den rewritede side.
+// Nulstiller ALTID VERIFIED_USER_ID_HEADER først — ellers kunne en klient i
+// princippet selv sende den header og udgive sig for et andet bruger-ID.
+// Sættes kun (til den rigtige værdi) hvis vi her i proxy'en lige har
+// verificeret en session via auth.getUser(), så getAuthUser() nedstrøms
+// (lib/supabase/server.ts) kan genbruge ID'et frem for at verificere
+// sessionen igen over netværket.
+function buildRequestHeaders(request: NextRequest, verifiedUserId?: string) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete(VERIFIED_USER_ID_HEADER);
+  if (verifiedUserId) {
+    requestHeaders.set(VERIFIED_USER_ID_HEADER, verifiedUserId);
+  }
+  return requestHeaders;
 }
 
 export async function proxy(request: NextRequest) {
@@ -119,7 +135,10 @@ export async function proxy(request: NextRequest) {
     }
     const url = request.nextUrl.clone();
     url.pathname = `/super-admin${pathname}`;
-    return withRefreshedCookies(NextResponse.rewrite(url), refreshed);
+    return withRefreshedCookies(
+      NextResponse.rewrite(url, { request: { headers: buildRequestHeaders(request) } }),
+      refreshed
+    );
   }
 
   // app.pepo.team — freelancer-appen. Samme login/rewrite-mønster som
@@ -137,7 +156,10 @@ export async function proxy(request: NextRequest) {
     }
     const url = request.nextUrl.clone();
     url.pathname = `/freelancer${pathname}`;
-    return withRefreshedCookies(NextResponse.rewrite(url), refreshed);
+    return withRefreshedCookies(
+      NextResponse.rewrite(url, { request: { headers: buildRequestHeaders(request, user?.id) } }),
+      refreshed
+    );
   }
 
   // Alle andre subdomæner er en virksomheds eget adminsystem, fx
@@ -155,7 +177,7 @@ export async function proxy(request: NextRequest) {
 
   const url = request.nextUrl.clone();
   url.pathname = `/tenant${pathname}`;
-  const requestHeaders = new Headers(request.headers);
+  const requestHeaders = buildRequestHeaders(request);
   requestHeaders.set(SUBDOMAIN_HEADER, subdomain);
   return withRefreshedCookies(
     NextResponse.rewrite(url, { request: { headers: requestHeaders } }),

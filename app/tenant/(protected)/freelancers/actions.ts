@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { normalizePhone } from "@/lib/format";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { FREELANCER_MEMBERSHIPS_TAG } from "@/lib/freelancer";
 
 export async function setApplicationStatus(
   freelancerId: string,
@@ -32,6 +33,10 @@ export async function setApplicationStatus(
   }
 
   revalidatePath("/freelancers");
+  // Freelancerens egen app (getFreelancerMemberships) cacher denne status —
+  // uden denne får de først opdateret adgang op til 30 sek. senere i stedet
+  // for med det samme.
+  updateTag(FREELANCER_MEMBERSHIPS_TAG);
   return { success: true };
 }
 
