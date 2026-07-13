@@ -123,7 +123,7 @@ export default function OverviewClient({
             <img
               src={companyLogoUrl}
               alt={companyName ?? "Firmalogo"}
-              className="h-full max-h-[150px] max-w-full object-contain object-left"
+              className="h-full max-h-[100px] max-w-full object-contain object-left"
               style={{ maxWidth: "min(100%, 550px)" }}
             />
           ) : (

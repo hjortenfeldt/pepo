@@ -55,6 +55,7 @@ export default function CompanyLogoSettings({ initialLogoUrl }: { initialLogoUrl
       <div className="text-[15px] font-semibold text-pepo-t1 mb-1">Logo</div>
       <div className="text-[12.5px] text-pepo-t2 mb-4">
         Vises øverst i freelancer-appen. Har I ikke uploadet et logo, vises firmanavnet i stedet.
+        Ideel dimension: 550 x 100 px. (bredde x højde). Ideelt fil-format: SVG eller PNG.
       </div>
 
       <div className="flex items-center gap-4">
