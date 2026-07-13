@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache, updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export type FreelancerMembership = {
   application_status: "pending" | "approved" | "rejected";
@@ -111,6 +112,43 @@ export const getCompanyContactInfo = cache(
     { tags: [COMPANY_INFO_TAG], revalidate: 60 }
   )
 );
+
+export type CompanyColleague = {
+  id: string;
+  full_name: string;
+  phone: string;
+  email: string | null;
+  profile_image_url: string | null;
+  birth_date: string;
+  created_at: string;
+  category_names: string[];
+};
+
+/**
+ * Alle godkendte kolleger i freelancerens egen virksomhed (til Kontakter-
+ * sidens liste og profilvisning). Kalder RPC'en get_company_colleague_
+ * directory() via brugerens EGEN session-bundne klient (ikke admin-
+ * klienten som resten af denne fil bruger) — funktionen er SECURITY
+ * DEFINER og afgør selv adgangen ud fra auth.uid() indeni sig selv, så den
+ * skal kaldes som den faktiske bruger for at vide hvem "auth.uid()" er.
+ *
+ * Bevidst ikke bygget som en bred RLS-policy på freelancer_profiles: den
+ * tabel indeholder bl.a. bank_reg_number/bank_account_number, og RLS styrer
+ * kun hvilke RÆKKER man må se, ikke hvilke KOLONNER — en policy der lod
+ * kolleger se hinandens rækker ville derfor også (utilsigtet) gøre
+ * bankoplysninger læsbare for enhver der selv forespørger tabellen direkte.
+ * Funktionen returnerer derfor eksplicit kun de felter en kollega må se.
+ */
+export async function getCompanyColleagueDirectory(): Promise<CompanyColleague[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_company_colleague_directory");
+
+  if (error) {
+    console.error("getCompanyColleagueDirectory fejlede", error);
+    return [];
+  }
+  return (data ?? []) as CompanyColleague[];
+}
 
 /**
  * Giver en nyoprettet admin-bruger automatisk status som godkendt
