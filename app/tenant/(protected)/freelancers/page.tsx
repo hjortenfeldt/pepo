@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import FreelancerBoard from "@/components/admin/FreelancerBoard";
 import type { FreelancerListItem, CategoryOption } from "@/lib/admin-types";
 
@@ -45,6 +47,12 @@ function one<T>(rel: T | T[] | null | undefined): T | null {
 export default async function AdminFreelancersPage() {
   const supabase = await createClient();
 
+  // Se dashboard-page.tsx for hvorfor company.id skal filtreres eksplicit
+  // — RLS alene skelner ikke mellem admins egen virksomhed og den
+  // virksomhed en superadmin besøger i support-tilstand.
+  const company = await getCompanyBySubdomain();
+  if (!company) redirect("/login?error=unknown_company");
+
   const { data: memberships, error } = await supabase
     .from("freelancer_companies")
     .select(
@@ -52,6 +60,7 @@ export default async function AdminFreelancersPage() {
        freelancer_profiles(id, full_name, email, gender, birth_date, location, phone, bio,
          profile_image_url, social_media_url, has_license, freelancer_categories(work_categories(id, name, icon)))`
     )
+    .eq("company_id", company.id)
     .order("applied_at", { ascending: false });
 
   if (error) {
@@ -62,6 +71,7 @@ export default async function AdminFreelancersPage() {
   const { data: categoriesData, error: categoriesError } = await supabase
     .from("work_categories")
     .select("id, name, icon")
+    .eq("company_id", company.id)
     .order("name", { ascending: true });
 
   if (categoriesError) {

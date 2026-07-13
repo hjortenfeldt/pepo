@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import DashboardBoard from "@/components/admin/DashboardBoard";
 import { todayIso } from "@/lib/format";
 import {
@@ -45,6 +47,17 @@ function one<T>(rel: T | T[] | null | undefined): T | null {
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
+  // VIGTIGT: RLS alene er IKKE nok til at afgrænse til den rigtige
+  // virksomhed her. RLS'ens "is_super_admin() OR company_id =
+  // current_company_id()"-mønster betyder at en superadmin (som selv har
+  // en admin_users-række, fx til Pepo) ser data på tværs af ALLE
+  // virksomheder — ikke kun den virksomhed, hvis subdomæne der aktuelt
+  // besøges i support-tilstand. company.id (fra subdomænet) filtreres
+  // derfor eksplicit på hver forespørgsel, samme mønster som
+  // settings/company og settings/calendar allerede bruger.
+  const company = await getCompanyBySubdomain();
+  if (!company) redirect("/login?error=unknown_company");
+
   const [eventsResult, freelancerCountResult] = await Promise.all([
     supabase
       .from("events")
@@ -53,13 +66,15 @@ export default async function AdminDashboardPage() {
          shifts(status, start_time, end_time,
            work_categories(name, work_category_groups(client_rate_per_hour, freelancer_rate_per_hour)))`
       )
+      .eq("company_id", company.id)
       .order("event_date", { ascending: true }),
     // Godkendte freelancere for DENNE virksomhed — status hører til
     // freelancer_companies, da en freelancer kan arbejde for flere
-    // virksomheder. RLS begrænser automatisk til admins egen virksomhed.
+    // virksomheder.
     supabase
       .from("freelancer_companies")
       .select("freelancer_id", { count: "exact", head: true })
+      .eq("company_id", company.id)
       .eq("application_status", "approved"),
   ]);
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { sendPushToFreelancers } from "@/lib/push";
 
@@ -22,6 +23,11 @@ export async function sendMessage(input: MessageFormInput) {
   const validationError = validate(input);
   if (validationError) return { success: false, error: validationError };
 
+  // Se shifts/actions.ts for hvorfor company.id skal sættes/filtreres
+  // eksplicit i stedet for at stole på RLS/databasetriggerens fallback.
+  const company = await getCompanyBySubdomain();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
 
   const {
@@ -31,6 +37,7 @@ export async function sendMessage(input: MessageFormInput) {
   const { data: message, error: messageError } = await supabase
     .from("messages")
     .insert({
+      company_id: company.id,
       sender_admin_id: user?.id ?? null,
       subject: input.subject.trim(),
       body: input.body.trim(),
@@ -50,11 +57,11 @@ export async function sendMessage(input: MessageFormInput) {
   // kategorier ændres senere. Hentes bredt og filtreres i JS, samme
   // mønster som freelancer-kategori-udtrækket i shifts/page.tsx.
   // Godkendelsesstatus hører til freelancer_companies (en freelancer kan
-  // arbejde for flere virksomheder) — RLS begrænser automatisk til admins
-  // egen virksomhed.
+  // arbejde for flere virksomheder) — company.id filtreres eksplicit.
   const { data: approved, error: recipientsError } = await supabase
     .from("freelancer_companies")
     .select("freelancer_profiles(id, freelancer_categories(category_id))")
+    .eq("company_id", company.id)
     .eq("application_status", "approved");
 
   if (recipientsError) {

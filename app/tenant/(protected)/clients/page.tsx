@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import ClientBoard from "@/components/admin/ClientBoard";
 import type { ClientListItem } from "@/lib/admin-types";
 
@@ -32,11 +34,16 @@ type RawClientRow = {
 export default async function AdminClientsPage() {
   const supabase = await createClient();
 
+  // Se dashboard-page.tsx for hvorfor company.id skal filtreres eksplicit.
+  const company = await getCompanyBySubdomain();
+  if (!company) redirect("/login?error=unknown_company");
+
   const { data: clients, error } = await supabase
     .from("clients")
     .select(
       "id, name, cvr_number, contact_person, contact_phone, contact_email, notes, created_at, client_venues(id, name, address, postal_code, city)"
     )
+    .eq("company_id", company.id)
     .order("created_at", { ascending: false });
 
   if (error) {

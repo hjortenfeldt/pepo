@@ -1,8 +1,15 @@
 "use server";
 
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { normalizePhone } from "@/lib/format";
+
+// Se shifts/actions.ts for hvorfor company.id skal sættes/filtreres
+// eksplicit i stedet for at stole på RLS/databasetriggerens fallback.
+async function requireCompany() {
+  return getCompanyBySubdomain();
+}
 
 // Et arbejdssted (venue) på en kunde. "id" er null for et nyt arbejdssted,
 // der endnu ikke findes i databasen — sat, når man redigerer et eksisterende.
@@ -55,6 +62,7 @@ function validate(input: ClientFormInput) {
 // (fx vagt-oprettelse) forudsætter at en kunde har mindst ét venue at vælge.
 async function syncVenues(
   supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  companyId: string,
   clientId: string,
   venues: VenueFormEntry[]
 ) {
@@ -66,13 +74,14 @@ async function syncVenues(
   const { data: existing } = await supabase
     .from("client_venues")
     .select("id")
-    .eq("client_id", clientId);
+    .eq("client_id", clientId)
+    .eq("company_id", companyId);
   const existingIds = new Set((existing ?? []).map((v) => v.id as string));
   const keptIds = new Set(toKeep.filter((v) => v.id).map((v) => v.id as string));
 
   const idsToDelete = [...existingIds].filter((id) => !keptIds.has(id));
   if (idsToDelete.length > 0) {
-    await supabase.from("client_venues").delete().in("id", idsToDelete);
+    await supabase.from("client_venues").delete().in("id", idsToDelete).eq("company_id", companyId);
   }
 
   for (const v of toKeep) {
@@ -84,9 +93,9 @@ async function syncVenues(
       city: v.city.trim() || null,
     };
     if (v.id) {
-      await supabase.from("client_venues").update(row).eq("id", v.id);
+      await supabase.from("client_venues").update(row).eq("id", v.id).eq("company_id", companyId);
     } else {
-      await supabase.from("client_venues").insert(row);
+      await supabase.from("client_venues").insert({ ...row, company_id: companyId });
     }
   }
 }
@@ -95,8 +104,15 @@ export async function createClientRecord(input: ClientFormInput) {
   const validationError = validate(input);
   if (validationError) return { success: false as const, error: validationError };
 
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase.from("clients").insert(toRow(input)).select("id").single();
+  const { data, error } = await supabase
+    .from("clients")
+    .insert({ ...toRow(input), company_id: company.id })
+    .select("id")
+    .single();
 
   if (error || !data) {
     console.error("createClientRecord fejlede", error);
@@ -104,7 +120,7 @@ export async function createClientRecord(input: ClientFormInput) {
   }
 
   if (input.venues !== undefined) {
-    await syncVenues(supabase, data.id as string, input.venues);
+    await syncVenues(supabase, company.id, data.id as string, input.venues);
   }
 
   revalidatePath("/clients");
@@ -115,11 +131,15 @@ export async function updateClientRecord(id: string, input: ClientFormInput) {
   const validationError = validate(input);
   if (validationError) return { success: false, error: validationError };
 
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
   const { error } = await supabase
     .from("clients")
     .update(toRow(input))
-    .eq("id", id);
+    .eq("id", id)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("updateClientRecord fejlede", error);
@@ -127,7 +147,7 @@ export async function updateClientRecord(id: string, input: ClientFormInput) {
   }
 
   if (input.venues !== undefined) {
-    await syncVenues(supabase, id, input.venues);
+    await syncVenues(supabase, company.id, id, input.venues);
   }
 
   revalidatePath("/clients");
@@ -135,8 +155,15 @@ export async function updateClientRecord(id: string, input: ClientFormInput) {
 }
 
 export async function deleteClientRecord(id: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
-  const { error } = await supabase.from("clients").delete().eq("id", id);
+  const { error } = await supabase
+    .from("clients")
+    .delete()
+    .eq("id", id)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("deleteClientRecord fejlede", error);

@@ -1,8 +1,20 @@
 "use server";
 
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import type { EventAttachment, ShiftStatus, VenueItem } from "@/lib/admin-types";
+
+// VIGTIGT: RLS alene skelner ikke mellem "min egen virksomhed" og "den
+// virksomhed en superadmin besøger i support-tilstand" (se
+// dashboard-page.tsx for uddybning) — company.id fra subdomænet sættes
+// derfor eksplicit på alle indsættelser/opdateringer herunder, i stedet
+// for at stole på databasetriggerens fallback til admins egen virksomhed.
+async function requireCompany() {
+  const company = await getCompanyBySubdomain();
+  if (!company) return null;
+  return company;
+}
 
 export type EventFormInput = {
   title: string;
@@ -60,11 +72,15 @@ export async function createEventWithShifts(input: EventFormInput, rows: ShiftRo
   const validationError = validateEvent(input) || validateRows(rows);
   if (validationError) return { success: false as const, error: validationError };
 
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { data: event, error: eventError } = await supabase
     .from("events")
     .insert({
+      company_id: company.id,
       title: input.title.trim(),
       event_date: input.eventDate,
       description: input.description.trim() || null,
@@ -82,6 +98,7 @@ export async function createEventWithShifts(input: EventFormInput, rows: ShiftRo
   const shiftFields = eventFieldsForShift(input);
   const { error: shiftsError } = await supabase.from("shifts").insert(
     rows.map((r) => ({
+      company_id: company.id,
       event_id: event.id,
       category_id: r.categoryId,
       start_time: r.startTime,
@@ -109,11 +126,15 @@ export async function createEventOnly(input: EventFormInput) {
   const validationError = validateEvent(input);
   if (validationError) return { success: false as const, error: validationError };
 
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { data: event, error: eventError } = await supabase
     .from("events")
     .insert({
+      company_id: company.id,
       title: input.title.trim(),
       event_date: input.eventDate,
       description: input.description.trim() || null,
@@ -136,6 +157,9 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
   const validationError = validateEvent(input);
   if (validationError) return { success: false, error: validationError };
 
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { error: eventError } = await supabase
@@ -147,7 +171,8 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
       client_id: input.clientId,
       venue_id: input.venueId,
     })
-    .eq("id", eventId);
+    .eq("id", eventId)
+    .eq("company_id", company.id);
 
   if (eventError) {
     console.error("updateEvent fejlede", eventError);
@@ -158,7 +183,8 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
   const { error: shiftsError } = await supabase
     .from("shifts")
     .update(eventFieldsForShift(input))
-    .eq("event_id", eventId);
+    .eq("event_id", eventId)
+    .eq("company_id", company.id);
 
   if (shiftsError) {
     console.error("updateEvent: kunne ikke opdatere vagterne", shiftsError);
@@ -173,12 +199,16 @@ export async function addShiftsToEvent(eventId: string, rows: ShiftRowInput[]) {
   const validationError = validateRows(rows);
   if (validationError) return { success: false, error: validationError };
 
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { data: event, error: eventError } = await supabase
     .from("events")
     .select("title, event_date, description, client_id, venue_id")
     .eq("id", eventId)
+    .eq("company_id", company.id)
     .single();
 
   if (eventError || !event) {
@@ -188,6 +218,7 @@ export async function addShiftsToEvent(eventId: string, rows: ShiftRowInput[]) {
 
   const { error } = await supabase.from("shifts").insert(
     rows.map((r) => ({
+      company_id: company.id,
       event_id: eventId,
       category_id: r.categoryId,
       start_time: r.startTime,
@@ -214,11 +245,15 @@ export async function updateShift(shiftId: string, row: ShiftRowInput) {
   const validationError = validateRows([row]);
   if (validationError) return { success: false, error: validationError };
 
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
   const { error } = await supabase
     .from("shifts")
     .update({ category_id: row.categoryId, start_time: row.startTime, end_time: row.endTime })
-    .eq("id", shiftId);
+    .eq("id", shiftId)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("updateShift fejlede", error);
@@ -230,12 +265,16 @@ export async function updateShift(shiftId: string, row: ShiftRowInput) {
 }
 
 export async function assignFreelancer(shiftId: string, freelancerId: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { error } = await supabase
     .from("shifts")
     .update({ assigned_freelancer_id: freelancerId, status: "assigned" as ShiftStatus })
-    .eq("id", shiftId);
+    .eq("id", shiftId)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("assignFreelancer fejlede", error);
@@ -255,11 +294,15 @@ export async function assignFreelancer(shiftId: string, freelancerId: string) {
 }
 
 export async function releaseShift(shiftId: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
   const { error } = await supabase
     .from("shifts")
     .update({ assigned_freelancer_id: null, status: "open" as ShiftStatus })
-    .eq("id", shiftId);
+    .eq("id", shiftId)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("releaseShift fejlede", error);
@@ -271,12 +314,16 @@ export async function releaseShift(shiftId: string) {
 }
 
 export async function deleteShift(shiftId: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { data: current, error: fetchError } = await supabase
     .from("shifts")
     .select("status")
     .eq("id", shiftId)
+    .eq("company_id", company.id)
     .single();
 
   if (fetchError || !current) {
@@ -287,7 +334,8 @@ export async function deleteShift(shiftId: string) {
   const { error } = await supabase
     .from("shifts")
     .update({ status: "cancelled" as ShiftStatus, previous_status: current.status })
-    .eq("id", shiftId);
+    .eq("id", shiftId)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("deleteShift fejlede", error);
@@ -299,12 +347,16 @@ export async function deleteShift(shiftId: string) {
 }
 
 export async function undeleteShift(shiftId: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { data: current, error: fetchError } = await supabase
     .from("shifts")
     .select("previous_status")
     .eq("id", shiftId)
+    .eq("company_id", company.id)
     .single();
 
   if (fetchError || !current) {
@@ -315,7 +367,8 @@ export async function undeleteShift(shiftId: string) {
   const { error } = await supabase
     .from("shifts")
     .update({ status: (current.previous_status ?? "open") as ShiftStatus, previous_status: null })
-    .eq("id", shiftId);
+    .eq("id", shiftId)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("undeleteShift fejlede", error);
@@ -327,12 +380,16 @@ export async function undeleteShift(shiftId: string) {
 }
 
 export async function duplicateShift(shiftId: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { data: original, error: fetchError } = await supabase
     .from("shifts")
     .select("event_id, category_id, shift_date, start_time, end_time, client_id, venue_id, title, description")
     .eq("id", shiftId)
+    .eq("company_id", company.id)
     .single();
 
   if (fetchError || !original) {
@@ -342,6 +399,7 @@ export async function duplicateShift(shiftId: string) {
 
   const { error } = await supabase.from("shifts").insert({
     ...original,
+    company_id: company.id,
     status: "open" as ShiftStatus,
     assigned_freelancer_id: null,
     previous_status: null,
@@ -357,11 +415,15 @@ export async function duplicateShift(shiftId: string) {
 }
 
 export async function createVenue(clientId: string, input: VenueFormInput) {
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { data, error } = await supabase
     .from("client_venues")
     .insert({
+      company_id: company.id,
       client_id: clientId,
       name: input.name.trim() || null,
       address: input.address.trim() || null,
@@ -390,6 +452,9 @@ export async function createVenue(clientId: string, input: VenueFormInput) {
 }
 
 export async function updateVenue(venueId: string, input: VenueFormInput) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const { error } = await supabase
@@ -400,7 +465,8 @@ export async function updateVenue(venueId: string, input: VenueFormInput) {
       postal_code: input.postalCode.trim() || null,
       city: input.city.trim() || null,
     })
-    .eq("id", venueId);
+    .eq("id", venueId)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("updateVenue fejlede", error);
@@ -412,8 +478,15 @@ export async function updateVenue(venueId: string, input: VenueFormInput) {
 }
 
 export async function deleteVenue(venueId: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
-  const { error } = await supabase.from("client_venues").delete().eq("id", venueId);
+  const { error } = await supabase
+    .from("client_venues")
+    .delete()
+    .eq("id", venueId)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("deleteVenue fejlede", error);
@@ -428,6 +501,9 @@ export async function uploadAttachment(eventId: string, file: File) {
   if (!(file instanceof File) || file.size === 0) {
     return { success: false as const, error: "Ingen fil valgt." };
   }
+
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
 
   const supabase = await createSupabaseClient();
   const path = `${eventId}/${crypto.randomUUID()}-${file.name}`;
@@ -446,6 +522,7 @@ export async function uploadAttachment(eventId: string, file: File) {
   const { data, error } = await supabase
     .from("shift_attachments")
     .insert({
+      company_id: company.id,
       event_id: eventId,
       file_name: file.name,
       file_url: publicUrlData.publicUrl,
@@ -471,6 +548,9 @@ export async function uploadAttachment(eventId: string, file: File) {
 }
 
 export async function removeAttachment(attachmentId: string, fileUrl: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createSupabaseClient();
 
   const path = fileUrl.split("/shift-attachments/")[1];
@@ -478,7 +558,11 @@ export async function removeAttachment(attachmentId: string, fileUrl: string) {
     await supabase.storage.from("shift-attachments").remove([path]);
   }
 
-  const { error } = await supabase.from("shift_attachments").delete().eq("id", attachmentId);
+  const { error } = await supabase
+    .from("shift_attachments")
+    .delete()
+    .eq("id", attachmentId)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("removeAttachment fejlede", error);

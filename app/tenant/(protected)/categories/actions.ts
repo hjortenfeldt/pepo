@@ -1,7 +1,14 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
+
+// Se shifts/actions.ts for hvorfor company.id skal sættes/filtreres
+// eksplicit i stedet for at stole på RLS/databasetriggerens fallback.
+async function requireCompany() {
+  return getCompanyBySubdomain();
+}
 
 // --- Jobfunktioner ---
 
@@ -9,10 +16,13 @@ export async function createCategory(name: string, groupId: string | null) {
   const trimmed = name.trim();
   if (!trimmed) return { success: false, error: "Udfyld et navn." };
 
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("work_categories")
-    .insert({ name: trimmed, group_id: groupId });
+    .insert({ name: trimmed, group_id: groupId, company_id: company.id });
 
   if (error) {
     console.error("createCategory fejlede", error);
@@ -30,11 +40,15 @@ export async function renameCategory(id: string, name: string) {
   const trimmed = name.trim();
   if (!trimmed) return { success: false, error: "Navnet kan ikke være tomt." };
 
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("work_categories")
     .update({ name: trimmed })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("renameCategory fejlede", error);
@@ -52,11 +66,15 @@ export async function renameCategory(id: string, name: string) {
 // drag & drop og kunne genbruges hvis vi senere tilføjer en dropdown.
 // groupId === null betyder "Ikke tildelt priskategori".
 export async function updateCategoryGroup(id: string, groupId: string | null) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("work_categories")
     .update({ group_id: groupId })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("updateCategoryGroup fejlede", error);
@@ -68,11 +86,15 @@ export async function updateCategoryGroup(id: string, groupId: string | null) {
 }
 
 export async function updateCategoryIcon(id: string, icon: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("work_categories")
     .update({ icon })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("updateCategoryIcon fejlede", error);
@@ -84,8 +106,15 @@ export async function updateCategoryIcon(id: string, icon: string) {
 }
 
 export async function deleteCategory(id: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
-  const { error } = await supabase.from("work_categories").delete().eq("id", id);
+  const { error } = await supabase
+    .from("work_categories")
+    .delete()
+    .eq("id", id)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("deleteCategory fejlede", error);
@@ -114,6 +143,9 @@ export async function createGroup(name: string, clientRatePerHour: number, freel
     return { success: false as const, error: "Udfyld hvad freelanceren får." };
   }
 
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("work_category_groups")
@@ -121,6 +153,7 @@ export async function createGroup(name: string, clientRatePerHour: number, freel
       name: trimmed,
       client_rate_per_hour: clientRatePerHour,
       freelancer_rate_per_hour: freelancerRatePerHour,
+      company_id: company.id,
     })
     .select("id")
     .single();
@@ -141,11 +174,15 @@ export async function renameGroup(id: string, name: string) {
   const trimmed = name.trim();
   if (!trimmed) return { success: false, error: "Navnet kan ikke være tomt." };
 
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("work_category_groups")
     .update({ name: trimmed })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("renameGroup fejlede", error);
@@ -168,6 +205,9 @@ export async function updateGroupRates(
     return { success: false, error: "Takster skal være større end 0." };
   }
 
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("work_category_groups")
@@ -175,7 +215,8 @@ export async function updateGroupRates(
       client_rate_per_hour: clientRatePerHour,
       freelancer_rate_per_hour: freelancerRatePerHour,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("updateGroupRates fejlede", error);
@@ -190,8 +231,15 @@ export async function updateGroupRates(
 // flyttes til "Ikke tildelt priskategori" (group_id sættes til null via
 // "on delete set null" på fremmednøglen), matcher prototypens adfærd.
 export async function deleteGroup(id: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = await createClient();
-  const { error } = await supabase.from("work_category_groups").delete().eq("id", id);
+  const { error } = await supabase
+    .from("work_category_groups")
+    .delete()
+    .eq("id", id)
+    .eq("company_id", company.id);
 
   if (error) {
     console.error("deleteGroup fejlede", error);

@@ -182,7 +182,28 @@ export async function updateFreelancer(freelancerId: string, input: FreelancerFo
   const validationError = validate(input);
   if (validationError) return { success: false as const, error: validationError };
 
+  const company = await getCompanyBySubdomain();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
   const supabase = createAdminClient();
+
+  // freelancer_profiles/freelancer_categories har ikke selv et company_id
+  // (en freelancer kan arbejde for flere virksomheder), og denne funktion
+  // bruger service role-klienten (RLS gælder ikke) — verificér derfor
+  // eksplicit at freelanceren rent faktisk er tilknyttet DENNE virksomhed,
+  // så en superadmin i support-tilstand ikke kan redigere en freelancer,
+  // der hører til en helt anden virksomhed.
+  const { data: membership } = await supabase
+    .from("freelancer_companies")
+    .select("freelancer_id")
+    .eq("freelancer_id", freelancerId)
+    .eq("company_id", company.id)
+    .maybeSingle();
+
+  if (!membership) {
+    return { success: false as const, error: "Freelanceren er ikke tilknyttet denne virksomhed." };
+  }
+
   const profileImageUrl = await uploadPhotoIfNeeded(supabase, freelancerId, input.photoDataUrl);
 
   const updateRow: Record<string, unknown> = {

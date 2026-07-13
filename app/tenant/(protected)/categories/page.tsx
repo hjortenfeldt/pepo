@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import CategoryList from "@/components/admin/CategoryList";
 import type { CategoryGroupListItem, CategoryListItem } from "@/lib/admin-types";
 
@@ -27,14 +29,20 @@ type RawCategoryRow = {
 export default async function AdminCategoriesPage() {
   const supabase = await createClient();
 
+  // Se dashboard-page.tsx for hvorfor company.id skal filtreres eksplicit.
+  const company = await getCompanyBySubdomain();
+  if (!company) redirect("/login?error=unknown_company");
+
   const [groupsResult, categoriesResult] = await Promise.all([
     supabase
       .from("work_category_groups")
       .select("id, name, client_rate_per_hour, freelancer_rate_per_hour")
+      .eq("company_id", company.id)
       .order("name"),
     supabase
       .from("work_categories")
       .select("id, name, group_id, icon, freelancer_categories(count)")
+      .eq("company_id", company.id)
       .order("name"),
   ]);
 

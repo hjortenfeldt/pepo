@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import MessageBoard from "@/components/admin/MessageBoard";
 import type { MessageListItem, CategoryOption, FreelancerOption } from "@/lib/admin-types";
 
@@ -46,6 +48,10 @@ function one<T>(rel: T | T[] | null | undefined): T | null {
 export default async function AdminMessagesPage() {
   const supabase = await createClient();
 
+  // Se dashboard-page.tsx for hvorfor company.id skal filtreres eksplicit.
+  const company = await getCompanyBySubdomain();
+  if (!company) redirect("/login?error=unknown_company");
+
   const [messagesResult, categoriesResult, freelancersResult] = await Promise.all([
     supabase
       .from("messages")
@@ -55,11 +61,17 @@ export default async function AdminMessagesPage() {
          work_categories(name),
          message_recipients(freelancer_id, read_at, freelancer_profiles(full_name))`
       )
+      .eq("company_id", company.id)
       .order("created_at", { ascending: false }),
-    supabase.from("work_categories").select("id, name").order("name"),
+    supabase
+      .from("work_categories")
+      .select("id, name")
+      .eq("company_id", company.id)
+      .order("name"),
     supabase
       .from("freelancer_companies")
       .select("freelancer_profiles(id, full_name, freelancer_categories(work_categories(name)))")
+      .eq("company_id", company.id)
       .eq("application_status", "approved"),
   ]);
 

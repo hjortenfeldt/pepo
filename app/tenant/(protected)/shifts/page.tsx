@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
 import ShiftBoard from "@/components/admin/ShiftBoard";
 import { venueLabel } from "@/lib/format";
 import type {
@@ -94,6 +96,12 @@ function hhmm(time: string): string {
 export default async function AdminShiftsPage() {
   const supabase = await createClient();
 
+  // Se page.tsx (dashboard) for hvorfor company.id skal filtreres
+  // eksplicit — RLS alene skelner ikke mellem "min egen virksomhed" og
+  // "virksomheden hvis subdomæne jeg besøger som superadmin i support-tilstand".
+  const company = await getCompanyBySubdomain();
+  if (!company) redirect("/login?error=unknown_company");
+
   const [eventsResult, clientsResult, categoriesResult, freelancersResult] = await Promise.all([
     supabase
       .from("events")
@@ -108,17 +116,24 @@ export default async function AdminShiftsPage() {
            freelancer_profiles(full_name),
            shift_interests(freelancer_id, status, freelancer_profiles(full_name)))`
       )
+      .eq("company_id", company.id)
       .order("event_date", { ascending: true }),
     supabase
       .from("clients")
       .select(
         "id, name, cvr_number, contact_person, contact_phone, contact_email, notes, client_venues(id, client_id, name, address, postal_code, city)"
       )
+      .eq("company_id", company.id)
       .order("name"),
-    supabase.from("work_categories").select("id, name, icon").order("name"),
+    supabase
+      .from("work_categories")
+      .select("id, name, icon")
+      .eq("company_id", company.id)
+      .order("name"),
     supabase
       .from("freelancer_companies")
       .select("freelancer_profiles(id, full_name, freelancer_categories(work_categories(name)))")
+      .eq("company_id", company.id)
       .eq("application_status", "approved"),
   ]);
 
