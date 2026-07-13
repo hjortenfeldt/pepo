@@ -108,3 +108,75 @@ export async function updateCompanySlug(newSlug: string) {
   updateTag(FREELANCER_MEMBERSHIPS_TAG);
   return { success: true as const, slug: cleaned };
 }
+
+/**
+ * Uploader/erstatter virksomhedens logo (vist i freelancer-appens
+ * Overblik-header). Samme data-URL-mønster som profilbillede-uploads
+ * (se lib/supabase-uafhængige uploadPhotoIfNeeded i profile/actions.ts) —
+ * her indlejret direkte, da det kun er ét sted der uploader firmalogoer.
+ */
+export async function updateCompanyLogo(logoDataUrl: string) {
+  const match = logoDataUrl.match(/^data:(.+?);base64,(.+)$/);
+  if (!match) {
+    return { success: false as const, error: "Ugyldigt billedformat." };
+  }
+
+  const company = await getCompanyBySubdomain();
+  if (!company) {
+    return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+  }
+
+  const contentType = match[1];
+  const base64 = match[2];
+  const ext = contentType.split("/")[1]?.split("+")[0] || "png";
+  const buffer = Buffer.from(base64, "base64");
+  const path = `${company.id}/logo.${ext}`;
+
+  const supabase = createAdminClient();
+  const { error: uploadError } = await supabase.storage
+    .from("company-logos")
+    .upload(path, buffer, { upsert: true, contentType });
+
+  if (uploadError) {
+    console.error("updateCompanyLogo: upload fejlede", uploadError);
+    return { success: false as const, error: "Kunne ikke uploade logoet. Prøv igen." };
+  }
+
+  const { data: publicUrlData } = supabase.storage.from("company-logos").getPublicUrl(path);
+  // Cache-bust, så det nye logo vises med det samme og ikke rammer en
+  // gammel, browser-cachet udgave på samme filsti.
+  const logoUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+
+  const { error: dbError } = await supabase.from("companies").update({ logo_url: logoUrl }).eq("id", company.id);
+
+  if (dbError) {
+    console.error("updateCompanyLogo: companies-update fejlede", dbError);
+    return { success: false as const, error: "Kunne ikke gemme logoet. Prøv igen." };
+  }
+
+  revalidatePath("/settings/company");
+  // Logoet er indlejret i den cachede medlemskabsliste ligesom firmanavn
+  // og slug (se getFreelancerMemberships i lib/freelancer.ts).
+  updateTag(FREELANCER_MEMBERSHIPS_TAG);
+  return { success: true as const, logoUrl };
+}
+
+/** Fjerner virksomhedens logo igen — freelancer-appen falder tilbage til at vise firmanavnet som overskrift. */
+export async function removeCompanyLogo() {
+  const company = await getCompanyBySubdomain();
+  if (!company) {
+    return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("companies").update({ logo_url: null }).eq("id", company.id);
+
+  if (error) {
+    console.error("removeCompanyLogo fejlede", error);
+    return { success: false as const, error: "Kunne ikke fjerne logoet. Prøv igen." };
+  }
+
+  revalidatePath("/settings/company");
+  updateTag(FREELANCER_MEMBERSHIPS_TAG);
+  return { success: true as const };
+}

@@ -32,18 +32,6 @@ function hhmm(time: string): string {
   return time.slice(0, 5);
 }
 
-const WEEKDAYS = ["søndag", "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag"];
-const MONTHS = [
-  "januar", "februar", "marts", "april", "maj", "juni",
-  "juli", "august", "september", "oktober", "november", "december",
-];
-
-function greetingDate(): string {
-  const d = new Date();
-  const weekday = WEEKDAYS[d.getDay()];
-  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${d.getDate()}. ${MONTHS[d.getMonth()]}`;
-}
-
 export default async function FreelancerOverviewPage() {
   const user = await getAuthUser();
   if (!user) return null;
@@ -61,7 +49,7 @@ export default async function FreelancerOverviewPage() {
   const openShiftsPromise = getOpenShifts(supabase, user.id, today);
 
   const [profileResult, myShiftsResult, activeClockResult, company] = await Promise.all([
-    supabase.from("freelancer_profiles").select("full_name").eq("id", user.id).maybeSingle(),
+    supabase.from("freelancer_profiles").select("full_name, profile_image_url").eq("id", user.id).maybeSingle(),
     supabase
       .from("shifts")
       .select("id, shift_date, start_time, end_time, status, events(title), client_venues(name, address, postal_code, city)")
@@ -113,13 +101,16 @@ export default async function FreelancerOverviewPage() {
       isToday: s.shift_date === today,
     }));
 
-  const firstName = (profileResult.data?.full_name ?? "").split(" ")[0] || "der";
+  const fullName = profileResult.data?.full_name ?? "";
+  const firstName = fullName.split(" ")[0] || "der";
 
   return (
     <OverviewClient
-      greetingName={firstName}
-      greetingDate={greetingDate()}
+      firstName={firstName}
+      userFullName={fullName}
+      userPhotoUrl={profileResult.data?.profile_image_url ?? null}
       companyName={company?.name ?? null}
+      companyLogoUrl={company?.logo_url ?? null}
       activeShift={activeShift}
       upcomingShifts={upcomingShifts}
       openShiftsPromise={openShiftsPromise}

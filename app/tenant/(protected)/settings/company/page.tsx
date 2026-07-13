@@ -15,7 +15,9 @@ export default async function CompanyProfilePage() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("companies")
-    .select("name, slug, cvr_number, address, postal_code, city, contact_person, contact_phone, contact_email")
+    .select(
+      "name, slug, cvr_number, address, postal_code, city, contact_person, contact_phone, contact_email, logo_url"
+    )
     .eq("id", company.id)
     .single();
 
@@ -36,6 +38,7 @@ export default async function CompanyProfilePage() {
         contactPerson: data.contact_person ?? "",
         contactPhone: data.contact_phone ?? "",
         contactEmail: data.contact_email ?? "",
+        logoUrl: data.logo_url ?? null,
       }}
     />
   );

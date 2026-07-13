@@ -48,17 +48,28 @@ function elapsed(clockInAt: string, now: number) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return "?";
+}
+
 export default function OverviewClient({
-  greetingName,
-  greetingDate,
+  firstName,
+  userFullName,
+  userPhotoUrl,
   companyName,
+  companyLogoUrl,
   activeShift,
   upcomingShifts,
   openShiftsPromise,
 }: {
-  greetingName: string;
-  greetingDate: string;
+  firstName: string;
+  userFullName: string;
+  userPhotoUrl: string | null;
   companyName: string | null;
+  companyLogoUrl: string | null;
   activeShift: ActiveShift | null;
   upcomingShifts: UpcomingShift[];
   openShiftsPromise: Promise<OpenShift[]>;
@@ -100,15 +111,42 @@ export default function OverviewClient({
           baggrundsfarve som resten af siden (bg-pepo-su), så den smelter
           sammen med indholdet i ro, men en bund-border gør den synligt
           adskilt fra indholdet, når det scroller op bagved. */}
-      <div className="sticky top-0 z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise">
-        <div className="text-[20px] font-bold text-pepo-t1">Hej, {greetingName}</div>
-        <div className="text-[13px] text-pepo-t2 mt-0.5">{greetingDate}</div>
-        {companyName && (
-          <div className="flex items-center gap-1.5 mt-1.5 text-[12px] text-pepo-t2">
-            <Icon name="building-store" size={14} className="text-pepo-t3" />
-            {companyName}
+      <div className="sticky top-0 z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {companyLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={companyLogoUrl}
+              alt={companyName ?? "Firmalogo"}
+              className="h-8 max-w-[170px] object-contain object-left"
+            />
+          ) : (
+            companyName && <div className="text-[20px] font-bold text-pepo-t1 truncate">{companyName}</div>
+          )}
+          {companyName && (
+            <div className="flex items-center gap-1.5 mt-1.5 text-[12px] text-pepo-t2">
+              <Icon name="building-store" size={14} className="text-pepo-t3" />
+              {companyName}
+            </div>
+          )}
+        </div>
+
+        {/* Åbner samme side som "Mere" i bundnavigationen — kun i toppen af
+            Overblik, ikke en fælles top-bar på tværs af alle faner. */}
+        <Link
+          href="/mere"
+          className="flex items-center gap-2 flex-shrink-0 active:opacity-70 transition-opacity"
+        >
+          <div className="w-8 h-8 rounded-full bg-pepo-pl text-pepo-p text-[12px] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0">
+            {userPhotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={userPhotoUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              initials(userFullName)
+            )}
           </div>
-        )}
+          <span className="text-[13.5px] font-medium text-pepo-t1">{firstName}</span>
+        </Link>
       </div>
 
       <div className="px-5 pt-4 pb-6">

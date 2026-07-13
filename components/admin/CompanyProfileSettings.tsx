@@ -8,10 +8,11 @@ import {
   updateCompanySlug,
   type CompanyProfileInput,
 } from "@/app/tenant/(protected)/settings/company/actions";
+import CompanyLogoSettings from "./CompanyLogoSettings";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
 
-type CompanyProfileData = CompanyProfileInput & { slug: string };
+type CompanyProfileData = CompanyProfileInput & { slug: string; logoUrl: string | null };
 
 function Field({
   label,
@@ -171,6 +172,8 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
             {isSavingProfile ? "Gemmer..." : profileSaved ? "Gemt" : "Gem ændringer"}
           </button>
         </div>
+
+        <CompanyLogoSettings initialLogoUrl={initial.logoUrl} />
 
         <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
           <div className="text-[15px] font-semibold text-pepo-t1 mb-1">Webadresse</div>

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type FreelancerMembership = {
   application_status: "pending" | "approved" | "rejected";
-  companies: { id: string; name: string; slug: string } | null;
+  companies: { id: string; name: string; slug: string; logo_url: string | null } | null;
 };
 
 // Genbruges af enhver mutation der ændrer freelancer_companies (godkend/
@@ -47,7 +47,7 @@ export const getFreelancerMemberships = cache(
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("freelancer_companies")
-        .select("application_status, companies(id, name, slug)")
+        .select("application_status, companies(id, name, slug, logo_url)")
         .eq("freelancer_id", freelancerId);
 
       if (error) {
