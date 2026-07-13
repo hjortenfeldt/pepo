@@ -111,31 +111,32 @@ export default function OverviewClient({
           baggrundsfarve som resten af siden (bg-pepo-su), så den smelter
           sammen med indholdet i ro, men en bund-border gør den synligt
           adskilt fra indholdet, når det scroller op bagved. */}
-      <div className="sticky top-0 z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="sticky top-0 z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise flex justify-between gap-3">
+        {/* Kun logoet herinde — ingen ikon, ingen ekstra tekstlinje. Fylder
+            hele barens højde (minus paddingen ovenfor/nedenunder) og højst
+            halvdelen af bredden, så der altid er plads nok til navn +
+            firmanavn i højre side, uanset længden af begge. Uden logo
+            falder vi tilbage til firmanavnet som overskrift, ligesom før. */}
+        <div className="flex-1 max-w-[50%] min-w-0 flex items-center">
           {companyLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={companyLogoUrl}
               alt={companyName ?? "Firmalogo"}
-              className="h-8 max-w-[170px] object-contain object-left"
+              className="h-full max-w-full object-contain object-left"
             />
           ) : (
             companyName && <div className="text-[20px] font-bold text-pepo-t1 truncate">{companyName}</div>
           )}
-          {companyName && (
-            <div className="flex items-center gap-1.5 mt-1.5 text-[12px] text-pepo-t2">
-              <Icon name="building-store" size={14} className="text-pepo-t3" />
-              {companyName}
-            </div>
-          )}
         </div>
 
         {/* Åbner samme side som "Mere" i bundnavigationen — kun i toppen af
-            Overblik, ikke en fælles top-bar på tværs af alle faner. */}
+            Overblik, ikke en fælles top-bar på tværs af alle faner.
+            Firmanavnet står nu under brugerens fornavn her i stedet for i
+            venstre side. */}
         <Link
           href="/mere"
-          className="flex items-center gap-2 flex-shrink-0 active:opacity-70 transition-opacity"
+          className="flex-1 max-w-[50%] min-w-0 flex items-center justify-end gap-2 active:opacity-70 transition-opacity"
         >
           <div className="w-8 h-8 rounded-full bg-pepo-pl text-pepo-p text-[12px] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0">
             {userPhotoUrl ? (
@@ -145,7 +146,12 @@ export default function OverviewClient({
               initials(userFullName)
             )}
           </div>
-          <span className="text-[13.5px] font-medium text-pepo-t1">{firstName}</span>
+          <div className="min-w-0">
+            <div className="text-[13.5px] font-medium text-pepo-t1 truncate">{firstName}</div>
+            {companyName && (
+              <div className="text-[11.5px] text-pepo-t2 truncate">{companyName}</div>
+            )}
+          </div>
         </Link>
       </div>
 
