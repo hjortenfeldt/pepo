@@ -1,6 +1,6 @@
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { todayIso } from "@/lib/format";
-import { getActiveCompany } from "@/lib/freelancer";
+import { getActiveProfile } from "@/lib/freelancer";
 import VagtplanClient, { type ScheduledShift } from "@/components/freelancer/VagtplanClient";
 
 export const dynamic = "force-dynamic";
@@ -34,14 +34,14 @@ export default async function FreelancerVagtplanPage() {
 
   // Kun vagter hos den arbejdsplads freelanceren har valgt i "Mere" — se
   // Overblik-siden (page.tsx i overliggende mappe) for samme begrundelse.
-  const activeCompany = await getActiveCompany(user.id);
-  if (!activeCompany) return <VagtplanClient shifts={[]} />;
+  const activeProfile = await getActiveProfile(user.id);
+  if (!activeProfile) return <VagtplanClient shifts={[]} />;
 
   const { data } = await supabase
     .from("shifts")
     .select("id, shift_date, start_time, end_time, status, events(title), client_venues(name)")
     .eq("assigned_freelancer_id", user.id)
-    .eq("company_id", activeCompany.id)
+    .eq("company_id", activeProfile.company.id)
     .gte("shift_date", todayIso())
     .order("shift_date")
     .order("start_time");

@@ -68,12 +68,12 @@ export default async function AdminDashboardPage() {
       )
       .eq("company_id", company.id)
       .order("event_date", { ascending: true }),
-    // Godkendte freelancere for DENNE virksomhed — status hører til
-    // freelancer_companies, da en freelancer kan arbejde for flere
-    // virksomheder.
+    // Godkendte freelancer-profiler for DENNE virksomhed. En freelancer kan
+    // arbejde for flere virksomheder, men hver har sin egen uafhængige
+    // freelancer_profiles-række, så optælling sker direkte her.
     supabase
-      .from("freelancer_companies")
-      .select("freelancer_id", { count: "exact", head: true })
+      .from("freelancer_profiles")
+      .select("id", { count: "exact", head: true })
       .eq("company_id", company.id)
       .eq("application_status", "approved"),
   ]);

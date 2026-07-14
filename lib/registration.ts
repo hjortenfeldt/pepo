@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone } from "@/lib/format";
 import type { RegistrationResult, WorkCategory } from "@/lib/types";
@@ -53,32 +54,64 @@ export async function submitRegistrationForCompany(
 
   const supabase = createAdminClient();
 
-  // 1. Opret auth-bruger. Ingen adgangskode sættes — freelanceren logger
-  // senere ind via en engangskode sendt til sin email.
-  const { data: userData, error: userError } = await supabase.auth.admin.createUser({
-    email,
-    email_confirm: true,
-  });
-
-  if (userError || !userData?.user) {
-    if (userError?.message?.toLowerCase().includes("already been registered")) {
-      return {
-        success: false,
-        error: "Der findes allerede en ansøgning med denne emailadresse.",
-      };
-    }
-    console.error("submitRegistrationForCompany: createUser fejlede", userError);
-    return { success: false, error: "Der opstod en fejl. Prøv venligst igen om lidt." };
+  // 1. Genbrug et eksisterende auth-login hvis emailen allerede har en
+  // konto (fx fordi personen tidligere har ansøgt hos en anden
+  // virksomhed) — ellers opret et nyt. Ingen adgangskode sættes uanset
+  // hvad — freelanceren logger altid ind via en engangskode sendt til sin
+  // email. Hver virksomhed får sin egen, uafhængige profil (se punkt 3),
+  // så et genbrugt login betyder IKKE at profildata deles på tværs.
+  const { data: existingAuthUserId, error: lookupError } = await supabase.rpc(
+    "get_auth_user_id_by_email",
+    { p_email: email }
+  );
+  if (lookupError) {
+    console.error("submitRegistrationForCompany: get_auth_user_id_by_email fejlede", lookupError);
   }
 
-  const userId = userData.user.id;
+  let userId: string;
+  let createdNewAuthUser = false;
+
+  if (existingAuthUserId) {
+    userId = existingAuthUserId as string;
+
+    const { data: existingProfile } = await supabase
+      .from("freelancer_profiles")
+      .select("id")
+      .eq("auth_user_id", userId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (existingProfile) {
+      return {
+        success: false,
+        error: "Der findes allerede en ansøgning med denne emailadresse hos denne virksomhed.",
+      };
+    }
+  } else {
+    const { data: userData, error: userError } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: true,
+    });
+
+    if (userError || !userData?.user) {
+      console.error("submitRegistrationForCompany: createUser fejlede", userError);
+      return { success: false, error: "Der opstod en fejl. Prøv venligst igen om lidt." };
+    }
+
+    userId = userData.user.id;
+    createdNewAuthUser = true;
+  }
 
   // 2. Upload profilbillede (valgfrit) — fejler uploaden, fortsætter vi
-  // uden billede frem for at afbryde hele ansøgningen.
+  // uden billede frem for at afbryde hele ansøgningen. Uploades til en sti
+  // baseret på DENNE ansøgnings/profils eget id (genereret nedenfor), ikke
+  // login-id'et — ellers ville en ansøgning hos endnu en virksomhed
+  // risikere at overskrive et tidligere uploadet billede.
+  const profileId = randomUUID();
   let profileImageUrl: string | null = null;
   if (profileImage instanceof File && profileImage.size > 0) {
     const ext = profileImage.name.split(".").pop() || "jpg";
-    const path = `${userId}/profil.${ext}`;
+    const path = `${profileId}/profil.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from("profile-images")
       .upload(path, profileImage, {
@@ -94,9 +127,14 @@ export async function submitRegistrationForCompany(
     }
   }
 
-  // 3. Opret freelancer-profilen
+  // 3. Opret freelancer-profilen — en helt ny, uafhængig profil for DENNE
+  // virksomhed (eget navn/billede/bio osv.), selvom login-kontoen (userId)
+  // evt. er genbrugt fra en tidligere ansøgning hos en anden virksomhed.
   const { error: profileError } = await supabase.from("freelancer_profiles").insert({
-    id: userId,
+    id: profileId,
+    auth_user_id: userId,
+    company_id: companyId,
+    application_status: "pending",
     full_name: fullName,
     email,
     gender: gender || null,
@@ -111,33 +149,38 @@ export async function submitRegistrationForCompany(
 
   if (profileError) {
     console.error("submitRegistrationForCompany: profil-insert fejlede", profileError);
-    await supabase.auth.admin.deleteUser(userId);
-    return { success: false, error: "Der opstod en fejl. Prøv venligst igen om lidt." };
-  }
-
-  // 3b. Tilknyt ansøgningen til den virksomhed, ansøgningen gjaldt for.
-  const { error: membershipError } = await supabase
-    .from("freelancer_companies")
-    .insert({ freelancer_id: userId, company_id: companyId, application_status: "pending" });
-
-  if (membershipError) {
-    console.error("submitRegistrationForCompany: kunne ikke oprette ansøgningen", membershipError);
-    await supabase.auth.admin.deleteUser(userId);
+    if (createdNewAuthUser) await supabase.auth.admin.deleteUser(userId);
     return { success: false, error: "Der opstod en fejl. Prøv venligst igen om lidt." };
   }
   updateTag(FREELANCER_MEMBERSHIPS_TAG);
 
-  // 4. Kobl valgte arbejdskategorier på
-  const { error: categoriesError } = await supabase
-    .from("freelancer_categories")
-    .insert(categoryIds.map((categoryId) => ({ freelancer_id: userId, category_id: categoryId })));
+  // 4. Kobl valgte arbejdskategorier på. freelancer_categories.freelancer_id
+  // peger på login-id'et (userId), ikke på denne profils eget id —
+  // jobfunktioner er bevidst fælles på tværs af personens virksomheder (se
+  // lib/freelancer.ts). Ved et genbrugt login undgår vi at forsøge at
+  // indsætte kategorier personen allerede har (fra en anden virksomhed).
+  let categoryIdsToInsert = categoryIds;
+  if (!createdNewAuthUser) {
+    const { data: existingCategories } = await supabase
+      .from("freelancer_categories")
+      .select("category_id")
+      .eq("freelancer_id", userId);
+    const existingIds = new Set((existingCategories ?? []).map((c) => c.category_id as string));
+    categoryIdsToInsert = categoryIds.filter((id) => !existingIds.has(id));
+  }
 
-  if (categoriesError) {
-    console.error("submitRegistrationForCompany: kategori-insert fejlede", categoriesError);
-    return {
-      success: false,
-      error: "Profilen blev oprettet, men kategorierne kunne ikke gemmes. Kontakt virksomheden.",
-    };
+  if (categoryIdsToInsert.length > 0) {
+    const { error: categoriesError } = await supabase
+      .from("freelancer_categories")
+      .insert(categoryIdsToInsert.map((categoryId) => ({ freelancer_id: userId, category_id: categoryId })));
+
+    if (categoriesError) {
+      console.error("submitRegistrationForCompany: kategori-insert fejlede", categoriesError);
+      return {
+        success: false,
+        error: "Profilen blev oprettet, men kategorierne kunne ikke gemmes. Kontakt virksomheden.",
+      };
+    }
   }
 
   return { success: true };

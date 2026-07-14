@@ -27,13 +27,13 @@ type RawVenueRef = {
 };
 type RawClientRef = { name: string | null; contact_person: string | null };
 type RawWorkCategoryRef = { name: string; icon: string | null };
-type RawFreelancerRef = { full_name: string };
 type RawAttachmentRow = { id: string; file_name: string; file_url: string; file_type: string | null };
-type RawInterestRow = {
-  freelancer_id: string;
-  status: InterestStatus;
-  freelancer_profiles: RawFreelancerRef | RawFreelancerRef[] | null;
-};
+// assigned_freelancer_id og shift_interests.freelancer_id er auth-login-id'er
+// (auth.users.id), IKKE freelancer_profiles.id — PostgREST kan derfor ikke
+// længere indlejre freelancer_profiles direkte her (den fremmednøgle peger
+// nu på auth.users, ikke på freelancer_profiles), navnet slås i stedet op
+// bagefter via freelancerNameMap (se nedenfor).
+type RawInterestRow = { freelancer_id: string; status: InterestStatus };
 type RawShiftRow = {
   id: string;
   category_id: string;
@@ -44,7 +44,6 @@ type RawShiftRow = {
   previous_status: ShiftStatus | null;
   assigned_freelancer_id: string | null;
   work_categories: RawWorkCategoryRef | RawWorkCategoryRef[] | null;
-  freelancer_profiles: RawFreelancerRef | RawFreelancerRef[] | null;
   shift_interests: RawInterestRow[] | null;
 };
 type RawEventRow = {
@@ -70,16 +69,11 @@ type RawClientWithVenuesRow = {
   client_venues: RawVenueRef[] | null;
 };
 type RawCategoryRow = { id: string; name: string; icon: string | null };
-type RawFreelancerProfileOption = {
-  id: string;
-  full_name: string;
-  freelancer_categories: { work_categories: RawWorkCategoryRef | RawWorkCategoryRef[] | null }[] | null;
-};
-// Godkendelsesstatus hører til freelancer_companies (en freelancer kan
-// arbejde for flere virksomheder), så listen tager udgangspunkt der.
-type RawFreelancerMembershipRow = {
-  freelancer_profiles: RawFreelancerProfileOption | RawFreelancerProfileOption[] | null;
-};
+// Godkendte freelancer-profiler for DENNE virksomhed. id er profilens eget
+// id, men shifts/shift_interests bruger auth_user_id (login-id'et) til
+// tildeling — se FreelancerOption-mapningen nedenfor.
+type RawFreelancerProfileRow = { auth_user_id: string; full_name: string };
+type RawFreelancerCategoryRow = { freelancer_id: string; work_categories: RawWorkCategoryRef | RawWorkCategoryRef[] | null };
 
 // PostgREST returnerer en til-én-relation som enten ét objekt eller et
 // array med ét objekt, afhængigt af relationstype — håndteres defensivt
@@ -102,7 +96,7 @@ export default async function AdminShiftsPage() {
   const company = await getCompanyBySubdomain();
   if (!company) redirect("/login?error=unknown_company");
 
-  const [eventsResult, clientsResult, categoriesResult, freelancersResult] = await Promise.all([
+  const [eventsResult, clientsResult, categoriesResult, freelancerProfilesResult] = await Promise.all([
     supabase
       .from("events")
       .select(
@@ -113,8 +107,7 @@ export default async function AdminShiftsPage() {
          shifts(id, category_id, shift_date, start_time, end_time, status, previous_status,
            assigned_freelancer_id,
            work_categories(name, icon),
-           freelancer_profiles(full_name),
-           shift_interests(freelancer_id, status, freelancer_profiles(full_name)))`
+           shift_interests(freelancer_id, status))`
       )
       .eq("company_id", company.id)
       .order("event_date", { ascending: true }),
@@ -130,9 +123,12 @@ export default async function AdminShiftsPage() {
       .select("id, name, icon")
       .eq("company_id", company.id)
       .order("name"),
+    // Godkendte profiler for DENNE virksomhed — id her er profilens eget id
+    // (bruges ikke til tildeling), auth_user_id er login-id'et shifts
+    // rent faktisk gemmer i assigned_freelancer_id.
     supabase
-      .from("freelancer_companies")
-      .select("freelancer_profiles(id, full_name, freelancer_categories(work_categories(name)))")
+      .from("freelancer_profiles")
+      .select("auth_user_id, full_name")
       .eq("company_id", company.id)
       .eq("application_status", "approved"),
   ]);
@@ -146,8 +142,42 @@ export default async function AdminShiftsPage() {
   if (categoriesResult.error) {
     console.error("AdminShiftsPage: kunne ikke hente jobfunktioner", categoriesResult.error);
   }
-  if (freelancersResult.error) {
-    console.error("AdminShiftsPage: kunne ikke hente freelancere", freelancersResult.error);
+  if (freelancerProfilesResult.error) {
+    console.error("AdminShiftsPage: kunne ikke hente freelancere", freelancerProfilesResult.error);
+  }
+
+  const approvedProfiles = (freelancerProfilesResult.data ?? []) as RawFreelancerProfileRow[];
+  const authIds = approvedProfiles.map((p) => p.auth_user_id);
+
+  // freelancer_categories.freelancer_id peger på auth.users(id) (login-
+  // id'et) — jobfunktioner er bevidst fælles på tværs af en persons
+  // virksomheder, ikke splittet pr. profil (se lib/freelancer.ts).
+  const { data: categoryRowsData, error: categoryRowsError } =
+    authIds.length > 0
+      ? await supabase
+          .from("freelancer_categories")
+          .select("freelancer_id, work_categories(name)")
+          .in("freelancer_id", authIds)
+      : { data: [] as RawFreelancerCategoryRow[], error: null };
+  if (categoryRowsError) {
+    console.error("AdminShiftsPage: kunne ikke hente freelancer-kategorier", categoryRowsError);
+  }
+
+  const categoriesByAuthId = new Map<string, string[]>();
+  for (const row of (categoryRowsData ?? []) as RawFreelancerCategoryRow[]) {
+    const wc = one(row.work_categories);
+    if (!wc) continue;
+    const list = categoriesByAuthId.get(row.freelancer_id) ?? [];
+    list.push(wc.name);
+    categoriesByAuthId.set(row.freelancer_id, list);
+  }
+
+  // Navnekort til visning af tildelt/interesseret freelancer på en vagt —
+  // DENNE virksomheds egen profil-navn for hvert login-id, da navnet nu kan
+  // variere pr. virksomhed.
+  const freelancerNameMap = new Map<string, string>();
+  for (const p of approvedProfiles) {
+    freelancerNameMap.set(p.auth_user_id, p.full_name);
   }
 
   const events: EventListItem[] = ((eventsResult.data ?? []) as RawEventRow[]).map((e) => {
@@ -177,7 +207,6 @@ export default async function AdminShiftsPage() {
       })),
       shifts: (e.shifts ?? []).map((s) => {
         const category = one(s.work_categories);
-        const assignee = one(s.freelancer_profiles);
         return {
           id: s.id,
           eventId: e.id,
@@ -190,10 +219,12 @@ export default async function AdminShiftsPage() {
           status: s.status,
           previousStatus: s.previous_status,
           assignedFreelancerId: s.assigned_freelancer_id,
-          assignedFreelancerName: assignee?.full_name ?? null,
+          assignedFreelancerName: s.assigned_freelancer_id
+            ? freelancerNameMap.get(s.assigned_freelancer_id) ?? null
+            : null,
           interests: (s.shift_interests ?? []).map((i) => ({
             freelancerId: i.freelancer_id,
-            freelancerName: one(i.freelancer_profiles)?.full_name ?? "",
+            freelancerName: freelancerNameMap.get(i.freelancer_id) ?? "",
             status: i.status,
           })),
         };
@@ -225,19 +256,11 @@ export default async function AdminShiftsPage() {
     icon: c.icon,
   }));
 
-  const freelancers: FreelancerOption[] = ((freelancersResult.data ?? []) as RawFreelancerMembershipRow[])
-    .map((m) => one(m.freelancer_profiles))
-    .filter((f): f is RawFreelancerProfileOption => f !== null)
-    .map((f) => {
-      const cats = (f.freelancer_categories ?? [])
-        .map((fc) => {
-          const wc = fc.work_categories;
-          if (!wc) return undefined;
-          return Array.isArray(wc) ? wc[0]?.name : wc.name;
-        })
-        .filter((name: string | undefined): name is string => Boolean(name));
-      return { id: f.id, fullName: f.full_name, categories: cats };
-    });
+  const freelancers: FreelancerOption[] = approvedProfiles.map((p) => ({
+    id: p.auth_user_id,
+    fullName: p.full_name,
+    categories: categoriesByAuthId.get(p.auth_user_id) ?? [],
+  }));
 
   return (
     <ShiftBoard events={events} clients={clients} categories={categories} freelancers={freelancers} />

@@ -1,6 +1,6 @@
-import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { logout } from "../../login/actions";
-import { getActiveCompany, getApprovedCompanies } from "@/lib/freelancer";
+import { getActiveProfile, getApprovedProfiles } from "@/lib/freelancer";
 import Icon from "@/components/Icon";
 import PushToggle from "@/components/freelancer/PushToggle";
 import InstallAppMenuRow from "@/components/freelancer/InstallAppMenuRow";
@@ -20,20 +20,16 @@ export default async function FreelancerMerePage() {
   const user = await getAuthUser();
   if (!user) return null;
 
-  const supabase = await createClient();
-
-  const { data: profile } = await supabase
-    .from("freelancer_profiles")
-    .select("full_name, email, profile_image_url")
-    .eq("id", user.id)
-    .maybeSingle();
-
   // Firma-skifteren vises kun hvis freelanceren rent faktisk er godkendt
-  // hos mere end én virksomhed — se CompanySwitcher.tsx.
-  const [approvedCompanies, activeCompany] = await Promise.all([
-    getApprovedCompanies(user.id),
-    getActiveCompany(user.id),
+  // hos mere end én virksomhed — se CompanySwitcher.tsx. Navn/email/billede
+  // vist herunder er DENNE profils egne (kan variere pr. virksomhed), ikke
+  // et fælles "brugernavn" — hentes derfor direkte fra getActiveProfile,
+  // ikke fra en separat freelancer_profiles-opslag på user.id.
+  const [approvedProfiles, activeProfile] = await Promise.all([
+    getApprovedProfiles(user.id),
+    getActiveProfile(user.id),
   ]);
+  const profile = activeProfile;
 
   return (
     <div className="px-5 pt-4 pb-6">
@@ -54,8 +50,8 @@ export default async function FreelancerMerePage() {
         </div>
       </div>
 
-      {approvedCompanies.length > 1 && activeCompany && (
-        <CompanySwitcher companies={approvedCompanies} activeCompanyId={activeCompany.id} />
+      {approvedProfiles.length > 1 && activeProfile && (
+        <CompanySwitcher profiles={approvedProfiles} activeProfileId={activeProfile.id} />
       )}
 
       <PushToggle />

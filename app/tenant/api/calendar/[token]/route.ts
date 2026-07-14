@@ -25,14 +25,17 @@ type RawVenueRef = {
 };
 type RawClientRef = { name: string | null; contact_person: string | null; contact_email: string | null; contact_phone: string | null };
 type RawWorkCategoryRef = { name: string };
-type RawFreelancerRef = { full_name: string };
 type RawAttachmentRow = { file_url: string };
+// assigned_freelancer_id er login-id'et (auth.users.id), IKKE
+// freelancer_profiles.id — den fremmednøgle peger nu på auth.users, så
+// PostgREST kan ikke længere indlejre freelancer_profiles direkte her.
+// Navnet slås op bagefter via freelancerNameMap (se nedenfor).
 type RawShiftRow = {
   start_time: string;
   end_time: string;
   status: "open" | "for_resale" | "assigned" | "cancelled";
+  assigned_freelancer_id: string | null;
   work_categories: RawWorkCategoryRef | RawWorkCategoryRef[] | null;
-  freelancer_profiles: RawFreelancerRef | RawFreelancerRef[] | null;
 };
 type RawEventRow = {
   id: string;
@@ -66,8 +69,8 @@ function fullAddress(venue: { address: string | null; postal_code: string | null
   return line || null;
 }
 
-function shiftStatusText(shift: RawShiftRow): string {
-  const assignee = one(shift.freelancer_profiles)?.full_name ?? null;
+function shiftStatusText(shift: RawShiftRow, freelancerNameMap: Map<string, string>): string {
+  const assignee = shift.assigned_freelancer_id ? freelancerNameMap.get(shift.assigned_freelancer_id) ?? null : null;
   if (shift.status === "assigned") return assignee ?? "Tildelt";
   if (shift.status === "for_resale") return assignee ? `${assignee} (til salg)` : "Til salg";
   return "Mangler";
@@ -101,9 +104,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
        clients(name, contact_person, contact_email, contact_phone),
        client_venues(address, postal_code, city),
        shift_attachments(file_url),
-       shifts(start_time, end_time, status,
-         work_categories(name),
-         freelancer_profiles(full_name))`
+       shifts(start_time, end_time, status, assigned_freelancer_id,
+         work_categories(name))`
     )
     .eq("company_id", company.id)
     .order("event_date", { ascending: true });
@@ -113,7 +115,29 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     return new NextResponse("Internal error", { status: 500 });
   }
 
-  const events: IcsEventInput[] = ((eventsData ?? []) as RawEventRow[]).map((e) => {
+  const rawEvents = (eventsData ?? []) as RawEventRow[];
+
+  // Navnekort til vagtstatus-teksten — DENNE virksomheds egen profil-navn
+  // for hvert login-id, da navnet nu kan variere pr. virksomhed (se
+  // freelancer_profiles_per_company-migrationen).
+  const assignedIds = Array.from(
+    new Set(
+      rawEvents.flatMap((e) => (e.shifts ?? []).map((s) => s.assigned_freelancer_id).filter((id): id is string => Boolean(id)))
+    )
+  );
+  const freelancerNameMap = new Map<string, string>();
+  if (assignedIds.length > 0) {
+    const { data: profileRows } = await supabase
+      .from("freelancer_profiles")
+      .select("auth_user_id, full_name")
+      .eq("company_id", company.id)
+      .in("auth_user_id", assignedIds);
+    for (const p of profileRows ?? []) {
+      freelancerNameMap.set(p.auth_user_id as string, p.full_name as string);
+    }
+  }
+
+  const events: IcsEventInput[] = rawEvents.map((e) => {
     const client = one(e.clients);
     const venue = one(e.client_venues);
     const activeShifts = (e.shifts ?? []).filter((s) => s.status !== "cancelled");
@@ -122,7 +146,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       category: one(s.work_categories)?.name ?? "",
       startTime: hhmm(s.start_time),
       endTime: hhmm(s.end_time),
-      statusText: shiftStatusText(s),
+      statusText: shiftStatusText(s, freelancerNameMap),
     }));
 
     return {

@@ -6,50 +6,50 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export type FreelancerMembership = {
+  id: string; // freelancer_profiles.id — denne virksomheds egen profil, ikke login-id'et
+  full_name: string;
+  email: string | null;
+  profile_image_url: string | null;
   application_status: "pending" | "approved" | "rejected";
   companies: { id: string; name: string; slug: string; logo_url: string | null } | null;
 };
 
-// Genbruges af enhver mutation der ændrer freelancer_companies (godkend/
-// afvis en ansøgning, admin-selv-provisionering, en ny ansøgning) — se
-// updateTag(FREELANCER_MEMBERSHIPS_TAG) i provisionAdminAsFreelancer
-// nedenfor, i app/tenant/(protected)/freelancers/actions.ts og i
-// lib/registration.ts. Én fælles tag frem for ét pr. freelancer-ID, da det
-// er langt simplere at holde alle invalideringssteder korrekte, og disse
-// mutationer er sjældne nok til at en bred invalidering ikke koster noget.
+// Genbruges af enhver mutation der ændrer freelancer_profiles' virksomheds-
+// tilknytning (godkend/afvis en ansøgning, admin-selv-provisionering, en ny
+// ansøgning) — se updateTag(FREELANCER_MEMBERSHIPS_TAG) i
+// provisionAdminAsFreelancer nedenfor, i
+// app/tenant/(protected)/freelancers/actions.ts og i lib/registration.ts. Én
+// fælles tag frem for ét pr. freelancer-ID, da det er langt simplere at
+// holde alle invalideringssteder korrekte, og disse mutationer er sjældne
+// nok til at en bred invalidering ikke koster noget.
 export const FREELANCER_MEMBERSHIPS_TAG = "freelancer-memberships";
 
 /**
- * Firmaer freelanceren har ansøgt til/arbejder for, med status. Bruges af
- * (protected)/layout.tsx til at afgøre om appen skal vise fuldt indhold,
- * en "afventer godkendelse"-skærm, eller sende brugeren tilbage til
- * ansøgningssiden. Service role, da vi her slår op i to tabeller på én
- * gang uden at gå gennem RLS-scoping to gange.
- *
- * MVP-bemærkning: en freelancer kan i teorien være godkendt hos flere
- * virksomheder samtidig (se pepo-migration-multi-tenant.sql), men appen
- * viser lige nu kun data for den første godkendte virksomhed. Et
- * firma-skift i appen er en fremtidig udbygning, når det bliver relevant.
+ * Alle profiler (én pr. virksomhed) knyttet til dette login. En freelancer
+ * kan have HELT ADSKILTE profiler (navn, billede, bio osv.) hos hver
+ * virksomhed de arbejder for — kun login-emailen/auth-kontoen er fælles
+ * (auth_user_id). Bruges af (protected)/layout.tsx til at afgøre om appen
+ * skal vise fuldt indhold, en "afventer godkendelse"-skærm, eller sende
+ * brugeren tilbage til ansøgningssiden.
  *
  * Kaldes på HVER ENESTE sidenavigation i freelancer-appen (layoutets
  * godkendelsestjek), men ændrer sig kun når en admin godkender/afviser en
- * ansøgning — en sjælden begivenhed. unstable_cache undgår derfor et
- * databasekald ved hver sidenavigation; revalidate: 30 er et sikkerhedsnet
- * (data er aldrig mere end 30 sek. forældet, selv hvis et
- * invalideringssted skulle mangle), mens updateTag() ved de faktiske
- * mutationer (kun kaldbar fra Server Actions) gør det øjeblikkeligt uden at
- * vente på sikkerhedsnettet — se next/cache's updateTag vs. revalidateTag.
- * Den ydre React cache() sikrer stadig at selve opslaget kun sker én gang
- * pr. request/render.
+ * ansøgning, eller en ny ansøgning/profil oprettes — en sjælden begivenhed.
+ * unstable_cache undgår derfor et databasekald ved hver sidenavigation;
+ * revalidate: 30 er et sikkerhedsnet (data er aldrig mere end 30 sek.
+ * forældet, selv hvis et invalideringssted skulle mangle), mens updateTag()
+ * ved de faktiske mutationer (kun kaldbar fra Server Actions) gør det
+ * øjeblikkeligt uden at vente på sikkerhedsnettet. Den ydre React cache()
+ * sikrer stadig at selve opslaget kun sker én gang pr. request/render.
  */
 export const getFreelancerMemberships = cache(
   unstable_cache(
-    async function getFreelancerMemberships(freelancerId: string): Promise<FreelancerMembership[]> {
+    async function getFreelancerMemberships(authUserId: string): Promise<FreelancerMembership[]> {
       const supabase = createAdminClient();
       const { data, error } = await supabase
-        .from("freelancer_companies")
-        .select("application_status, companies(id, name, slug, logo_url)")
-        .eq("freelancer_id", freelancerId);
+        .from("freelancer_profiles")
+        .select("id, full_name, email, profile_image_url, application_status, companies(id, name, slug, logo_url)")
+        .eq("auth_user_id", authUserId);
 
       if (error) {
         console.error("getFreelancerMemberships fejlede", error);
@@ -62,38 +62,53 @@ export const getFreelancerMemberships = cache(
   )
 );
 
-export type ActiveCompany = { id: string; name: string; slug: string; logo_url: string | null };
+export type ActiveProfile = {
+  id: string; // freelancer_profiles.id for DENNE virksomhed
+  full_name: string;
+  email: string | null;
+  profile_image_url: string | null;
+  company: { id: string; name: string; slug: string; logo_url: string | null };
+};
 
-// Navnet på cookien der husker hvilken virksomhed freelanceren sidst
-// skiftede til (se setActiveCompany i mere/actions.ts). Sat på selve
-// app.pepo.team (freelancer-appens eget subdomæne, ikke roddomænet som
-// login-sessionen i lib/supabase/server.ts) — den behøver ikke virke på
-// tværs af subdomæner, kun i freelancer-appen.
-export const ACTIVE_COMPANY_COOKIE = "pepo_active_company";
+// Navnet på cookien der husker hvilken PROFIL (ikke bare virksomhed)
+// freelanceren sidst skiftede til (se setActiveProfile i mere/actions.ts).
+// Sat på selve app.pepo.team (freelancer-appens eget subdomæne, ikke
+// roddomænet som login-sessionen i lib/supabase/server.ts) — den behøver
+// ikke virke på tværs af subdomæner, kun i freelancer-appen.
+export const ACTIVE_PROFILE_COOKIE = "pepo_active_profile";
 
-/** Alle virksomheder freelanceren er godkendt hos — bruges af firma-skifteren i "Mere". */
-export async function getApprovedCompanies(freelancerId: string): Promise<ActiveCompany[]> {
-  const memberships = await getFreelancerMemberships(freelancerId);
+/** Alle profiler freelanceren er godkendt med — bruges af firma-skifteren i "Mere". */
+export async function getApprovedProfiles(authUserId: string): Promise<ActiveProfile[]> {
+  const memberships = await getFreelancerMemberships(authUserId);
   return memberships
     .filter((m) => m.application_status === "approved" && m.companies)
-    .map((m) => m.companies as ActiveCompany);
+    .map((m) => ({
+      id: m.id,
+      full_name: m.full_name,
+      email: m.email,
+      profile_image_url: m.profile_image_url,
+      company: m.companies as ActiveProfile["company"],
+    }));
 }
 
 /**
- * Hvilken af freelancerens godkendte virksomheder appen viser data for lige
- * nu. En freelancer kan arbejde for flere virksomheder samtidig og skifter
- * mellem dem via "Mere" (se setActiveCompany) — valget gemmes i en cookie.
- * Findes cookien ikke, eller peger den på en virksomhed freelanceren ikke
- * (længere) er godkendt hos, falder vi tilbage til den første godkendte,
- * ligesom appen altid har gjort (tidligere getPrimaryCompany).
+ * Hvilken af freelancerens godkendte profiler appen viser data for lige nu.
+ * En freelancer kan arbejde for flere virksomheder samtidig, med en helt
+ * separat profil (navn/billede/bio) pr. virksomhed, og skifter mellem dem
+ * via "Mere" (se setActiveProfile) — valget gemmes i en cookie som den
+ * valgte PROFILS id (ikke virksomhedens id), da det er profilen der
+ * bestemmer både hvilken virksomheds data der vises OG hvilket navn/billede
+ * der vises som "mig". Findes cookien ikke, eller peger den på en profil
+ * freelanceren ikke (længere) er godkendt med, falder vi tilbage til den
+ * første godkendte.
  */
-export async function getActiveCompany(freelancerId: string): Promise<ActiveCompany | null> {
-  const approved = await getApprovedCompanies(freelancerId);
+export async function getActiveProfile(authUserId: string): Promise<ActiveProfile | null> {
+  const approved = await getApprovedProfiles(authUserId);
   if (approved.length === 0) return null;
 
   const cookieStore = await cookies();
-  const selectedId = cookieStore.get(ACTIVE_COMPANY_COOKIE)?.value;
-  const selected = selectedId ? approved.find((c) => c.id === selectedId) : undefined;
+  const selectedId = cookieStore.get(ACTIVE_PROFILE_COOKIE)?.value;
+  const selected = selectedId ? approved.find((p) => p.id === selectedId) : undefined;
 
   return selected ?? approved[0];
 }
@@ -157,6 +172,10 @@ export type CompanyColleague = {
  * DEFINER og afgør selv adgangen ud fra auth.uid() indeni sig selv, så den
  * skal kaldes som den faktiske bruger for at vide hvem "auth.uid()" er.
  *
+ * Returnerede id'er er freelancer_profiles.id (denne virksomheds profil),
+ * IKKE auth-login-id'et — se isSelf-tjekket i kontakter/[id]/page.tsx, som
+ * derfor sammenligner mod den aktive profils id, ikke mod brugerens auth-id.
+ *
  * Bevidst ikke bygget som en bred RLS-policy på freelancer_profiles: den
  * tabel indeholder bl.a. bank_reg_number/bank_account_number, og RLS styrer
  * kun hvilke RÆKKER man må se, ikke hvilke KOLONNER — en policy der lod
@@ -200,31 +219,27 @@ export async function provisionAdminAsFreelancer(
 ) {
   const supabase = createAdminClient();
 
-  const { error: profileError } = await supabase.from("freelancer_profiles").insert({
-    id: userId,
-    full_name: fullName,
-    email,
-    gender: null,
-    birth_date: null,
-    location: null,
-    phone: "",
-    bio: null,
-    profile_image_url: null,
-    social_media_url: null,
-    has_license: false,
-  });
-  if (profileError) {
+  const { data: profile, error: profileError } = await supabase
+    .from("freelancer_profiles")
+    .insert({
+      auth_user_id: userId,
+      company_id: companyId,
+      application_status: "approved",
+      full_name: fullName,
+      email,
+      gender: null,
+      birth_date: null,
+      location: null,
+      phone: "",
+      bio: null,
+      profile_image_url: null,
+      social_media_url: null,
+      has_license: false,
+    })
+    .select("id")
+    .single();
+  if (profileError || !profile) {
     console.error("provisionAdminAsFreelancer: freelancer_profiles-insert fejlede", profileError);
-    return;
-  }
-
-  const { error: membershipError } = await supabase.from("freelancer_companies").insert({
-    freelancer_id: userId,
-    company_id: companyId,
-    application_status: "approved",
-  });
-  if (membershipError) {
-    console.error("provisionAdminAsFreelancer: freelancer_companies-insert fejlede", membershipError);
     return;
   }
   updateTag(FREELANCER_MEMBERSHIPS_TAG);
@@ -238,6 +253,10 @@ export async function provisionAdminAsFreelancer(
     return;
   }
 
+  // freelancer_categories.freelancer_id peger på auth.users(id) (login-
+  // id'et), ikke på freelancer_profiles.id — se forklaringen i
+  // migrationen freelancer_profiles_per_company: jobfunktioner er bevidst
+  // IKKE splittet pr. virksomhedsprofil.
   if (categories && categories.length > 0) {
     const { error: insertError } = await supabase
       .from("freelancer_categories")

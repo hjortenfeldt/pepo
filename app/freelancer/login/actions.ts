@@ -27,14 +27,18 @@ export async function sendLoginCode(email: string) {
   // skal kun vises i netop DEN mail admin selv udløser, ikke ved
   // fremtidige almindelige login-koder freelanceren selv beder om. Fejler
   // dette (fx ukendt email), blokerer det ikke selve kode-afsendelsen.
+  //
+  // Kan ikke længere slå login-id'et op via freelancer_profiles.email —
+  // samme email kan nu høre til flere adskilte profiler (én pr.
+  // virksomhed), så det er ikke entydigt hvilken række der skal bruges.
+  // Login-id'et (auth_user_id) er derimod altid entydigt for en email,
+  // derfor RPC'en get_auth_user_id_by_email i stedet.
   const adminClient = createAdminClient();
-  const { data: profile } = await adminClient
-    .from("freelancer_profiles")
-    .select("id")
-    .eq("email", trimmedEmail)
-    .maybeSingle();
-  if (profile) {
-    await adminClient.auth.admin.updateUserById(profile.id, {
+  const { data: authUserId } = await adminClient.rpc("get_auth_user_id_by_email", {
+    p_email: trimmedEmail,
+  });
+  if (authUserId) {
+    await adminClient.auth.admin.updateUserById(authUserId as string, {
       user_metadata: { invited_company_name: null },
     });
   }

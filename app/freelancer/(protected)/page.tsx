@@ -1,7 +1,7 @@
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayIso } from "@/lib/format";
-import { getActiveCompany } from "@/lib/freelancer";
+import { getActiveProfile } from "@/lib/freelancer";
 import OverviewClient, { type ActiveShift, type OpenShift, type UpcomingShift } from "@/components/freelancer/OverviewClient";
 
 export const dynamic = "force-dynamic";
@@ -40,13 +40,15 @@ export default async function FreelancerOverviewPage() {
   const today = todayIso();
 
   // Skal kendes FØR de øvrige forespørgsler, da både "Mine vagter" og
-  // "Ledige vagter" nu filtreres til freelancerens aktive virksomhed (se
-  // getActiveCompany i lib/freelancer.ts) — uden dette ville en freelancer
-  // med flere godkendte virksomheder se vagter fra ALLE sine virksomheder
-  // blandet sammen på ét Overblik, uanset hvilken arbejdsplads de har
-  // valgt i "Mere".
-  const activeCompany = await getActiveCompany(user.id);
-  const companyId = activeCompany?.id ?? "";
+  // "Ledige vagter" nu filtreres til freelancerens aktive profil/virksomhed
+  // (se getActiveProfile i lib/freelancer.ts) — uden dette ville en
+  // freelancer med flere godkendte virksomheder se vagter fra ALLE sine
+  // virksomheder blandet sammen på ét Overblik, uanset hvilken arbejdsplads
+  // de har valgt i "Mere". Navn/billede vist herunder er DENNE profils
+  // egne, ikke et fælles "brugernavn" — hentes derfor direkte fra
+  // activeProfile, ikke fra et separat opslag på user.id.
+  const activeProfile = await getActiveProfile(user.id);
+  const companyId = activeProfile?.company.id ?? "";
 
   // Bevidst IKKE awaitet her, men sendt videre som et promise til
   // OverviewClient (som læser det med Reacts use()-hook inde i sin egen
@@ -57,8 +59,7 @@ export default async function FreelancerOverviewPage() {
   // klar, mens "Ledige vagter" strømmer ind separat lige efter.
   const openShiftsPromise = getOpenShifts(supabase, user.id, today, companyId);
 
-  const [profileResult, myShiftsResult, activeClockResult] = await Promise.all([
-    supabase.from("freelancer_profiles").select("full_name, profile_image_url").eq("id", user.id).maybeSingle(),
+  const [myShiftsResult, activeClockResult] = await Promise.all([
     supabase
       .from("shifts")
       .select("id, shift_date, start_time, end_time, status, events(title), client_venues(name, address, postal_code, city)")
@@ -110,16 +111,16 @@ export default async function FreelancerOverviewPage() {
       isToday: s.shift_date === today,
     }));
 
-  const fullName = profileResult.data?.full_name ?? "";
+  const fullName = activeProfile?.full_name ?? "";
   const firstName = fullName.split(" ")[0] || "der";
 
   return (
     <OverviewClient
       firstName={firstName}
       userFullName={fullName}
-      userPhotoUrl={profileResult.data?.profile_image_url ?? null}
-      companyName={activeCompany?.name ?? null}
-      companyLogoUrl={activeCompany?.logo_url ?? null}
+      userPhotoUrl={activeProfile?.profile_image_url ?? null}
+      companyName={activeProfile?.company.name ?? null}
+      companyLogoUrl={activeProfile?.company.logo_url ?? null}
       activeShift={activeShift}
       upcomingShifts={upcomingShifts}
       openShiftsPromise={openShiftsPromise}

@@ -9,7 +9,7 @@ export default async function SuperAdminCompaniesPage() {
   const { data: companies, error } = await supabase
     .from("companies")
     .select(
-      "id, name, slug, created_at, admin_users(count), freelancer_companies(count)"
+      "id, name, slug, created_at, admin_users(count), freelancer_profiles(count)"
     )
     .order("created_at", { ascending: true });
 
@@ -23,7 +23,7 @@ export default async function SuperAdminCompaniesPage() {
     slug: string;
     created_at: string;
     admin_users: { count: number }[] | { count: number } | null;
-    freelancer_companies: { count: number }[] | { count: number } | null;
+    freelancer_profiles: { count: number }[] | { count: number } | null;
   };
 
   function count(rel: { count: number }[] | { count: number } | null): number {
@@ -37,7 +37,7 @@ export default async function SuperAdminCompaniesPage() {
     slug: c.slug,
     createdAt: c.created_at,
     adminCount: count(c.admin_users),
-    freelancerCount: count(c.freelancer_companies),
+    freelancerCount: count(c.freelancer_profiles),
   }));
 
   return <CompaniesBoard companies={items} />;

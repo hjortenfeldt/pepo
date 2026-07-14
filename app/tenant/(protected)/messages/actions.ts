@@ -56,33 +56,47 @@ export async function sendMessage(input: MessageFormInput) {
   // reelt fik beskeden, ændrer sig ikke bagefter selvom en freelancers
   // kategorier ændres senere. Hentes bredt og filtreres i JS, samme
   // mønster som freelancer-kategori-udtrækket i shifts/page.tsx.
-  // Godkendelsesstatus hører til freelancer_companies (en freelancer kan
-  // arbejde for flere virksomheder) — company.id filtreres eksplicit.
-  const { data: approved, error: recipientsError } = await supabase
-    .from("freelancer_companies")
-    .select("freelancer_profiles(id, freelancer_categories(category_id))")
+  //
+  // Godkendte profiler for DENNE virksomhed — auth_user_id er login-id'et,
+  // som er det message_recipients rent faktisk skal gemme (se
+  // freelancer_categories.freelancer_id-forklaringen i lib/freelancer.ts:
+  // jobfunktioner peger på login-id'et, ikke på denne profils eget id).
+  const { data: approvedProfiles, error: profilesError } = await supabase
+    .from("freelancer_profiles")
+    .select("auth_user_id")
     .eq("company_id", company.id)
     .eq("application_status", "approved");
 
-  if (recipientsError) {
-    console.error("sendMessage: kunne ikke finde modtagere", recipientsError);
+  if (profilesError) {
+    console.error("sendMessage: kunne ikke finde modtagere", profilesError);
     return { success: false, error: "Beskeden blev gemt, men modtagerlisten kunne ikke oprettes." };
   }
 
-  type ApprovedProfile = { id: string; freelancer_categories: { category_id: string }[] | null };
-  type ApprovedRow = { freelancer_profiles: ApprovedProfile | ApprovedProfile[] | null };
-  const one = <T,>(rel: T | T[] | null | undefined): T | null =>
-    !rel ? null : Array.isArray(rel) ? rel[0] ?? null : rel;
+  const authIds = (approvedProfiles ?? []).map((p) => p.auth_user_id as string);
 
-  const recipientIds = ((approved ?? []) as ApprovedRow[])
-    .map((row) => one(row.freelancer_profiles))
-    .filter((f): f is ApprovedProfile => f !== null)
-    .filter(
-      (f) =>
-        input.sentToAll ||
-        (f.freelancer_categories ?? []).some((fc) => fc.category_id === input.targetCategoryId)
-    )
-    .map((f) => f.id);
+  let categoriesByAuthId = new Map<string, Set<string>>();
+  if (!input.sentToAll && authIds.length > 0) {
+    const { data: categoryRows, error: categoriesError } = await supabase
+      .from("freelancer_categories")
+      .select("freelancer_id, category_id")
+      .in("freelancer_id", authIds);
+
+    if (categoriesError) {
+      console.error("sendMessage: kunne ikke hente freelancer-kategorier", categoriesError);
+      return { success: false, error: "Beskeden blev gemt, men modtagerlisten kunne ikke oprettes." };
+    }
+
+    categoriesByAuthId = new Map();
+    for (const row of categoryRows ?? []) {
+      const set = categoriesByAuthId.get(row.freelancer_id) ?? new Set<string>();
+      set.add(row.category_id);
+      categoriesByAuthId.set(row.freelancer_id, set);
+    }
+  }
+
+  const recipientIds = authIds.filter(
+    (authId) => input.sentToAll || categoriesByAuthId.get(authId)?.has(input.targetCategoryId ?? "")
+  );
 
   if (recipientIds.length > 0) {
     const { error: insertError } = await supabase

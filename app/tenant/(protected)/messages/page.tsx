@@ -12,12 +12,11 @@ export const dynamic = "force-dynamic";
 // projektet endnu ikke bruger genererede Supabase-databasetyper.
 type RawAdminRef = { full_name: string };
 type RawCategoryRef = { name: string };
-type RawFreelancerRef = { full_name: string };
-type RawRecipientRow = {
-  freelancer_id: string;
-  read_at: string | null;
-  freelancer_profiles: RawFreelancerRef | RawFreelancerRef[] | null;
-};
+// message_recipients.freelancer_id er login-id'et (auth.users.id), IKKE
+// freelancer_profiles.id — den fremmednøgle peger nu på auth.users, så
+// PostgREST kan ikke længere indlejre freelancer_profiles direkte her.
+// Navnet slås op bagefter via freelancerNameMap (se nedenfor).
+type RawRecipientRow = { freelancer_id: string; read_at: string | null };
 type RawMessageRow = {
   id: string;
   subject: string;
@@ -30,15 +29,8 @@ type RawMessageRow = {
   message_recipients: RawRecipientRow[] | null;
 };
 type RawCategoryRow = { id: string; name: string };
-type RawFreelancerProfileOption = {
-  id: string;
-  full_name: string;
-  freelancer_categories: { work_categories: RawCategoryRef | RawCategoryRef[] | null }[] | null;
-};
-// Godkendelsesstatus hører til freelancer_companies, ikke freelancer_profiles.
-type RawFreelancerMembershipRow = {
-  freelancer_profiles: RawFreelancerProfileOption | RawFreelancerProfileOption[] | null;
-};
+type RawFreelancerProfileRow = { auth_user_id: string; full_name: string };
+type RawFreelancerCategoryRow = { freelancer_id: string; work_categories: RawCategoryRef | RawCategoryRef[] | null };
 
 function one<T>(rel: T | T[] | null | undefined): T | null {
   if (!rel) return null;
@@ -52,14 +44,14 @@ export default async function AdminMessagesPage() {
   const company = await getCompanyBySubdomain();
   if (!company) redirect("/login?error=unknown_company");
 
-  const [messagesResult, categoriesResult, freelancersResult] = await Promise.all([
+  const [messagesResult, categoriesResult, freelancerProfilesResult] = await Promise.all([
     supabase
       .from("messages")
       .select(
         `id, subject, body, sent_to_all, target_category_id, created_at,
          admin_users(full_name),
          work_categories(name),
-         message_recipients(freelancer_id, read_at, freelancer_profiles(full_name))`
+         message_recipients(freelancer_id, read_at)`
       )
       .eq("company_id", company.id)
       .order("created_at", { ascending: false }),
@@ -68,9 +60,11 @@ export default async function AdminMessagesPage() {
       .select("id, name")
       .eq("company_id", company.id)
       .order("name"),
+    // Godkendte profiler for DENNE virksomhed — auth_user_id er login-
+    // id'et message_recipients rent faktisk gemmer.
     supabase
-      .from("freelancer_companies")
-      .select("freelancer_profiles(id, full_name, freelancer_categories(work_categories(name)))")
+      .from("freelancer_profiles")
+      .select("auth_user_id, full_name")
       .eq("company_id", company.id)
       .eq("application_status", "approved"),
   ]);
@@ -81,8 +75,38 @@ export default async function AdminMessagesPage() {
   if (categoriesResult.error) {
     console.error("AdminMessagesPage: kunne ikke hente jobfunktioner", categoriesResult.error);
   }
-  if (freelancersResult.error) {
-    console.error("AdminMessagesPage: kunne ikke hente freelancere", freelancersResult.error);
+  if (freelancerProfilesResult.error) {
+    console.error("AdminMessagesPage: kunne ikke hente freelancere", freelancerProfilesResult.error);
+  }
+
+  const approvedProfiles = (freelancerProfilesResult.data ?? []) as RawFreelancerProfileRow[];
+  const authIds = approvedProfiles.map((p) => p.auth_user_id);
+
+  const { data: categoryRowsData, error: categoryRowsError } =
+    authIds.length > 0
+      ? await supabase
+          .from("freelancer_categories")
+          .select("freelancer_id, work_categories(name)")
+          .in("freelancer_id", authIds)
+      : { data: [] as RawFreelancerCategoryRow[], error: null };
+  if (categoryRowsError) {
+    console.error("AdminMessagesPage: kunne ikke hente freelancer-kategorier", categoryRowsError);
+  }
+
+  const categoriesByAuthId = new Map<string, string[]>();
+  for (const row of (categoryRowsData ?? []) as RawFreelancerCategoryRow[]) {
+    const wc = one(row.work_categories);
+    if (!wc) continue;
+    const list = categoriesByAuthId.get(row.freelancer_id) ?? [];
+    list.push(wc.name);
+    categoriesByAuthId.set(row.freelancer_id, list);
+  }
+
+  // Navnekort til visning af modtagernavne — DENNE virksomheds egen
+  // profil-navn for hvert login-id, da navnet nu kan variere pr. virksomhed.
+  const freelancerNameMap = new Map<string, string>();
+  for (const p of approvedProfiles) {
+    freelancerNameMap.set(p.auth_user_id, p.full_name);
   }
 
   const messages: MessageListItem[] = ((messagesResult.data ?? []) as RawMessageRow[]).map((m) => {
@@ -99,7 +123,7 @@ export default async function AdminMessagesPage() {
       senderName: sender?.full_name ?? null,
       recipients: (m.message_recipients ?? []).map((r) => ({
         freelancerId: r.freelancer_id,
-        freelancerName: one(r.freelancer_profiles)?.full_name ?? "",
+        freelancerName: freelancerNameMap.get(r.freelancer_id) ?? "",
         read: r.read_at !== null,
       })),
     };
@@ -110,19 +134,11 @@ export default async function AdminMessagesPage() {
     name: c.name,
   }));
 
-  const freelancers: FreelancerOption[] = ((freelancersResult.data ?? []) as RawFreelancerMembershipRow[])
-    .map((m) => one(m.freelancer_profiles))
-    .filter((f): f is RawFreelancerProfileOption => f !== null)
-    .map((f) => {
-      const cats = (f.freelancer_categories ?? [])
-        .map((fc) => {
-          const wc = fc.work_categories;
-          if (!wc) return undefined;
-          return Array.isArray(wc) ? wc[0]?.name : wc.name;
-        })
-        .filter((name: string | undefined): name is string => Boolean(name));
-      return { id: f.id, fullName: f.full_name, categories: cats };
-    });
+  const freelancers: FreelancerOption[] = approvedProfiles.map((p) => ({
+    id: p.auth_user_id,
+    fullName: p.full_name,
+    categories: categoriesByAuthId.get(p.auth_user_id) ?? [],
+  }));
 
   return <MessageBoard messages={messages} categories={categories} freelancers={freelancers} />;
 }
