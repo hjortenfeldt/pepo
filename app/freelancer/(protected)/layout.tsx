@@ -4,6 +4,7 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { getFreelancerMemberships, getActiveProfile, touchProfileActivity } from "@/lib/freelancer";
 import { logout } from "../login/actions";
 import BottomNav from "@/components/freelancer/BottomNav";
+import PullToRefresh from "@/components/freelancer/PullToRefresh";
 import Icon from "@/components/Icon";
 
 export default async function ProtectedFreelancerLayout({
@@ -64,7 +65,7 @@ export default async function ProtectedFreelancerLayout({
     // bundnavigationen sticky lige over browserens UI, både i Safari/Chrome
     // og i den installerede standalone-app.
     <div className="flex flex-col h-dvh overflow-hidden bg-pepo-su">
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-none">{children}</div>
+      <PullToRefresh>{children}</PullToRefresh>
       <BottomNav />
     </div>
   );

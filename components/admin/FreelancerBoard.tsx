@@ -758,6 +758,35 @@ export default function FreelancerBoard({
             {panelMode === "view" && open && (
               <>
                 <div className="flex-1 overflow-y-auto px-6 pt-6">
+                  {!open.lastActiveAt && (
+                    <div className="mb-5 rounded-[10px] border border-pepo-bd bg-pepo-su px-3.5 py-3">
+                      <div className="flex items-start gap-2 text-[12.5px] text-pepo-t2 leading-relaxed mb-2.5">
+                        <Icon name="mail" size={15} className="flex-shrink-0 mt-0.5 text-pepo-t3" />
+                        <div>
+                          {open.fullName.split(" ")[0]} har endnu ikke logget ind i freelancer-appen.
+                        </div>
+                      </div>
+                      {(() => {
+                        const invited = invitedIds.has(open.id);
+                        const sending = sendingId === open.id && isSendingInvite;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => sendInvitationFor(open.id)}
+                            disabled={sending}
+                            className={
+                              "w-full h-9 rounded-[8px] text-[12.5px] font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 " +
+                              (invited ? "bg-[#EAF6EE] text-[#1A7A34]" : "bg-pepo-p text-white")
+                            }
+                          >
+                            <Icon name={invited ? "check" : "send"} size={14} />
+                            {sending ? "Sender..." : invited ? "Invitation sendt" : "Send invitation"}
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  )}
+
                   <div className="w-[150px] h-[150px] rounded-full bg-pepo-pl text-pepo-p text-5xl font-medium flex items-center justify-center mx-auto mb-2.5 overflow-hidden">
                     {open.profileImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -804,35 +833,6 @@ export default function FreelancerBoard({
                   <Row icon="activity" label="Aktivitet" value={lastActiveLabel(open.lastActiveAt)} />
                   {open.gender && <Row icon="gender-bigender" label="Køn" value={open.gender} />}
                   <Row icon="car" label="Kørekort" value={open.hasLicense ? "Ja" : "Nej"} />
-
-                  {!open.lastActiveAt && (
-                    <div className="mt-4 mb-2 rounded-[10px] border border-pepo-bd bg-pepo-su px-3.5 py-3">
-                      <div className="flex items-start gap-2 text-[12.5px] text-pepo-t2 leading-relaxed mb-2.5">
-                        <Icon name="mail" size={15} className="flex-shrink-0 mt-0.5 text-pepo-t3" />
-                        <div>
-                          {open.fullName.split(" ")[0]} har endnu ikke logget ind i freelancer-appen.
-                        </div>
-                      </div>
-                      {(() => {
-                        const invited = invitedIds.has(open.id);
-                        const sending = sendingId === open.id && isSendingInvite;
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => sendInvitationFor(open.id)}
-                            disabled={sending}
-                            className={
-                              "w-full h-9 rounded-[8px] text-[12.5px] font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 " +
-                              (invited ? "bg-[#EAF6EE] text-[#1A7A34]" : "bg-pepo-p text-white")
-                            }
-                          >
-                            <Icon name={invited ? "check" : "send"} size={14} />
-                            {sending ? "Sender..." : invited ? "Invitation sendt" : "Send invitation"}
-                          </button>
-                        );
-                      })()}
-                    </div>
-                  )}
 
                   <div className="h-4" />
                 </div>
