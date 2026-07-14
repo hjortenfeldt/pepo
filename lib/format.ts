@@ -113,6 +113,49 @@ export function relativeDateLabel(isoDate: string, today: string = todayIso()): 
 }
 
 /**
+ * Kernen af "Sidst aktiv [...]"-teksten (uden "Sidst aktiv "-forstavelse og
+ * afsluttende punktum) til freelancerprofiler i tenant-admin, ud fra
+ * freelancer_profiles.last_active_at (kun kalenderdag-præcision, opdateres
+ * højst én gang i døgnet — se touchProfileActivity i lib/freelancer.ts).
+ * Egen bucket-inddeling (uger/måneder), bevidst forskellig fra
+ * relativeDateLabel() ovenfor, som kun dækker dage og også fremtid — denne
+ * dækker kun fortid, og de præcise dag-grænser her er defineret af Hjorth.
+ * Måneder/år regnes med 30/365-dages tilnærmelse, ikke kalendermåneder —
+ * præcist nok til en grov aktivitetsindikator.
+ *
+ * Returnerer null hvis freelanceren aldrig har været aktiv — kaldere bruger
+ * det til at afgøre om der skal vises en aktivitetsdato eller i stedet en
+ * "Send invitation"-knap (se FreelancerBoard.tsx).
+ */
+export function lastActivePhrase(lastActiveDate: string | null, today: string = todayIso()): string | null {
+  if (!lastActiveDate) return null;
+
+  const diffDays = Math.round(
+    (new Date(today + "T00:00:00").getTime() - new Date(lastActiveDate + "T00:00:00").getTime()) / 86400000
+  );
+
+  if (diffDays <= 0) return "i dag";
+  if (diffDays === 1) return "i går";
+  if (diffDays === 2) return "i forgårs";
+  if (diffDays <= 6) return `for ${diffDays} dage siden`;
+  if (diffDays <= 13) return "for en uge siden";
+  if (diffDays <= 20) return "for to uger siden";
+  if (diffDays <= 27) return "for tre uger siden";
+  if (diffDays <= 59) return "for en måned siden";
+  if (diffDays <= 89) return "for to måneder siden";
+  if (diffDays <= 119) return "for tre måneder siden";
+  if (diffDays <= 179) return "for mere end tre måneder siden";
+  if (diffDays <= 364) return "for mere end seks måneder siden";
+  return "for mere end et år siden";
+}
+
+/** Fuld sætning til profilpanelet — se lastActivePhrase() ovenfor. */
+export function lastActiveLabel(lastActiveDate: string | null, today: string = todayIso()): string {
+  const phrase = lastActivePhrase(lastActiveDate, today);
+  return phrase ? `Sidst aktiv ${phrase}.` : "Har endnu ikke brugt appen.";
+}
+
+/**
  * Matcher prototypens venueLabel(): navn hvis sat, ellers adressen, ellers
  * en tydelig placeholder — aldrig en tom streng i UI'en.
  */

@@ -45,6 +45,7 @@ export type FreelancerListItem = {
   socialMediaUrl: string | null;
   applicationStatus: ApplicationStatus;
   appliedAt: string; // ISO timestamp
+  lastActiveAt: string | null; // ISO date, kun kalenderdag — se lastActiveLabel i lib/format.ts
   categories: { id: string; name: string; icon: string | null }[];
   hasLicense: boolean;
 };

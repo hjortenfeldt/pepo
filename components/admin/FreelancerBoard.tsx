@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ApplicationStatus, CategoryOption, FreelancerListItem } from "@/lib/admin-types";
 import {
@@ -9,10 +9,10 @@ import {
   updateFreelancer,
   deleteFreelancer,
   sendFreelancerInvitation,
-  hasFreelancerLoggedIn,
   type FreelancerFormInput,
 } from "@/app/tenant/(protected)/freelancers/actions";
 import Icon from "@/components/Icon";
+import { lastActiveLabel, lastActivePhrase } from "@/lib/format";
 
 type MainTab = "approved" | "applications";
 type SubTab = "pending" | "rejected";
@@ -90,8 +90,13 @@ export default function FreelancerBoard({
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [hasLoggedIn, setHasLoggedIn] = useState<boolean | null>(null);
-  const [inviteSent, setInviteSent] = useState(false);
+  // "Send invitation"-status er bevidst delt fælles state for HELE
+  // komponenten (ikke pr. panel) — samme freelancer kan vises på tre
+  // steder samtidig (kort, liste, profilpanel), og et klik ét sted skal
+  // afspejles synkront alle tre steder. Nulstilles ikke ved
+  // panel-åbning/lukning, kun ved en fuld sideopdatering (nyt props-load).
+  const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
+  const [sendingId, setSendingId] = useState<string | null>(null);
   const [isSendingInvite, startInviteTransition] = useTransition();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, startDeleteTransition] = useTransition();
@@ -137,34 +142,27 @@ export default function FreelancerBoard({
 
   const open = openId ? freelancers.find((f) => f.id === openId) ?? null : null;
 
-  // Slår kun op om freelanceren har logget ind, når profilen rent faktisk
-  // vises — ikke for hele listen på én gang (ville betyde ét ekstra
-  // Auth-opslag pr. freelancer ved hver sideindlæsning). "Send
-  // invitation" skal kun være muligt indtil første login. Selve
-  // nulstillingen af hasLoggedIn/inviteSent sker i de handlinger der åbner
-  // panelet (openPanelFor/saveNewFreelancer/closePanel), ikke synkront her
-  // — effekten sætter kun state fra det asynkrone opslags callback.
-  useEffect(() => {
-    if (panelMode !== "view" || !open) return;
-    let cancelled = false;
-    hasFreelancerLoggedIn(open.id).then((result) => {
-      if (!cancelled) setHasLoggedIn(result);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [panelMode, open]);
-
-  function sendInvitation() {
-    if (!open) return;
+  // Bruges alle tre steder en freelancer kan vises (kort, liste,
+  // profilpanel) — se invitedIds/sendingId ovenfor. "Har aldrig været
+  // aktiv" afgøres af freelancer_profiles.last_active_at (sat af
+  // freelancer-appens layout, se touchProfileActivity i lib/freelancer.ts)
+  // i stedet for et separat Auth-opslag — det er allerede en del af de
+  // props siden får ind, så det kræver ikke noget ekstra kald pr. freelancer.
+  function sendInvitationFor(freelancerId: string) {
     setError(null);
+    setSendingId(freelancerId);
     startInviteTransition(async () => {
-      const result = await sendFreelancerInvitation(open.id);
+      const result = await sendFreelancerInvitation(freelancerId);
+      setSendingId(null);
       if (!result.success) {
         setError(result.error ?? "Der opstod en fejl.");
         return;
       }
-      setInviteSent(true);
+      setInvitedIds((prev) => {
+        const next = new Set(prev);
+        next.add(freelancerId);
+        return next;
+      });
     });
   }
 
@@ -187,8 +185,6 @@ export default function FreelancerBoard({
     setOpenId(f.id);
     setPanelMode("view");
     setError(null);
-    setHasLoggedIn(null);
-    setInviteSent(false);
     setConfirmingDelete(false);
   }
 
@@ -196,8 +192,6 @@ export default function FreelancerBoard({
     setOpenId(null);
     setPanelMode("view");
     setError(null);
-    setHasLoggedIn(null);
-    setInviteSent(false);
     setConfirmingDelete(false);
   }
 
@@ -306,8 +300,6 @@ export default function FreelancerBoard({
       // freelanceren i listen bagefter.
       setPanelMode("view");
       setOpenId(result.id);
-      setHasLoggedIn(null);
-      setInviteSent(false);
       router.refresh();
     });
   }
@@ -598,10 +590,18 @@ export default function FreelancerBoard({
             {filtered.map((f) => {
               const age = ageFromBirthDate(f.birthDate);
               return (
-                <button
+                <div
                   key={f.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => openPanelFor(f)}
-                  className="w-full text-left flex items-center gap-3 px-4 py-[11px] border-b border-pepo-bd last:border-b-0 hover:bg-pepo-su transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openPanelFor(f);
+                    }
+                  }}
+                  className="w-full text-left flex items-center gap-3 px-4 py-[11px] border-b border-pepo-bd last:border-b-0 hover:bg-pepo-su transition-colors cursor-pointer"
                 >
                   <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p text-[12.5px] font-medium flex items-center justify-center overflow-hidden flex-shrink-0">
                     {f.profileImageUrl ? (
@@ -626,17 +626,31 @@ export default function FreelancerBoard({
                       <span className="text-xs text-pepo-t3">Ingen kategorier valgt</span>
                     )}
                   </div>
-                </button>
+                  <ActivityStatus
+                    freelancer={f}
+                    invited={invitedIds.has(f.id)}
+                    sending={sendingId === f.id && isSendingInvite}
+                    onInvite={() => sendInvitationFor(f.id)}
+                  />
+                </div>
               );
             })}
           </div>
         ) : (
           <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
             {filtered.map((f) => (
-              <button
+              <div
                 key={f.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => openPanelFor(f)}
-                className="text-left bg-pepo-wh border border-pepo-bd rounded-[14px] p-4 hover:border-pepo-pm hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] transition-all"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openPanelFor(f);
+                  }
+                }}
+                className="text-left bg-pepo-wh border border-pepo-bd rounded-[14px] p-4 hover:border-pepo-pm hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] transition-all cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2.5">
@@ -658,7 +672,16 @@ export default function FreelancerBoard({
                       <div className="text-xs text-pepo-t2 mt-px">{f.location || "—"}</div>
                     </div>
                   </div>
-                  <Badge status={f.applicationStatus} />
+                  {f.applicationStatus === "approved" ? (
+                    <ActivityStatus
+                      freelancer={f}
+                      invited={invitedIds.has(f.id)}
+                      sending={sendingId === f.id && isSendingInvite}
+                      onInvite={() => sendInvitationFor(f.id)}
+                    />
+                  ) : (
+                    <Badge status={f.applicationStatus} />
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {f.categories.length ? (
@@ -683,7 +706,7 @@ export default function FreelancerBoard({
                     </span>
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -778,10 +801,11 @@ export default function FreelancerBoard({
                     <Row icon="notes" label={`Om ${open.fullName}`} value={open.bio} multiline />
                   )}
                   <Row icon="calendar" label="Ansøgt" value={formatDate(open.appliedAt)} />
+                  <Row icon="activity" label="Aktivitet" value={lastActiveLabel(open.lastActiveAt)} />
                   {open.gender && <Row icon="gender-bigender" label="Køn" value={open.gender} />}
                   <Row icon="car" label="Kørekort" value={open.hasLicense ? "Ja" : "Nej"} />
 
-                  {hasLoggedIn === false && (
+                  {!open.lastActiveAt && (
                     <div className="mt-4 mb-2 rounded-[10px] border border-pepo-bd bg-pepo-su px-3.5 py-3">
                       <div className="flex items-start gap-2 text-[12.5px] text-pepo-t2 leading-relaxed mb-2.5">
                         <Icon name="mail" size={15} className="flex-shrink-0 mt-0.5 text-pepo-t3" />
@@ -789,20 +813,24 @@ export default function FreelancerBoard({
                           {open.fullName.split(" ")[0]} har endnu ikke logget ind i freelancer-appen.
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={sendInvitation}
-                        disabled={isSendingInvite}
-                        className="w-full h-9 rounded-[8px] text-[12.5px] font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-50"
-                      >
-                        <Icon name="send" size={14} />
-                        {isSendingInvite ? "Sender..." : inviteSent ? "Invitation sendt igen" : "Send invitation"}
-                      </button>
-                      {inviteSent && !isSendingInvite && (
-                        <div className="text-[11.5px] text-[#1A7A34] mt-2 text-center">
-                          Invitationen er sendt til {open.email || "freelancerens email"}.
-                        </div>
-                      )}
+                      {(() => {
+                        const invited = invitedIds.has(open.id);
+                        const sending = sendingId === open.id && isSendingInvite;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => sendInvitationFor(open.id)}
+                            disabled={sending}
+                            className={
+                              "w-full h-9 rounded-[8px] text-[12.5px] font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 " +
+                              (invited ? "bg-[#EAF6EE] text-[#1A7A34]" : "bg-pepo-p text-white")
+                            }
+                          >
+                            <Icon name={invited ? "check" : "send"} size={14} />
+                            {sending ? "Sender..." : invited ? "Invitation sendt" : "Send invitation"}
+                          </button>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -1106,6 +1134,58 @@ function Field({
       </label>
       {children}
     </div>
+  );
+}
+
+/**
+ * Vises i øverste højre hjørne af hvert kort (grid-visning) og yderst til
+ * højre i hver liste-række — enten en lille aktivitetsdato (findes
+ * last_active_at), eller en "Send invitation"-knap (findes den ikke, dvs.
+ * freelanceren har aldrig åbnet appen). Delt med profilpanelets tilsvarende
+ * knap via invitedIds/sendingId i FreelancerBoard, så alle tre steder altid
+ * viser samme tilstand for samme freelancer — se sendInvitationFor.
+ *
+ * e.stopPropagation() på knappen er nødvendigt fordi kortet/rækken den sidder
+ * i selv er klikbar (åbner profilpanelet) — uden det ville et klik på
+ * "Send invitation" også åbne panelet.
+ */
+function ActivityStatus({
+  freelancer,
+  invited,
+  sending,
+  onInvite,
+}: {
+  freelancer: FreelancerListItem;
+  invited: boolean;
+  sending: boolean;
+  onInvite: () => void;
+}) {
+  const phrase = lastActivePhrase(freelancer.lastActiveAt);
+
+  if (phrase) {
+    return (
+      <span className="text-[11px] text-pepo-t3 whitespace-nowrap flex-shrink-0">
+        {phrase.charAt(0).toUpperCase() + phrase.slice(1)}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!sending) onInvite();
+      }}
+      disabled={sending}
+      className={
+        "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium flex-shrink-0 whitespace-nowrap transition-colors disabled:opacity-50 " +
+        (invited ? "bg-[#EAF6EE] text-[#1A7A34]" : "bg-pepo-pl text-pepo-p hover:bg-pepo-pm")
+      }
+    >
+      <Icon name={invited ? "check" : "send"} size={12} />
+      {sending ? "Sender..." : invited ? "Invitation sendt" : "Send invitation"}
+    </button>
   );
 }
 

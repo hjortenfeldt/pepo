@@ -32,6 +32,7 @@ type RawProfile = {
   has_license: boolean;
   application_status: "pending" | "approved" | "rejected";
   applied_at: string;
+  last_active_at: string | null;
 };
 type WorkCategoryRef = { id: string; name: string; icon: string | null };
 type RawFreelancerCategoryRow = {
@@ -57,7 +58,7 @@ export default async function AdminFreelancersPage() {
     .from("freelancer_profiles")
     .select(
       `id, auth_user_id, full_name, email, gender, birth_date, location, phone, bio,
-       profile_image_url, social_media_url, has_license, application_status, applied_at`
+       profile_image_url, social_media_url, has_license, application_status, applied_at, last_active_at`
     )
     .eq("company_id", company.id)
     .order("applied_at", { ascending: false });
@@ -125,6 +126,7 @@ export default async function AdminFreelancersPage() {
     socialMediaUrl: p.social_media_url,
     applicationStatus: p.application_status,
     appliedAt: p.applied_at,
+    lastActiveAt: p.last_active_at,
     categories: (categoriesByAuthId.get(p.auth_user_id) ?? []).map((c) => ({
       id: c.id,
       name: c.name,

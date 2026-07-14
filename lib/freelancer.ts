@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { unstable_cache, updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { todayIso } from "@/lib/format";
 
 export type FreelancerMembership = {
   id: string; // freelancer_profiles.id — denne virksomheds egen profil, ikke login-id'et
@@ -111,6 +112,33 @@ export async function getActiveProfile(authUserId: string): Promise<ActiveProfil
   const selected = selectedId ? approved.find((p) => p.id === selectedId) : undefined;
 
   return selected ?? approved[0];
+}
+
+/**
+ * Registrerer at freelanceren har åbnet appen i dag, til tenant-admins
+ * "Sidst aktiv [...]"-visning (se lastActiveLabel i lib/format.ts). Kaldes
+ * fra freelancer-appens layout via Next.js' after(), så selve sidevisningen
+ * ikke venter på dette skriv.
+ *
+ * Bevidst IKKE opdateret ved hver sidevisning — kun kalenderdagen er
+ * interessant her (ikke klokkeslæt), så .or()-betingelsen nedenfor gør at
+ * UPDATE'en kun rammer rækken (og dermed kun skriver noget) hvis dagens
+ * dato rent faktisk er anderledes end sidst registreret. Almindelige
+ * sidevisninger senere samme dag koster derfor kun et billigt opslag uden
+ * skrivning, ikke et skriv pr. request.
+ */
+export async function touchProfileActivity(profileId: string) {
+  const supabase = createAdminClient();
+  const today = todayIso();
+  const { error } = await supabase
+    .from("freelancer_profiles")
+    .update({ last_active_at: today })
+    .eq("id", profileId)
+    .or(`last_active_at.is.null,last_active_at.neq.${today}`);
+
+  if (error) {
+    console.error("touchProfileActivity fejlede", error);
+  }
 }
 
 export type CompanyContactInfo = {

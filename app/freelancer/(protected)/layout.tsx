@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { getAuthUser } from "@/lib/supabase/server";
-import { getFreelancerMemberships } from "@/lib/freelancer";
+import { getFreelancerMemberships, getActiveProfile, touchProfileActivity } from "@/lib/freelancer";
 import { logout } from "../login/actions";
 import BottomNav from "@/components/freelancer/BottomNav";
 import Icon from "@/components/Icon";
@@ -42,6 +43,16 @@ export default async function ProtectedFreelancerLayout({
         }
       />
     );
+  }
+
+  // Registrerer dagens dato som "sidst aktiv" for den profil freelanceren
+  // aktuelt browser under (se getActiveProfile i lib/freelancer.ts) — kun
+  // for godkendte brugere der rent faktisk ser appens indhold, ikke for
+  // "afventer godkendelse"-skærmen ovenfor. Kørt via after(), så selve
+  // sidevisningen ikke venter på dette skriv.
+  const activeProfile = await getActiveProfile(user.id);
+  if (activeProfile) {
+    after(() => touchProfileActivity(activeProfile.id));
   }
 
   return (
