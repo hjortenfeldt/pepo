@@ -1180,7 +1180,7 @@ function ActivityStatus({
       disabled={sending}
       className={
         "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium flex-shrink-0 whitespace-nowrap transition-colors disabled:opacity-50 " +
-        (invited ? "bg-[#EAF6EE] text-[#1A7A34]" : "bg-pepo-pl text-pepo-p hover:bg-pepo-pm")
+        (invited ? "bg-[#EAF6EE] text-[#1A7A34]" : "bg-pepo-p text-white")
       }
     >
       <Icon name={invited ? "check" : "send"} size={12} />
