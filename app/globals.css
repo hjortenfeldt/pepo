@@ -134,3 +134,29 @@ select {
 .pepo-flash-green {
   animation: pepo-flash-green 1.3s ease-out;
 }
+
+/* Splash-skærmens logo (components/freelancer/SplashScreen.tsx) — toner frem
+   imens det vokser, og bounder let tilbage i størrelse mod slutningen
+   (ease-out). Varer præcis 2 sek., magen til SplashScreen's MIN_VISIBLE_MS —
+   de to skal altid holdes i sync, hvis varigheden nogensinde ændres. */
+@keyframes pepo-splash-logo {
+  0% { opacity: 0; transform: scale(0.55); }
+  55% { opacity: 1; transform: scale(1.08); }
+  75% { transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.pepo-splash-logo {
+  animation: pepo-splash-logo 2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Tynd, "ubestemt" load-bar under splash-logoet — vises kun hvis Overblik-
+   sidens data i baggrunden stadig ikke er klar, når logo-animationen er
+   færdig efter 2 sek. Kører i en løkke, indtil SplashScreen registrerer at
+   indholdet er klart og toner hele skærmen væk. */
+@keyframes pepo-splash-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.pepo-splash-bar {
+  animation: pepo-splash-bar 1.1s ease-in-out infinite;
+}

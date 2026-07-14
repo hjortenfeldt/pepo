@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import InstallGate from "@/components/freelancer/InstallGate";
+import SplashScreen from "@/components/freelancer/SplashScreen";
 
 /**
  * Overskriver root-metadata (app/layout.tsx) for hele freelancer-appen,
@@ -50,6 +51,14 @@ export default function FreelancerRootLayout({ children }: { children: React.Rea
     // en (uønsket) scroll-container ved siden af den indre.
     <div className="fixed inset-0 overflow-y-auto overscroll-none bg-pepo-su">
       <InstallGate>{children}</InstallGate>
+      {/* SplashScreen sidder bevidst her og ikke længere nede i træet: dette
+          layout er synkront (ingen server-awaits), så Next.js kan streame
+          det med det samme uden at vente på (protected)-layoutets/Overblik-
+          sidens egne databasekald. Overlayet dækker dermed InstallGate og
+          alt derunder, uanset hvor lang tid den rigtige side er om at blive
+          klar i baggrunden — se SplashScreen.tsx for hvordan den selv
+          registrerer hvornår indholdet er klar. */}
+      <SplashScreen />
     </div>
   );
 }

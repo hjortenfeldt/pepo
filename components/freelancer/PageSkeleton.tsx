@@ -4,10 +4,16 @@
  * BottomNav, i stedet for et par sekunders helt blankt/frosset skærmbillede.
  * Gør navigationen mellem faner opleves lynhurtig selvom selve datakaldet
  * stadig tager sin tid, i stedet for at brugeren tror appen hænger.
+ *
+ * data-pepo-splash-fallback: markør som SplashScreen.tsx bruger til (via
+ * document.querySelector + MutationObserver) at afgøre om destinationssiden
+ * stadig venter på data i baggrunden ved koldstart af app'en — helt uafhængigt
+ * af selve Next.js' Suspense-swap. Fjernes IKKE denne markør fra elementet
+ * herunder, hvis komponenten redesignes; flyt den blot til det nye rodelement.
  */
 export default function PageSkeleton() {
   return (
-    <div className="px-5 pt-4 pb-6">
+    <div data-pepo-splash-fallback className="px-5 pt-4 pb-6">
       <div className="h-6 w-32 rounded-md bg-pepo-bd animate-pulse" />
       <div className="h-4 w-24 rounded-md bg-pepo-bd animate-pulse mt-2" />
 
