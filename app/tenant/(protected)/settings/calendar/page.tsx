@@ -30,6 +30,10 @@ export default async function CalendarSyncPage() {
   }
 
   return (
-    <CalendarSyncSettings tenantSlug={data.slug} initialToken={data.calendar_feed_token} />
+    <CalendarSyncSettings
+      tenantSlug={data.slug}
+      tenantName={company.name}
+      initialToken={data.calendar_feed_token}
+    />
   );
 }

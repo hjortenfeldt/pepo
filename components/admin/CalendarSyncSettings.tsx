@@ -12,9 +12,11 @@ function feedUrl(slug: string, token: string, scheme: "https" | "webcal") {
 
 export default function CalendarSyncSettings({
   tenantSlug,
+  tenantName,
   initialToken,
 }: {
   tenantSlug: string;
+  tenantName: string;
   initialToken: string;
 }) {
   const [token, setToken] = useState(initialToken);
@@ -58,14 +60,21 @@ export default function CalendarSyncSettings({
 
       <div className="px-8 py-[22px] pb-10 max-w-2xl">
         <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
-          <div className="flex items-start gap-3 mb-5">
-            <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0">
-              <Icon name="calendar-cog" size={20} />
+          <div className="flex items-start gap-3 mb-4 px-3.5 py-3 rounded-[9px] bg-pepo-pl text-[13.5px] text-pepo-p leading-relaxed">
+            <Icon name="calendar-cog" size={20} className="flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold">VIGTIGT:</span> Abonnér på denne kalender for at se ALLE{" "}
+              {tenantName}&apos;s events og vagter i din kalender på computeren/telefonen.
             </div>
-            <div className="text-[13.5px] text-pepo-t2 leading-relaxed">
-              Abonnerer I på linket herunder, dukker alle events der oprettes i Pepo automatisk op i jeres
-              kalender på telefonen eller computeren — med titel, adresse, vagtoversigt, briefing og
-              kundeoplysninger. Kalender-appen opdaterer sig selv med jævne mellemrum.
+          </div>
+
+          <div className="flex items-start gap-3 mb-5 px-3.5 py-3 rounded-[9px] bg-[#FEF3E2] text-[13.5px] text-[#9A5F00] leading-relaxed">
+            <Icon name="alert-triangle" size={20} className="flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold">BEMÆRK:</span> Kun {tenantName}&apos;s admins bør abonnere på denne
+              kalender (da den viser alle jeres vagter og hvem de er tildelt til). Den enkelte freelancer bør i
+              stedet for at abonnere på den kalender som kun viser deres egne vagter — hvilket de kan gøre inde
+              fra freelancer-app&apos;en (app.pepo.team).
             </div>
           </div>
 
@@ -89,8 +98,8 @@ export default function CalendarSyncSettings({
               </a>
             </div>
             <div className="text-[11.5px] text-pepo-t3 mt-1.5">
-              Klik på "Abonnér" for at åbne kalender-appen på denne enhed direkte, eller kopiér linket herover
-              og indsæt det som "Abonnér på kalender" i Apple Kalender, Google Kalender eller Outlook.
+              Klik på &quot;Abonnér&quot; for at åbne kalender-appen på denne enhed direkte, eller kopiér linket herover
+              og indsæt det som &quot;Abonnér på kalender&quot; i Apple Kalender, Google Kalender eller Outlook.
             </div>
           </div>
 
@@ -106,7 +115,7 @@ export default function CalendarSyncSettings({
               Et kalender-abonnement henter selv opdateringer med jævne mellemrum — Pepo sender ikke besked ud,
               når der sker en ændring. Nye eller ændrede vagter kan derfor gå op til flere timer eller dage,
               før de dukker op i jeres kalender. På en computer kan I ofte selv vælge hvor tit der opdateres
-              (kig efter "Auto-refresh" i kalender-appens indstillinger for abonnementet) — vælg gerne den
+              (kig efter &quot;Auto-refresh&quot; i kalender-appens indstillinger for abonnementet) — vælg gerne den
               hyppigste mulighed. På telefoner styrer styresystemet selv opdateringsfrekvensen, uden at man kan
               indstille det.
             </div>
@@ -130,7 +139,7 @@ export default function CalendarSyncSettings({
                 <div className="text-[12.5px] text-pepo-t2 mb-3">
                   De fleste har kun brug for webcal-linket ovenfor. Https-linket er til de tilfælde hvor et
                   kalendersystem kræver, at man selv indsætter en almindelig webadresse i stedet for at klikke
-                  på et link — fx Google Kalenders "Fra URL"-funktion på web, som ikke forstår webcal-links.
+                  på et link — fx Google Kalenders &quot;Fra URL&quot;-funktion på web, som ikke forstår webcal-links.
                 </div>
                 <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
                   Abonnementslink (https, til manuel indsætning)

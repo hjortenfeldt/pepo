@@ -113,9 +113,14 @@ export default function ShiftBoard({
     if (!eventId) return;
     const event = events.find((e) => e.id === eventId);
     if (!event) return;
-    setTab("all");
-    const shift = event.shifts.find((s) => s.status !== "cancelled") ?? event.shifts[0];
-    if (shift) setOpenShift({ shift, event });
+    // Sat i et resolved promise fremfor direkte i effekten, så React ikke ser
+    // det som en synkron setState-kædning (matcher mønstret fra
+    // InstallGate.tsx/PushToggle.tsx).
+    Promise.resolve().then(() => {
+      setTab("all");
+      const shift = event.shifts.find((s) => s.status !== "cancelled") ?? event.shifts[0];
+      if (shift) setOpenShift({ shift, event });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, events]);
 

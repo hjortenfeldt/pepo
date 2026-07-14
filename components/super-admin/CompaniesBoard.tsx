@@ -26,9 +26,14 @@ function useLocalDevOrigin() {
   });
 
   useEffect(() => {
-    setOrigin({
-      isLocal: window.location.hostname.endsWith("localhost"),
-      port: window.location.port,
+    // Sat i et resolved promise fremfor direkte i effekten, så React ikke ser
+    // det som en synkron setState-kædning (matcher mønstret fra
+    // InstallGate.tsx/PushToggle.tsx).
+    Promise.resolve().then(() => {
+      setOrigin({
+        isLocal: window.location.hostname.endsWith("localhost"),
+        port: window.location.port,
+      });
     });
   }, []);
 

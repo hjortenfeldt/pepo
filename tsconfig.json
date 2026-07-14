@@ -30,5 +30,13 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // app/_admin_legacy_unused (oprindeligt app/admin) er en udfaset route fra
+  // før multi-tenant-omlægningen (proxy.ts rewriter aldrig hertil). Filerne
+  // kan ikke slettes i dette miljø (Drive-synkede filer, "Operation not
+  // permitted"), så mappen er i stedet omdøbt med et forrangs-understregning
+  // ("_"), som Next.js' App Router selv ignorerer som en "privat mappe" —
+  // ingen route genereres længere for den, og Next holder derfor også op med
+  // at ville typechecke den via sin egen validator.ts. excluden her er et
+  // ekstra lag, så heller ikke selve tsc rører filerne.
+  "exclude": ["node_modules", "app/_admin_legacy_unused"]
 }
