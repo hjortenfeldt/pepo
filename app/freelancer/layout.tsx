@@ -49,7 +49,16 @@ export default function FreelancerRootLayout({ children }: { children: React.Rea
     // egen overflow-y-auto-container). Uden dette kunne hele siden, inkl.
     // bundnavigationen, rykke sig ved swipe, fordi <body> selv fungerede som
     // en (uønsket) scroll-container ved siden af den indre.
-    <div className="fixed inset-0 overflow-y-auto overscroll-none bg-pepo-su">
+    //
+    // Baggrundsfarven her er bevidst splash-skærmens lilla (#6500B3), IKKE
+    // bg-pepo-su — <body> i det fælles rod-layout (app/layout.tsx) er hvid
+    // som standard, og der går et øjeblik fra browseren maler den hvide
+    // <body> til SplashScreen (og alt herunder) selv har nået at male oven
+    // på den. I det øjeblik er DETTE elements baggrund det eneste der reelt
+    // ses, så den skal matche splash-skærmen, ikke det senere sideindhold
+    // (som alligevel altid maler sin egen baggrund ovenpå, fx InstallGate,
+    // login-siden og (protected)-indholdet).
+    <div className="fixed inset-0 overflow-y-auto overscroll-none bg-[#6500B3]">
       <InstallGate>{children}</InstallGate>
       {/* SplashScreen sidder bevidst her og ikke længere nede i træet: dette
           layout er synkront (ingen server-awaits), så Next.js kan streame
