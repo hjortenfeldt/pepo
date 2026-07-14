@@ -43,10 +43,13 @@ export async function setApplicationStatus(
 
 export type FreelancerFormInput = {
   fullName: string;
+  gender: string;
+  birthDate: string; // ISO date (yyyy-mm-dd)
   phone: string;
   email: string;
   location: string;
   bio: string;
+  socialMediaUrl: string;
   categoryIds: string[];
   hasLicense: boolean;
   // Data-URL fra FileReader (samme mønster som "Opret freelancer" i
@@ -54,8 +57,14 @@ export type FreelancerFormInput = {
   photoDataUrl: string | null;
 };
 
+// Skal holdes i sync med feltsættet i RegistrationForm.tsx (den offentlige
+// ansøgningsside, /apply) og med visningen i FreelancerBoard.tsx's
+// profilpanel ("view") — se feedback_freelancer_profile_fields_in_sync i
+// projektets hukommelse. Tilføjes et felt ét sted, skal det tilføjes alle
+// tre steder (opret, redigér, ansøgningsformular) plus selve visningen.
 function validate(input: FreelancerFormInput) {
   if (!input.fullName.trim()) return "Udfyld navn.";
+  if (!input.birthDate.trim()) return "Udfyld fødselsdato.";
   if (input.categoryIds.length === 0) return "Vælg mindst én jobfunktion.";
   return null;
 }
@@ -182,13 +191,13 @@ export async function createFreelancer(input: FreelancerFormInput) {
     application_status: "approved",
     full_name: input.fullName.trim(),
     email: input.email.trim() || null,
-    gender: null,
-    birth_date: null,
+    gender: input.gender.trim() || null,
+    birth_date: input.birthDate,
     location: input.location.trim() || null,
     phone: normalizePhone(input.phone.trim()),
     bio: input.bio.trim() || null,
     profile_image_url: profileImageUrl,
-    social_media_url: null,
+    social_media_url: input.socialMediaUrl.trim() || null,
     has_license: input.hasLicense,
   });
 
@@ -344,9 +353,12 @@ export async function updateFreelancer(freelancerId: string, input: FreelancerFo
   const updateRow: Record<string, unknown> = {
     full_name: input.fullName.trim(),
     email: input.email.trim() || null,
+    gender: input.gender.trim() || null,
+    birth_date: input.birthDate,
     location: input.location.trim() || null,
     phone: normalizePhone(input.phone.trim()),
     bio: input.bio.trim() || null,
+    social_media_url: input.socialMediaUrl.trim() || null,
     has_license: input.hasLicense,
   };
   if (profileImageUrl) updateRow.profile_image_url = profileImageUrl;
@@ -396,5 +408,47 @@ export async function updateFreelancer(freelancerId: string, input: FreelancerFo
   }
 
   revalidatePath("/freelancers");
+  return { success: true as const };
+}
+
+/**
+ * Admin sletter en freelancerprofil permanent (fra "Redigér freelancer").
+ * Sletter kun DENNE virksomheds egen profil-række — personens evt. andre
+ * profiler hos andre virksomheder, og selve login-kontoen (auth_user_id),
+ * berøres ikke. Ingen andre tabeller har længere en fremmednøgle direkte
+ * til freelancer_profiles (shifts/beskeder/jobfunktioner peger nu på
+ * login-id'et, se freelancer_profiles_per_company-migrationen), så
+ * sletningen er isoleret og kræver ingen oprydning andre steder.
+ */
+export async function deleteFreelancer(freelancerId: string) {
+  const company = await getCompanyBySubdomain();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
+  const supabase = createAdminClient();
+
+  const { data: existing } = await supabase
+    .from("freelancer_profiles")
+    .select("id")
+    .eq("id", freelancerId)
+    .eq("company_id", company.id)
+    .maybeSingle();
+
+  if (!existing) {
+    return { success: false as const, error: "Freelanceren er ikke tilknyttet denne virksomhed." };
+  }
+
+  const { error } = await supabase
+    .from("freelancer_profiles")
+    .delete()
+    .eq("id", freelancerId)
+    .eq("company_id", company.id);
+
+  if (error) {
+    console.error("deleteFreelancer fejlede", error);
+    return { success: false as const, error: "Kunne ikke slette freelanceren. Prøv igen." };
+  }
+
+  revalidatePath("/freelancers");
+  updateTag(FREELANCER_MEMBERSHIPS_TAG);
   return { success: true as const };
 }

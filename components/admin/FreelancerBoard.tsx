@@ -7,6 +7,7 @@ import {
   setApplicationStatus,
   createFreelancer,
   updateFreelancer,
+  deleteFreelancer,
   sendFreelancerInvitation,
   hasFreelancerLoggedIn,
   type FreelancerFormInput,
@@ -56,10 +57,13 @@ function Badge({ status }: { status: ApplicationStatus }) {
 function emptyForm(): FreelancerFormInput {
   return {
     fullName: "",
+    gender: "",
+    birthDate: "",
     phone: "",
     email: "",
     location: "",
     bio: "",
+    socialMediaUrl: "",
     categoryIds: [],
     hasLicense: false,
     photoDataUrl: null,
@@ -89,6 +93,8 @@ export default function FreelancerBoard({
   const [hasLoggedIn, setHasLoggedIn] = useState<boolean | null>(null);
   const [inviteSent, setInviteSent] = useState(false);
   const [isSendingInvite, startInviteTransition] = useTransition();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, startDeleteTransition] = useTransition();
   const router = useRouter();
 
   const counts = useMemo(
@@ -183,6 +189,7 @@ export default function FreelancerBoard({
     setError(null);
     setHasLoggedIn(null);
     setInviteSent(false);
+    setConfirmingDelete(false);
   }
 
   function closePanel() {
@@ -191,6 +198,7 @@ export default function FreelancerBoard({
     setError(null);
     setHasLoggedIn(null);
     setInviteSent(false);
+    setConfirmingDelete(false);
   }
 
   function openNewFreelancer() {
@@ -206,10 +214,13 @@ export default function FreelancerBoard({
     if (!open) return;
     setForm({
       fullName: open.fullName,
+      gender: open.gender ?? "",
+      birthDate: open.birthDate ?? "",
       phone: open.phone,
       email: open.email ?? "",
       location: open.location ?? "",
       bio: open.bio ?? "",
+      socialMediaUrl: open.socialMediaUrl ?? "",
       categoryIds: open.categories.map((c) => c.id),
       hasLicense: open.hasLicense,
       photoDataUrl: null,
@@ -218,6 +229,22 @@ export default function FreelancerBoard({
     setShowPhotoUpload(!open.profileImageUrl);
     setPanelMode("edit");
     setError(null);
+    setConfirmingDelete(false);
+  }
+
+  function handleDelete() {
+    if (!openId) return;
+    setError(null);
+    startDeleteTransition(async () => {
+      const result = await deleteFreelancer(openId);
+      if (!result.success) {
+        setError(result.error ?? "Der opstod en fejl.");
+        setConfirmingDelete(false);
+        return;
+      }
+      closePanel();
+      router.refresh();
+    });
   }
 
   function toggleFormCat(catId: string) {
@@ -259,6 +286,10 @@ export default function FreelancerBoard({
       setError("Udfyld navn");
       return;
     }
+    if (!form.birthDate) {
+      setError("Udfyld fødselsdato");
+      return;
+    }
     if (form.categoryIds.length === 0) {
       setError("Vælg mindst én jobfunktion");
       return;
@@ -286,6 +317,10 @@ export default function FreelancerBoard({
     setError(null);
     if (!form.fullName.trim()) {
       setError("Udfyld navn");
+      return;
+    }
+    if (!form.birthDate) {
+      setError("Udfyld fødselsdato");
       return;
     }
     if (form.categoryIds.length === 0) {
@@ -867,6 +902,30 @@ export default function FreelancerBoard({
                   </Field>
 
                   <div className="flex gap-2.5">
+                    <Field label="Køn" className="flex-1">
+                      <select
+                        value={form.gender}
+                        onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
+                        className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p bg-pepo-wh"
+                      >
+                        <option value="">Vælg</option>
+                        <option>Kvinde</option>
+                        <option>Mand</option>
+                        <option>Ikke-binær</option>
+                        <option>Ønsker ikke at oplyse</option>
+                      </select>
+                    </Field>
+                    <Field label="Fødselsdato" className="flex-1">
+                      <input
+                        type="date"
+                        value={form.birthDate}
+                        onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
+                        className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="flex gap-2.5">
                     <Field label="Telefon" className="flex-1">
                       <input
                         type="text"
@@ -928,6 +987,16 @@ export default function FreelancerBoard({
                     />
                   </Field>
 
+                  <Field label="Link til SoMe-profil (valgfrit)">
+                    <input
+                      type="text"
+                      value={form.socialMediaUrl}
+                      onChange={(e) => setForm((f) => ({ ...f, socialMediaUrl: e.target.value }))}
+                      placeholder="https://instagram.com/annaberg"
+                      className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
+                    />
+                  </Field>
+
                   <label className="flex items-center gap-2 text-[13px] text-pepo-t1 mb-4 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -937,6 +1006,45 @@ export default function FreelancerBoard({
                     />
                     Har kørekort
                   </label>
+
+                  {panelMode === "edit" && (
+                    <div className="border-t border-pepo-bd pt-4 mt-2">
+                      {!confirmingDelete ? (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDelete(true)}
+                          className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#C0021A] hover:underline"
+                        >
+                          <Icon name="trash" size={14} />
+                          Slet freelancer
+                        </button>
+                      ) : (
+                        <div className="rounded-[10px] border border-[#F3C9C9] bg-[#FDECEA] px-3.5 py-3">
+                          <div className="text-[12.5px] text-[#C0021A] leading-relaxed mb-2.5">
+                            Er du sikker på at du vil slette {open?.fullName}? Det kan ikke fortrydes.
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingDelete(false)}
+                              disabled={isDeleting}
+                              className="flex-1 h-9 rounded-[8px] text-[12.5px] font-medium bg-pepo-wh border border-pepo-bds text-pepo-t1 disabled:opacity-50"
+                            >
+                              Annuller
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDelete}
+                              disabled={isDeleting}
+                              className="flex-1 h-9 rounded-[8px] text-[12.5px] font-medium bg-[#C0021A] text-white disabled:opacity-50"
+                            >
+                              {isDeleting ? "Sletter..." : "Ja, slet freelancer"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="h-1" />
                 </div>
