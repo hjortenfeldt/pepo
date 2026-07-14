@@ -85,22 +85,28 @@ export default function SplashScreen() {
   return (
     <div
       className={
-        "fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 transition-opacity duration-300 " +
+        "fixed inset-0 z-[100] transition-opacity duration-300 " +
         (phase === "fading" ? "opacity-0 pointer-events-none" : "opacity-100")
       }
       style={{ backgroundColor: "#6500B3" }}
       aria-hidden="true"
     >
-      <div className="w-20 h-20 pepo-splash-logo">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/pepo-logo-inverted.svg" alt="" className="w-full h-full" draggable={false} />
-      </div>
-
-      {phase === "waiting" && (
-        <div className="w-24 h-[1px] bg-white/25 overflow-hidden rounded-full">
-          <div className="h-full w-1/3 bg-white pepo-splash-bar" />
+      {/* Placeret med sit lodrette midtpunkt 1/3 nede på skærmen (dvs. 1/3
+          luft ovenover, 2/3 under) i stedet for centreret midt på skærmen —
+          absolut positionering bruges her fremfor flex+justify-center,
+          præcis for at kunne styre dette forhold uafhængigt af skærmhøjde. */}
+      <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4">
+        <div className="w-40 h-40 pepo-splash-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/pepo-logo-inverted.svg" alt="" className="w-full h-full" draggable={false} />
         </div>
-      )}
+
+        {phase === "waiting" && (
+          <div className="w-24 h-[1px] bg-white/25 overflow-hidden rounded-full">
+            <div className="h-full w-1/3 bg-white pepo-splash-bar" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
