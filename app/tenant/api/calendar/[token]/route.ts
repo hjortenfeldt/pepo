@@ -89,7 +89,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
 
   const { data: company, error: companyError } = await supabase
     .from("companies")
-    .select("id, slug, calendar_feed_token")
+    .select("id, name, slug, calendar_feed_token")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -154,6 +154,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       title: e.title,
       eventDateIso: e.event_date,
       tenantSlug: company.slug,
+      tenantName: company.name || company.slug,
       venueAddress: fullAddress(venue),
       clientName: client?.name || client?.contact_person || "",
       clientEmail: client?.contact_email ?? null,

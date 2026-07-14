@@ -24,6 +24,8 @@ export type IcsEventInput = {
   title: string;
   eventDateIso: string; // "2026-07-11"
   tenantSlug: string;
+  /** Virksomhedens visningsnavn — bruges i SUMMARY som "[Tenant name] (admin): ...". */
+  tenantName: string;
   venueAddress: string | null;
   clientName: string;
   clientEmail: string | null;
@@ -160,7 +162,7 @@ function buildDescription(event: IcsEventInput): string {
 
 function buildVEvent(event: IcsEventInput): string {
   const activeShiftCount = event.shifts.length;
-  const summary = `Pepo: ${event.title} - ${activeShiftCount} vagter`;
+  const summary = `${event.tenantName} (admin): ${event.title} - ${activeShiftCount} vagter`;
   const description = buildDescription(event);
   const dtstamp = utcStamp(event.updatedAtIso || new Date().toISOString());
 
