@@ -36,8 +36,12 @@ export type IcsEventInput = {
   updatedAtIso: string; // til DTSTAMP/LAST-MODIFIED
 };
 
+// Eksporteret (ikke kun brugt herinde) — genbruges af lib/freelancer-ics.ts,
+// som bygger et andet ICS-feed (freelancerens eget "Sync med din kalender")
+// med samme lavniveau RFC 5545-mekanik, men helt anderledes indhold/struktur.
+
 // Escaper tekst til ICS TEXT-værdier iht. RFC 5545 §3.3.11.
-function icsEscape(text: string): string {
+export function icsEscape(text: string): string {
   return text
     .replace(/\\/g, "\\\\")
     .replace(/;/g, "\\;")
@@ -49,7 +53,7 @@ function icsEscape(text: string): string {
 // fortsættelseslinjer starter med et enkelt mellemrum. Skærer konservativt
 // ved 73 tegn ad gangen for at undgå at splitte flerbyte UTF-8-tegn
 // (æ/ø/å fylder 2 byte) midt over.
-function foldLine(line: string): string {
+export function foldLine(line: string): string {
   if (Buffer.byteLength(line, "utf8") <= 75) return line;
   const CHUNK = 73;
   const parts: string[] = [];
@@ -64,33 +68,33 @@ function foldLine(line: string): string {
   return parts.join("\r\n");
 }
 
-function icsLine(name: string, value: string): string {
+export function icsLine(name: string, value: string): string {
   return foldLine(`${name}:${value}`);
 }
 
-function icsDateTimeLocal(dateIso: string, time: string): string {
+export function icsDateTimeLocal(dateIso: string, time: string): string {
   const [y, m, d] = dateIso.split("-");
   const [hh, mm] = time.split(":");
   return `${y}${m}${d}T${hh}${mm}00`;
 }
 
-function icsDateOnly(dateIso: string): string {
+export function icsDateOnly(dateIso: string): string {
   return dateIso.replaceAll("-", "");
 }
 
-function addDays(dateIso: string, days: number): string {
+export function addDays(dateIso: string, days: number): string {
   const d = new Date(dateIso + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
-function utcStamp(iso: string): string {
+export function utcStamp(iso: string): string {
   return new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 }
 
 // Standard VTIMEZONE-blok for Europe/Copenhagen (CET/CEST med EU's
 // DST-regler), så lokale klokkeslæt vises korrekt uanset kalenderklient.
-const VTIMEZONE = [
+export const VTIMEZONE = [
   "BEGIN:VTIMEZONE",
   "TZID:Europe/Copenhagen",
   "BEGIN:DAYLIGHT",

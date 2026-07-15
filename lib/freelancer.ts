@@ -141,6 +141,30 @@ export async function touchProfileActivity(profileId: string) {
   }
 }
 
+/**
+ * Token til DENNE profils (dvs. denne virksomheds) personlige "Sync med din
+ * kalender"-feed — se app/freelancer/api/calendar/[token]/route.ts og
+ * lib/freelancer-ics.ts. Bevidst IKKE en del af det cachede ActiveProfile-
+ * objekt ovenfor (bruges alle mulige steder i freelancer-appen) — kun
+ * "Mere"-siden har brug for token'et, så et separat, uncachet opslag holder
+ * ActiveProfile's brede genbrug uændret og undgår at hive endnu et felt med
+ * i den delte cache for alle de andre sider der ikke bruger det.
+ */
+export async function getFreelancerCalendarToken(profileId: string): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("freelancer_profiles")
+    .select("calendar_feed_token")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error("getFreelancerCalendarToken fejlede", error);
+    return null;
+  }
+  return data.calendar_feed_token as string;
+}
+
 export type CompanyContactInfo = {
   name: string;
   contact_person: string | null;

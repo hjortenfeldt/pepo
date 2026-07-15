@@ -107,11 +107,14 @@ export async function proxy(request: NextRequest) {
 
   const isLoginRoute = pathname === "/login";
 
-  // Kalender-feedet under "Sync med kalender" hentes af eksterne
-  // kalenderapps (Google/Apple/Outlook) uden login-cookie — token'et i
-  // selve URL'en er hemmeligheden, ikke en session. Skal derfor undtages
-  // fra login-redirectet nedenfor, men rewrites stadig til
-  // /tenant-præfikset som alt andet på virksomhedens subdomæne.
+  // Kalender-feeds hentes af eksterne kalenderapps (Google/Apple/Outlook)
+  // uden login-cookie — token'et i selve URL'en er hemmeligheden, ikke en
+  // session. Skal derfor undtages fra login-redirectet nedenfor, men
+  // rewrites stadig til det relevante præfiks som alt andet på subdomænet.
+  // Dækker BÅDE tenant-kalenderfeedet (kulturbyen.pepo.team/api/calendar/…,
+  // ALLE virksomhedens events) og freelancerens eget "Sync med din
+  // kalender"-feed (app.pepo.team/api/calendar/…, kun freelancerens egne
+  // vagter) — samme pathname-mønster på begge subdomæne-grene nedenfor.
   const isPublicCalendarFeed = pathname.startsWith("/api/calendar/");
 
   // Hver virksomheds egen offentlige ansøgningsside (fx
@@ -144,7 +147,7 @@ export async function proxy(request: NextRequest) {
   // app.pepo.team — freelancer-appen. Samme login/rewrite-mønster som
   // super-admin-systemet, blot med sit eget "/freelancer"-præfiks.
   if (subdomain === FREELANCER_APP_SUBDOMAIN) {
-    if (!isLoginRoute && !user) {
+    if (!isLoginRoute && !isPublicCalendarFeed && !user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return withRefreshedCookies(NextResponse.redirect(url), refreshed);

@@ -1,6 +1,6 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import { logout } from "../../login/actions";
-import { getActiveProfile, getApprovedProfiles } from "@/lib/freelancer";
+import { getActiveProfile, getApprovedProfiles, getFreelancerCalendarToken } from "@/lib/freelancer";
 import Icon from "@/components/Icon";
 import PushToggle from "@/components/freelancer/PushToggle";
 import InstallAppMenuRow from "@/components/freelancer/InstallAppMenuRow";
@@ -8,6 +8,8 @@ import CompanySwitcher from "@/components/freelancer/CompanySwitcher";
 import { APP_VERSION } from "@/lib/version";
 
 export const dynamic = "force-dynamic";
+
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -30,6 +32,11 @@ export default async function FreelancerMerePage() {
     getActiveProfile(user.id),
   ]);
   const profile = activeProfile;
+
+  // Kun brug for token'et hvis der rent faktisk er en aktiv profil at
+  // abonnere kalenderen for — se getFreelancerCalendarToken i lib/freelancer.ts.
+  const calendarToken = activeProfile ? await getFreelancerCalendarToken(activeProfile.id) : null;
+  const calendarWebcalUrl = calendarToken ? `webcal://app.${ROOT_DOMAIN}/api/calendar/${calendarToken}.ics` : null;
 
   return (
     <div className="px-5 pt-4 pb-6">
@@ -58,6 +65,9 @@ export default async function FreelancerMerePage() {
 
       <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] mt-4 divide-y divide-pepo-bd pepo-rise">
         <InstallAppMenuRow />
+        {calendarWebcalUrl && (
+          <MenuRow icon="calendar-plus" label="Sync med din kalender" href={calendarWebcalUrl} />
+        )}
         <MenuRow icon="help-circle" label="Hjælp og support" />
       </div>
 
@@ -75,12 +85,30 @@ export default async function FreelancerMerePage() {
   );
 }
 
-function MenuRow({ icon, label }: { icon: string; label: string }) {
-  return (
-    <div className="flex items-center gap-3 px-4 py-3.5 text-[13.5px] text-pepo-t1">
+// "href" gør rækken til et rigtigt link (fx et webcal://-abonnementslink,
+// der udløser kalender-appens egen "Ny kalenderabonnement"-dialog med det
+// samme brugeren trykker på rækken) i stedet for blot en ikke-klikbar
+// visnings-række — se "Sync med din kalender" ovenfor.
+function MenuRow({ icon, label, href }: { icon: string; label: string; href?: string }) {
+  const content = (
+    <>
       <Icon name={icon} size={18} className="text-pepo-t2" />
       <span className="flex-1">{label}</span>
       <Icon name="chevron-right" size={16} className="text-pepo-t3" />
+    </>
+  );
+
+  if (href) {
+    return (
+      <a href={href} className="flex items-center gap-3 px-4 py-3.5 text-[13.5px] text-pepo-t1">
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3.5 text-[13.5px] text-pepo-t1">
+      {content}
     </div>
   );
 }
