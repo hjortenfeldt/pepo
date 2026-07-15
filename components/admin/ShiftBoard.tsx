@@ -472,7 +472,7 @@ export function EventCard({
         <div ref={containerRef} className="relative pl-6 flex flex-col gap-2">
           {trunkHeight > 0 && (
             <div
-              className="absolute -left-4 w-[1.5px] bg-pepo-bds pointer-events-none"
+              className="absolute left-2 w-[1.5px] bg-pepo-bds pointer-events-none"
               style={{ top: -8, height: trunkHeight }}
             />
           )}
@@ -480,7 +480,7 @@ export function EventCard({
             <Fragment key={shift.id}>
               {tickYs[i] !== undefined && (
                 <div
-                  className="absolute -left-4 w-3.5 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px] pointer-events-none"
+                  className="absolute left-2 w-3.5 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px] pointer-events-none"
                   style={{ top: tickYs[i] - CORNER_HEIGHT, height: CORNER_HEIGHT }}
                 />
               )}
