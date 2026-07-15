@@ -139,6 +139,15 @@ export type DashboardEventItem = {
   title: string;
   eventDate: string; // ISO dato
   roles: DashboardEventRole[];
+  /**
+   * Summeret over eventets ikke-annullerede vagter (samme beregning som
+   * monthlyFinancials, se lib/dashboard.ts) — bruges af "Senest afviklede
+   * events" på Dashboard til at vise et lille økonomisk overblik pr. event
+   * i stedet for jobfunktions-badges.
+   */
+  hours: number;
+  revenue: number;
+  expense: number;
 };
 
 export type MonthlyFinancials = { revenue: number; expense: number };

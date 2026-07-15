@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { DashboardEventItem, MonthlyFinancials } from "@/lib/admin-types";
 import { eventFullyStaffed } from "@/lib/dashboard";
 import { formatDateDisplay, relativeDateLabel } from "@/lib/format";
@@ -41,8 +41,6 @@ export default function DashboardBoard({
   upcoming: DashboardEventItem[];
   recent: DashboardEventItem[];
 }) {
-  const router = useRouter();
-
   return (
     <div className="flex flex-col">
       <div className="px-8 pt-[22px]">
@@ -79,12 +77,17 @@ export default function DashboardBoard({
             title="Kommende events"
             events={upcoming}
             emptyText="Ingen kommende events"
-            onClick={() => router.push("/shifts")}
+            variant="upcoming"
           />
         </div>
 
         <div className="mt-4">
-          <EventListCard title="Senest afviklede events" events={recent} emptyText="Ingen afviklede events" />
+          <EventListCard
+            title="Senest afviklede events"
+            events={recent}
+            emptyText="Ingen afviklede events"
+            variant="recent"
+          />
         </div>
 
         <div className="mt-4">
@@ -132,21 +135,23 @@ function EventListCard({
   title,
   events,
   emptyText,
-  onClick,
+  variant,
 }: {
   title: string;
   events: DashboardEventItem[];
   emptyText: string;
-  onClick?: () => void;
+  /**
+   * "upcoming": rækker linker til eventets side (/shifts/event/[id], samme
+   * som REDIGÉR OPLYSNINGER-linket i kalender-feedet) og highlighter ved
+   * hover. "recent": ingen link — viser i stedet et lille økonomisk
+   * overblik pr. event (se EventFinancials) i stedet for jobfunktions-
+   * badges, da et afviklet event handler om hvad det kostede, ikke hvem
+   * der stadig mangler at blive tildelt. Se [[project_dashboard_event_financials]].
+   */
+  variant: "upcoming" | "recent";
 }) {
   return (
-    <div
-      onClick={onClick}
-      className={
-        "bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 " +
-        (onClick ? "cursor-pointer hover:border-pepo-pm hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] transition-all" : "")
-      }
-    >
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5">
       <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
       {events.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-pepo-t3">
@@ -156,7 +161,7 @@ function EventListCard({
       ) : (
         <div className="flex flex-col">
           {events.map((event) => (
-            <EventRow key={event.id} event={event} />
+            <EventRow key={event.id} event={event} variant={variant} />
           ))}
         </div>
       )}
@@ -164,10 +169,10 @@ function EventListCard({
   );
 }
 
-function EventRow({ event }: { event: DashboardEventItem }) {
+function EventRow({ event, variant }: { event: DashboardEventItem; variant: "upcoming" | "recent" }) {
   const dot = eventFullyStaffed(event.roles) ? "bg-[#1A7A34]" : "bg-[#C0021A]";
-  return (
-    <div className="flex items-center gap-3.5 py-3 border-b border-pepo-bd last:border-none">
+  const inner = (
+    <div className="flex items-center gap-3.5 py-3">
       <div className="w-1.5 flex-shrink-0 flex items-center justify-center">
         <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
       </div>
@@ -177,16 +182,61 @@ function EventRow({ event }: { event: DashboardEventItem }) {
       </div>
       <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2.5">
         <span className="text-[13.5px] font-medium text-pepo-t1">{event.title}</span>
-        <div className="flex flex-wrap gap-1.5 sm:justify-end sm:flex-shrink-0">
-          {event.roles.map((r) => (
-            <Fragment key={r.category}>
-              {r.open > 0 && <RoleBadge count={r.open} category={r.category} tone="red" />}
-              {r.forResale > 0 && <RoleBadge count={r.forResale} category={r.category} tone="amber" />}
-              {r.assigned > 0 && <RoleBadge count={r.assigned} category={r.category} tone="green" />}
-            </Fragment>
-          ))}
-        </div>
+        {variant === "upcoming" ? (
+          <div className="flex flex-wrap gap-1.5 sm:justify-end sm:flex-shrink-0">
+            {event.roles.map((r) => (
+              <Fragment key={r.category}>
+                {r.open > 0 && <RoleBadge count={r.open} category={r.category} tone="red" />}
+                {r.forResale > 0 && <RoleBadge count={r.forResale} category={r.category} tone="amber" />}
+                {r.assigned > 0 && <RoleBadge count={r.assigned} category={r.category} tone="green" />}
+              </Fragment>
+            ))}
+          </div>
+        ) : (
+          <EventFinancials revenue={event.revenue} expense={event.expense} />
+        )}
       </div>
+    </div>
+  );
+
+  // "border-b"/"last:border-none" skal sidde på selve listeelementet (det
+  // direkte barn af EventListCard's "flex flex-col"-liste), ikke på `inner`
+  // — ellers er `inner` altid ":last-child" af sin egen Link-wrapper (som
+  // kun har ét barn), og skilletegnet ville forsvinde fra ALLE rækker, ikke
+  // kun den sidste.
+  if (variant === "upcoming") {
+    return (
+      <Link
+        href={`/shifts/event/${event.id}`}
+        className="block -mx-2 px-2 rounded-[8px] border-b border-pepo-bd last:border-none hover:bg-pepo-su transition-colors"
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  return <div className="border-b border-pepo-bd last:border-none">{inner}</div>;
+}
+
+/**
+ * Lille økonomisk overblik pr. afviklet event — erstatter jobfunktions-
+ * badges i "Senest afviklede events", da det for et allerede afviklet
+ * event er mere relevant hvad det kostede end hvem der (måske stadig)
+ * mangler at blive tildelt. Genbruger samme grøn/rød-farvekode som
+ * omsætnings-grafen nedenfor (Indtjening/Udbetaling til freelancere), så
+ * de to visninger tydeligt hænger sammen. Se [[project_dashboard_event_financials]].
+ */
+function EventFinancials({ revenue, expense }: { revenue: number; expense: number }) {
+  return (
+    <div className="flex flex-col gap-1 sm:items-end flex-shrink-0">
+      <span className="inline-flex items-center gap-1.5 text-[12px] text-pepo-t2 whitespace-nowrap">
+        <span className="w-2 h-2 rounded-[2px] bg-[#1A7A34] flex-shrink-0" />
+        Kunde betaler <span className="font-semibold text-pepo-t1">{numberFmt.format(Math.round(revenue))} kr</span>
+      </span>
+      <span className="inline-flex items-center gap-1.5 text-[12px] text-pepo-t2 whitespace-nowrap">
+        <span className="w-2 h-2 rounded-[2px] bg-[#C0021A] flex-shrink-0" />
+        Udbetaling <span className="font-semibold text-pepo-t1">{numberFmt.format(Math.round(expense))} kr</span>
+      </span>
     </div>
   );
 }

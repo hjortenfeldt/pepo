@@ -93,8 +93,35 @@ export function eventFullyStaffed(roles: DashboardEventRole[]): boolean {
   return roles.every((r) => r.open === 0 && r.forResale === 0);
 }
 
+/**
+ * Samme beregning som monthlyFinancials, men summeret pr. event i stedet for
+ * pr. måned — bruges til det økonomiske overblik i "Senest afviklede
+ * events" (se [[project_dashboard_event_financials]]). Tæller alle
+ * ikke-annullerede vagter, uanset bemandingsstatus, så tallene stemmer med
+ * omsætnings-grafen nedenfor på Dashboard.
+ */
+function eventFinancials(shifts: DashboardShift[]): { hours: number; revenue: number; expense: number } {
+  let hours = 0;
+  let revenue = 0;
+  let expense = 0;
+  for (const shift of shifts) {
+    if (shift.status === "cancelled") continue;
+    const h = hoursBetween(shift.startTime, shift.endTime);
+    hours += h;
+    revenue += h * shift.clientRatePerHour;
+    expense += h * shift.freelancerRatePerHour;
+  }
+  return { hours, revenue, expense };
+}
+
 function toEventItem(event: DashboardEvent): DashboardEventItem {
-  return { id: event.id, title: event.title, eventDate: event.eventDate, roles: computeRoles(event.shifts) };
+  return {
+    id: event.id,
+    title: event.title,
+    eventDate: event.eventDate,
+    roles: computeRoles(event.shifts),
+    ...eventFinancials(event.shifts),
+  };
 }
 
 export function upcomingEvents(events: DashboardEvent[], today: string, limit = 5): DashboardEventItem[] {
