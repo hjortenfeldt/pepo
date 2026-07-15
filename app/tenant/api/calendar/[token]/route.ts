@@ -156,7 +156,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       title: e.title,
       eventDateIso: e.event_date,
       tenantName: company.name || company.slug,
-      editUrl: `https://${company.slug}.${ROOT_DOMAIN}/shifts?event=${e.id}`,
+      editUrl: `https://${company.slug}.${ROOT_DOMAIN}/shifts/event/${e.id}`,
       venueAddress: fullAddress(venue),
       clientName: client?.name || client?.contact_person || "",
       clientEmail: client?.contact_email ?? null,

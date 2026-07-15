@@ -26,12 +26,17 @@ export type IcsEventInput = {
   /** Virksomhedens visningsnavn — bruges i SUMMARY som "[Tenant name] (admin): ...". */
   tenantName: string;
   /**
-   * Fuldt kvalificeret https-URL til eventets redigeringsside (fx
-   * "https://kulturbyen.pepo.team/shifts?event=<id>") — bruges BÅDE til
-   * VEVENT'ens URL-egenskab (så kalender-apps som macOS Kalender kan vise et
-   * klikbart link nederst i begivenheden, uden at admin selv skal
-   * copy/paste'e det) OG til "REDIGÉR OPLYSNINGER"-linjen i beskrivelsen
-   * (som fallback for apps der ikke viser URL-feltet).
+   * Fuldt kvalificeret https-URL til eventets DEDIKEREDE deep-link-side (fx
+   * "https://kulturbyen.pepo.team/shifts/event/<id>" — se
+   * app/tenant/(protected)/shifts/event/[id]/page.tsx), IKKE den fulde
+   * /shifts-oversigt med en ?event=-querystring. Peger bevidst på siden der
+   * kun viser DETTE ene event (kort + dets vagter, uden faner/søgning/
+   * "+ Ny event") — en admin skal kunne redigere ALT ved eventet (adresse,
+   * kunde, enhver af de tilknyttede vagter), ikke kun én bestemt vagt.
+   * Bruges BÅDE til VEVENT'ens URL-egenskab (så kalender-apps som macOS
+   * Kalender kan vise et klikbart link nederst i begivenheden, uden at admin
+   * selv skal copy/paste'e det) OG til "REDIGÉR OPLYSNINGER"-linjen i
+   * beskrivelsen (som fallback for apps der ikke viser URL-feltet).
    */
   editUrl: string;
   venueAddress: string | null;
