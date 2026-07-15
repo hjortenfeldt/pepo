@@ -1,9 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "@/components/Icon";
+
+// Bruges til at lade AdminTopBar.tsx's mobile fold-ud-menu lukke sig selv,
+// når et link i AdminNavLinks klikkes — UDEN at sende en funktion som prop
+// gennem Server Component-grænsen (app/tenant/(protected)/layout.tsx er en
+// server-komponent; den kan give AdminTopBar et FÆRDIGRENDERET <AdminNavLinks/>
+// React-element som prop, men IKKE en JS-funktion — det crashede hele
+// tenant-adminsystemet i produktion, se [[feedback_admin_mobile_nav]]).
+// AdminTopBar (client) sætter værdien via <MobileNavCloseContext.Provider>,
+// og AdminNavLinks (også client) læser den med useContext — begge ender af
+// den forbindelse er ren client-side, så grænsen aldrig krydses af en funktion.
+export const MobileNavCloseContext = createContext<(() => void) | undefined>(undefined);
 
 type NavChild = {
   href: string;
@@ -46,18 +57,14 @@ const NAV: NavItem[] = [
  * Selve navigationslisten — udtrukket fra AdminSidebar, så AdminTopBar.tsx
  * kan genbruge nøjagtig samme liste (samme NAV-data, samme åbn/luk-logik
  * for "Indstillinger") i den mobile fold-ud-menu, uden at duplikere den.
- * `onNavigate` kaldes når et link klikkes (bruges af den mobile menu til at
- * lukke sig selv efter navigation) — er ikke sat, sker der intet ekstra
- * (skrivebords-sidebaren lukker jo ikke noget).
+ * Lukker den mobile fold-ud-menu ved navigation via MobileNavCloseContext
+ * (sat af AdminTopBar) — i skrivebords-sidebaren er der ingen provider
+ * over AdminNavLinks, så context-værdien er `undefined`, og der sker intet
+ * ekstra ved klik, som forventet.
  */
-export function AdminNavLinks({
-  onNavigate,
-  className = "",
-}: {
-  onNavigate?: () => void;
-  className?: string;
-}) {
+export function AdminNavLinks({ className = "" }: { className?: string }) {
   const pathname = usePathname();
+  const closeMobileNav = useContext(MobileNavCloseContext);
   // null = "brug automatisk åbn/luk ud fra den aktuelle side"; ellers
   // overstyrer et manuelt klik den automatiske opførsel resten af sessionen.
   const [manualOpenSection, setManualOpenSection] = useState<string | null | undefined>(undefined);
@@ -124,7 +131,7 @@ export function AdminNavLinks({
                       <Link
                         key={child.href}
                         href={child.href}
-                        onClick={onNavigate}
+                        onClick={closeMobileNav}
                         className={
                           "pl-[46px] pr-2.5 py-[8px] rounded-lg text-[13px] font-medium " +
                           (isChildCurrent ? "bg-pepo-pl text-pepo-p" : "text-pepo-t2 hover:bg-pepo-su")
@@ -141,7 +148,7 @@ export function AdminNavLinks({
         }
 
         return item.active ? (
-          <Link key={item.href} href={item.href} onClick={onNavigate}>
+          <Link key={item.href} href={item.href} onClick={closeMobileNav}>
             {body}
           </Link>
         ) : (

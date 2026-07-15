@@ -82,7 +82,7 @@ export default async function ProtectedTenantLayout({
         onLogout={logout}
         companyName={company.name}
         profileImageUrl={isOwnCompanyAdmin ? admin!.profile_image_url : null}
-        renderMobileNav={(close) => <AdminNavLinks onNavigate={close} className="px-1 py-0.5" />}
+        mobileNav={<AdminNavLinks className="px-1 py-0.5" />}
       />
       <div className="flex flex-1 min-h-0">
         <AdminSidebar />
