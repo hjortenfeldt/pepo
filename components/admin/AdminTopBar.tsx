@@ -25,6 +25,7 @@ export default function AdminTopBar({
   onLogout,
   roleLabel = "admin",
   profileHref = "/profile",
+  renderMobileNav,
 }: {
   name: string;
   onLogout: () => Promise<void>;
@@ -33,11 +34,22 @@ export default function AdminTopBar({
   /** "admin" på et virksomheds-subdomæne, "superadmin" på admin.pepo.team. */
   roleLabel?: string;
   profileHref?: string;
+  /**
+   * Kun sat af tenant-admin-layoutet (se app/tenant/(protected)/layout.tsx),
+   * som har en venstremenu at folde ind i et burger-ikon under "lg"
+   * (1024px). Superadmin-layoutet har ingen sidebar og sætter derfor ikke
+   * denne prop — så vises logo/version-blokken altid, uden burger-ikon, som
+   * før. Modtager en `close`-funktion, så den mobile menu kan lukke sig
+   * selv efter at et link i den er klikket (se [[feedback_admin_mobile_nav]]).
+   */
+  renderMobileNav?: (close: () => void) => React.ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -51,29 +63,93 @@ export default function AdminTopBar({
     return () => document.removeEventListener("mousedown", onOutside);
   }, [menuOpen]);
 
+  // Samme mønster som ovenfor, men for burger-menuen — se
+  // [[feedback_admin_mobile_nav]] for hvorfor de er to uafhængige
+  // stater/refs i stedet for én delt, selvom de aldrig skal kunne være
+  // åbne samtidig (toggleUserMenu/toggleMobileMenu nedenfor lukker altid
+  // den anden, når man åbner den ene).
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
+        setMobileMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [mobileMenuOpen]);
+
   async function confirmLogout() {
     setIsLoggingOut(true);
     await onLogout();
   }
 
+  function toggleUserMenu() {
+    setMobileMenuOpen(false);
+    setMenuOpen((v) => !v);
+  }
+
+  function toggleMobileMenu() {
+    setMenuOpen(false);
+    setConfirmingLogout(false);
+    setMobileMenuOpen((v) => !v);
+  }
+
+  // Samme logo/virksomhedsnavn/version-blok bruges to steder: altid synlig
+  // (skrivebord, eller superadmin uden burger-menu), og gengivet igen
+  // ovenpå i den mobile fold-ud-menu (se `renderMobileNav`-blokken nedenfor)
+  // — derfor er den sin egen lille variabel i stedet for duplikeret JSX.
+  const brand = (
+    <div className="flex items-center gap-2.5">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/pepo-logo.svg" alt="Pepo" className="w-8 h-8 flex-shrink-0" />
+      <div className="flex flex-col leading-tight">
+        <span className="text-base font-semibold tracking-tight text-pepo-t1">
+          {companyName ?? "pepo"} <span className="text-pepo-t3 font-normal">{roleLabel}</span>
+        </span>
+        <span className="text-[10px] text-pepo-t3">v{APP_VERSION}</span>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-16 flex-shrink-0 bg-pepo-wh flex items-center justify-between px-5 shadow-[0_2px_10px_rgba(29,29,31,0.06)] z-20 relative">
-      <div className="flex items-center gap-2.5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/pepo-logo.svg" alt="Pepo" className="w-8 h-8 flex-shrink-0" />
-        <div className="flex flex-col leading-tight">
-          <span className="text-base font-semibold tracking-tight text-pepo-t1">
-            {companyName ?? "pepo"} <span className="text-pepo-t3 font-normal">{roleLabel}</span>
-          </span>
-          <span className="text-[10px] text-pepo-t3">v{APP_VERSION}</span>
-        </div>
-      </div>
+      {renderMobileNav ? (
+        <>
+          {/* Skrivebord (≥1024px): logo/version-blokken som altid. */}
+          <div className="hidden lg:flex">{brand}</div>
 
-      <div className="relative" ref={menuRef}>
+          {/* Mobil (<1024px): burger-ikon erstatter logo/version-blokken —
+              selve blokken flytter op i toppen af fold-ud-menuen nedenfor. */}
+          <div className="relative lg:hidden" ref={mobileMenuRef}>
+            <button
+              type="button"
+              onClick={toggleMobileMenu}
+              aria-label="Åbn menu"
+              className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-pepo-su transition-colors"
+            >
+              <Icon name="menu-2" size={24} className="text-pepo-t1" />
+            </button>
+
+            {mobileMenuOpen && (
+              <div className="absolute left-0 top-[calc(100%+8px)] w-[280px] max-w-[85vw] bg-pepo-wh rounded-[14px] shadow-[0_12px_40px_rgba(29,29,31,0.18)] p-1.5 z-50">
+                <div className="px-2.5 py-2 mb-1 border-b border-pepo-bd">{brand}</div>
+                <div className="max-h-[65vh] overflow-y-auto">
+                  {renderMobileNav(() => setMobileMenuOpen(false))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        brand
+      )}
+
+      <div className="relative min-w-0" ref={menuRef}>
         <button
           type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="flex items-center gap-[9px] px-2 py-1.5 rounded-lg hover:bg-pepo-su transition-colors"
+          onClick={toggleUserMenu}
+          className="flex items-center gap-[9px] px-2 py-1.5 rounded-lg hover:bg-pepo-su transition-colors min-w-0 max-w-full"
         >
           <div className="w-[30px] h-[30px] rounded-full bg-pepo-pl text-pepo-p text-xs font-medium flex items-center justify-center flex-shrink-0 overflow-hidden">
             {profileImageUrl ? (
@@ -83,9 +159,12 @@ export default function AdminTopBar({
               initials(name)
             )}
           </div>
-          <div className="min-w-0 text-left">
+          {/* max-w-[...] giver truncate et fast loft at trunkere mod på
+              smalle skærme, i stedet for at stole på at min-w-0 alene
+              begrænser bredden korrekt hele vejen op gennem flex-kæden. */}
+          <div className="min-w-0 max-w-[110px] sm:max-w-[180px] text-left">
             {companyName && (
-              <div className="text-[10px] font-medium text-pepo-t3 uppercase tracking-wide truncate">
+              <div className="hidden sm:block text-[10px] font-medium text-pepo-t3 uppercase tracking-wide truncate">
                 {companyName}
               </div>
             )}

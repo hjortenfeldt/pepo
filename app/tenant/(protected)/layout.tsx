@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminSidebar, { AdminNavLinks } from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import { logout } from "./actions";
 import { getCompanyBySubdomain } from "@/lib/tenant";
@@ -82,6 +82,7 @@ export default async function ProtectedTenantLayout({
         onLogout={logout}
         companyName={company.name}
         profileImageUrl={isOwnCompanyAdmin ? admin!.profile_image_url : null}
+        renderMobileNav={(close) => <AdminNavLinks onNavigate={close} className="px-1 py-0.5" />}
       />
       <div className="flex flex-1 min-h-0">
         <AdminSidebar />
