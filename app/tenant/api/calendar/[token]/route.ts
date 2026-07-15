@@ -32,12 +32,14 @@ type RawAttachmentRow = { file_url: string };
 // freelancer_profiles.id — den fremmednøgle peger nu på auth.users, så
 // PostgREST kan ikke længere indlejre freelancer_profiles direkte her.
 // Navnet slås op bagefter via freelancerNameMap (se nedenfor).
+type RawInterestRow = { status: "pending" | "accepted" | "declined" };
 type RawShiftRow = {
   start_time: string;
   end_time: string;
   status: "open" | "for_resale" | "assigned" | "cancelled";
   assigned_freelancer_id: string | null;
   work_categories: RawWorkCategoryRef | RawWorkCategoryRef[] | null;
+  shift_interests: RawInterestRow[] | null;
 };
 type RawEventRow = {
   id: string;
@@ -75,7 +77,13 @@ function shiftStatusText(shift: RawShiftRow, freelancerNameMap: Map<string, stri
   const assignee = shift.assigned_freelancer_id ? freelancerNameMap.get(shift.assigned_freelancer_id) ?? null : null;
   if (shift.status === "assigned") return assignee ?? "Tildelt";
   if (shift.status === "for_resale") return assignee ? `${assignee} (til salg)` : "Til salg";
-  return "Mangler";
+
+  // "open" (ubesat): admin kan ellers ikke se i sin kalender-app om der
+  // ligger en vagtanmodning, de endnu ikke har reageret på — "pending" er
+  // netop dén tilstand (til forskel fra "declined", som admin allerede har
+  // afvist, og som derfor stadig bare skal vise "Mangler").
+  const hasPendingInterest = (shift.shift_interests ?? []).some((i) => i.status === "pending");
+  return hasPendingInterest ? "Anmodet" : "Mangler";
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -107,7 +115,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
        client_venues(address, postal_code, city),
        shift_attachments(file_url),
        shifts(start_time, end_time, status, assigned_freelancer_id,
-         work_categories(name))`
+         work_categories(name),
+         shift_interests(status))`
     )
     .eq("company_id", company.id)
     .order("event_date", { ascending: true });
