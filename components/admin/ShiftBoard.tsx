@@ -410,28 +410,30 @@ export function EventCard({
       </div>
       {activeShifts.length > 0 && (
         <div className="relative pl-6 flex flex-col gap-2">
-          {activeShifts.length === 1 ? (
-            // Med KUN én vagt tilknyttet ser den separate lodrette streg
-            // (som ved 2+ vagter går hele vejen ned til den sidste vagts
-            // vandrette "tud") ud som om den vil fortsætte videre til et
-            // vagtkort mere, der aldrig kommer — fordi et enkelt, isoleret
-            // stykke lodret streg ved siden af ét kort ikke læses som en
-            // afsluttet forbindelse. Tegnes derfor i stedet som ét samlet,
-            // afrundet "hjørne" (└) med border-left+border-bottom, der er
-            // sit eget klare, færdige element — ShiftCardets egen vandrette
-            // "tud" (se showTick nedenfor) udelades i dette tilfælde, så der
-            // ikke opstår to separate streger der skal ramme hinanden.
-            <div className="absolute left-2 -top-2 w-3.5 h-10 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px]" />
-          ) : (
-            <div className="absolute left-2 -top-2 bottom-8 w-[1.5px] bg-pepo-bds" />
+          {/* Den NEDERSTE vagt får altid et afrundet "hjørne" (└) i stedet for
+              en lige, vandret "tud" der møder en lige lodret streg i en skarp
+              T — et løst, "afskåret" udseende (se
+              [[feedback_connector_line_single_shift_visual_fix]]). Hjørnet er
+              bund-forankret (bottom-8, dvs. samme punkt som den sidste vagts
+              egen tud plejede at ramme), så det er geometrisk identisk uanset
+              hvor mange vagter der er ovenover — inkl. det oprindelige N=1
+              specialtilfælde, som nu er den generelle regel. */}
+          <div className="absolute left-2 bottom-8 w-3.5 h-10 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px]" />
+          {activeShifts.length > 1 && (
+            // Ved 2+ vagter er der en lige streg fra event-kortet og ned til
+            // lige der hvor hjørnet ovenfor begynder (72px fra bunden =
+            // hjørnets bund-offset på 32px + dets egen højde på 40px) — de to
+            // stykker mødes sømløst, så det ser ud som én sammenhængende linje
+            // der ender i en blød kurve for enden.
+            <div className="absolute left-2 -top-2 bottom-[72px] w-[1.5px] bg-pepo-bds" />
           )}
-          {activeShifts.map((shift) => (
+          {activeShifts.map((shift, i) => (
             <ShiftCard
               key={shift.id}
               shift={shift}
               isFlashing={shift.id === flashShiftId}
               onClick={() => onOpenShift(shift)}
-              showTick={activeShifts.length > 1}
+              showTick={i < activeShifts.length - 1}
             />
           ))}
         </div>
@@ -450,10 +452,10 @@ function ShiftCard({
   isFlashing: boolean;
   onClick: () => void;
   /**
-   * false når EventCard i stedet tegner ét samlet "hjørne"-forbindelsesstykke
-   * for et enkeltstående vagtkort (se EventCard ovenfor) — undgår at denne
-   * vandrette "tud" og forælderens hjørne-streg begge forsøger at ramme
-   * samme punkt (og evt. ikke lige rammer helt præcist).
+   * false for den SIDSTE vagt i listen — EventCard tegner der i stedet ét
+   * samlet, afrundet "hjørne"-forbindelsesstykke (se EventCard ovenfor) i
+   * stedet for denne vandrette "tud", så bunden af listen altid ender i en
+   * blød kurve frem for en skarp T-samling.
    */
   showTick?: boolean;
 }) {
