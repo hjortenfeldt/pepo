@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import type {
   CategoryOption,
@@ -378,6 +378,40 @@ export function EventCard({
   onOpenShift: (shift: ShiftListItem) => void;
 }) {
   const activeShifts = event.shifts.filter((s) => s.status !== "cancelled");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [corners, setCorners] = useState<{ top: number; height: number }[]>([]);
+
+  // Måler de faktiske korthøjder i DOM'en i stedet for at antage en fast
+  // 64px korthøjde (se [[feedback_connector_line_single_shift_visual_fix]]).
+  // Den tidligere version hardcodede -top-10/h-[72px] ud fra en antaget
+  // korthøjde — virkede for kort #1 (forankret uafhængigt af søskende), men
+  // afvigelser fra antagelsen (fx to-linjet "X vagtanmodninger"-tekst eller
+  // en lang tildelt-navn-streng, der gør ét kort højere end 64px) gav en
+  // fejl der voksede for hvert efterfølgende kort — præcis mønstret Hjorth
+  // så (kun første kort korrekt, resten med stigende gab). Ved at måle
+  // `offsetTop`/`offsetHeight` pr. kort og lade hvert hjørne starte, hvor
+  // det forrige sluttede, bliver kæden altid sammenhængende uanset
+  // korthøjde. En ResizeObserver genmåler, hvis et korts indhold (og
+  // dermed højde) ændrer sig efter første måling.
+  useLayoutEffect(() => {
+    function measure() {
+      let prevAnchor = -8; // 8px over containerens top, under event-kortet
+      const next: { top: number; height: number }[] = [];
+      for (const el of cardRefs.current) {
+        if (!el) continue;
+        const tickY = el.offsetTop + el.offsetHeight / 2;
+        next.push({ top: prevAnchor, height: tickY - prevAnchor });
+        prevAnchor = tickY;
+      }
+      setCorners(next);
+    }
+    measure();
+    const ro = new ResizeObserver(measure);
+    cardRefs.current.forEach((el) => el && ro.observe(el));
+    return () => ro.disconnect();
+  }, [activeShifts]);
+
   return (
     <div className="flex flex-col gap-2">
       <div
@@ -409,15 +443,24 @@ export function EventCard({
         </button>
       </div>
       {activeShifts.length > 0 && (
-        <div className="relative pl-6 flex flex-col gap-2">
+        <div ref={containerRef} className="relative pl-6 flex flex-col gap-2">
           {activeShifts.map((shift, i) => (
-            <ShiftCard
-              key={shift.id}
-              shift={shift}
-              isFlashing={shift.id === flashShiftId}
-              onClick={() => onOpenShift(shift)}
-              isFirst={i === 0}
-            />
+            <Fragment key={shift.id}>
+              {corners[i] && (
+                <div
+                  className="absolute -left-4 w-3.5 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px] pointer-events-none"
+                  style={{ top: corners[i].top, height: corners[i].height }}
+                />
+              )}
+              <ShiftCard
+                ref={(el) => {
+                  cardRefs.current[i] = el;
+                }}
+                shift={shift}
+                isFlashing={shift.id === flashShiftId}
+                onClick={() => onOpenShift(shift)}
+              />
+            </Fragment>
           ))}
         </div>
       )}
@@ -425,33 +468,14 @@ export function EventCard({
   );
 }
 
-function ShiftCard({
-  shift,
-  isFlashing,
-  onClick,
-  isFirst = false,
-}: {
-  shift: ShiftListItem;
-  isFlashing: boolean;
-  onClick: () => void;
-  /**
-   * Hver vagt tegner sit EGET afrundede "hjørne" (└) op til kortet ovenfor —
-   * enten event-kortet (den første vagt) eller det forrige vagtkorts eget
-   * hjørne (alle efterfølgende) — i stedet for en delt lodret "trunk" med
-   * skarpe T-samlinger. Det giver en blød kurve ved HVER vagt, uanset hvor
-   * mange der er (se [[feedback_connector_line_single_shift_visual_fix]]).
-   * Positionerne er forankret fra toppen (ikke bunden af listen), da det er
-   * uafhængigt af det samlede antal vagter og derfor ikke kan give det gab
-   * der opstod, da en tidligere version forankrede fra bunden i stedet.
-   * Første vagt: hjørnet starter -8px over kortets top (lige under
-   * event-kortet) og er 40px højt. Alle efterfølgende: starter -40px over
-   * kortets top (dvs. præcis der hvor forrige korts hjørne sluttede — kort-
-   * højde 64px + gap-2 (8px) - 32px = 40px) og er 72px højt. Begge ender
-   * ved samme y-position (top-8, 32px ned i kortet), hvor border-bottom
-   * fungerer som den vandrette "tud" ind i kortet.
-   */
-  isFirst?: boolean;
-}) {
+const ShiftCard = forwardRef<
+  HTMLButtonElement,
+  {
+    shift: ShiftListItem;
+    isFlashing: boolean;
+    onClick: () => void;
+  }
+>(function ShiftCard({ shift, isFlashing, onClick }, ref) {
   const rightText = shift.assignedFreelancerName
     ? shift.assignedFreelancerName
     : shift.interests.length > 0
@@ -459,6 +483,7 @@ function ShiftCard({
     : "";
   return (
     <button
+      ref={ref}
       onClick={onClick}
       className={
         "relative text-left bg-pepo-wh border rounded-xl px-[15px] py-[13px] flex items-center gap-3 transition-colors hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] " +
@@ -466,12 +491,6 @@ function ShiftCard({
         (isFlashing ? " pepo-flash-green" : "")
       }
     >
-      <div
-        className={
-          "absolute -left-4 w-3.5 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px] " +
-          (isFirst ? "-top-2 h-10" : "-top-10 h-[72px]")
-        }
-      />
       <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">
         <Icon name={shift.categoryIcon || "briefcase"} size={20} />
       </div>
@@ -496,7 +515,7 @@ function ShiftCard({
       `}</style>
     </button>
   );
-}
+});
 
 function CalendarView({
   events,
