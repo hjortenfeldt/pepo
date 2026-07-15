@@ -410,30 +410,13 @@ export function EventCard({
       </div>
       {activeShifts.length > 0 && (
         <div className="relative pl-6 flex flex-col gap-2">
-          {/* Den NEDERSTE vagt får altid et afrundet "hjørne" (└) i stedet for
-              en lige, vandret "tud" der møder en lige lodret streg i en skarp
-              T — et løst, "afskåret" udseende (se
-              [[feedback_connector_line_single_shift_visual_fix]]). Hjørnet er
-              bund-forankret (bottom-8, dvs. samme punkt som den sidste vagts
-              egen tud plejede at ramme), så det er geometrisk identisk uanset
-              hvor mange vagter der er ovenover — inkl. det oprindelige N=1
-              specialtilfælde, som nu er den generelle regel. */}
-          <div className="absolute left-2 bottom-8 w-3.5 h-10 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px]" />
-          {activeShifts.length > 1 && (
-            // Ved 2+ vagter er der en lige streg fra event-kortet og ned til
-            // lige der hvor hjørnet ovenfor begynder (72px fra bunden =
-            // hjørnets bund-offset på 32px + dets egen højde på 40px) — de to
-            // stykker mødes sømløst, så det ser ud som én sammenhængende linje
-            // der ender i en blød kurve for enden.
-            <div className="absolute left-2 -top-2 bottom-[72px] w-[1.5px] bg-pepo-bds" />
-          )}
           {activeShifts.map((shift, i) => (
             <ShiftCard
               key={shift.id}
               shift={shift}
               isFlashing={shift.id === flashShiftId}
               onClick={() => onOpenShift(shift)}
-              showTick={i < activeShifts.length - 1}
+              isFirst={i === 0}
             />
           ))}
         </div>
@@ -446,18 +429,28 @@ function ShiftCard({
   shift,
   isFlashing,
   onClick,
-  showTick = true,
+  isFirst = false,
 }: {
   shift: ShiftListItem;
   isFlashing: boolean;
   onClick: () => void;
   /**
-   * false for den SIDSTE vagt i listen — EventCard tegner der i stedet ét
-   * samlet, afrundet "hjørne"-forbindelsesstykke (se EventCard ovenfor) i
-   * stedet for denne vandrette "tud", så bunden af listen altid ender i en
-   * blød kurve frem for en skarp T-samling.
+   * Hver vagt tegner sit EGET afrundede "hjørne" (└) op til kortet ovenfor —
+   * enten event-kortet (den første vagt) eller det forrige vagtkorts eget
+   * hjørne (alle efterfølgende) — i stedet for en delt lodret "trunk" med
+   * skarpe T-samlinger. Det giver en blød kurve ved HVER vagt, uanset hvor
+   * mange der er (se [[feedback_connector_line_single_shift_visual_fix]]).
+   * Positionerne er forankret fra toppen (ikke bunden af listen), da det er
+   * uafhængigt af det samlede antal vagter og derfor ikke kan give det gab
+   * der opstod, da en tidligere version forankrede fra bunden i stedet.
+   * Første vagt: hjørnet starter -8px over kortets top (lige under
+   * event-kortet) og er 40px højt. Alle efterfølgende: starter -40px over
+   * kortets top (dvs. præcis der hvor forrige korts hjørne sluttede — kort-
+   * højde 64px + gap-2 (8px) - 32px = 40px) og er 72px højt. Begge ender
+   * ved samme y-position (top-8, 32px ned i kortet), hvor border-bottom
+   * fungerer som den vandrette "tud" ind i kortet.
    */
-  showTick?: boolean;
+  isFirst?: boolean;
 }) {
   const rightText = shift.assignedFreelancerName
     ? shift.assignedFreelancerName
@@ -473,7 +466,12 @@ function ShiftCard({
         (isFlashing ? " pepo-flash-green" : "")
       }
     >
-      {showTick && <div className="absolute -left-4 top-8 w-3.5 h-[1.5px] bg-pepo-bds" />}
+      <div
+        className={
+          "absolute -left-4 w-3.5 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px] " +
+          (isFirst ? "-top-2 h-10" : "-top-10 h-[72px]")
+        }
+      />
       <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">
         <Icon name={shift.categoryIcon || "briefcase"} size={20} />
       </div>
