@@ -377,7 +377,17 @@ export function EventCard({
   onAddShift: () => void;
   onOpenShift: (shift: ShiftListItem) => void;
 }) {
-  const activeShifts = event.shifts.filter((s) => s.status !== "cancelled");
+  // Memoized på `event.shifts` (ikke bare `.filter()` direkte), for at
+  // undgå at måle-effekten nedenfor genkører i et uendeligt loop: uden
+  // useMemo får `activeShifts` en NY array-reference ved hvert render,
+  // effektens dependency-array ser det som "ændret" hver gang, og
+  // setCorners()-kaldet i effekten trigger selv et nyt render — en
+  // uendelig loop, der reelt gjorde "Events & vagter"-siden usvarende
+  // (rapporteret af Hjorth 2026-07-16 som "kan ikke loades").
+  const activeShifts = useMemo(
+    () => event.shifts.filter((s) => s.status !== "cancelled"),
+    [event.shifts]
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [corners, setCorners] = useState<{ top: number; height: number }[]>([]);
@@ -404,7 +414,14 @@ export function EventCard({
         next.push({ top: prevAnchor, height: tickY - prevAnchor });
         prevAnchor = tickY;
       }
-      setCorners(next);
+      // Springer over setState hvis værdierne er uændrede, så en
+      // ResizeObserver, der fyrer uden en reel størrelsesændring, ikke
+      // selv kan skabe en render-loop.
+      setCorners((prev) =>
+        prev.length === next.length && prev.every((c, idx) => c.top === next[idx].top && c.height === next[idx].height)
+          ? prev
+          : next
+      );
     }
     measure();
     const ro = new ResizeObserver(measure);
