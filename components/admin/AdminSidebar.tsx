@@ -23,7 +23,7 @@ type NavItem = {
 // allerede har rewritet requestet internt til /tenant/*.
 const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "layout-dashboard", active: true },
-  { href: "/shifts", label: "Vagter", icon: "calendar-event", active: true },
+  { href: "/shifts", label: "Events & vagter", icon: "calendar-event", active: true },
   { href: "/freelancers", label: "Freelancere", icon: "users", active: true },
   { href: "/clients", label: "Kunder", icon: "building-store", active: true },
   { href: "/categories", label: "Jobfunktioner", icon: "briefcase", active: true },

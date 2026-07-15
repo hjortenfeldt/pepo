@@ -4,7 +4,7 @@ import { getCompanyBySubdomain } from "@/lib/tenant";
 import { getShiftsBoardData } from "@/lib/shifts-data";
 import ShiftBoard from "@/components/admin/ShiftBoard";
 
-export const metadata: Metadata = { title: "Vagter" };
+export const metadata: Metadata = { title: "Events & vagter" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminShiftsPage() {

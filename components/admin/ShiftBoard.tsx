@@ -410,13 +410,28 @@ export function EventCard({
       </div>
       {activeShifts.length > 0 && (
         <div className="relative pl-6 flex flex-col gap-2">
-          <div className="absolute left-2 -top-2 bottom-8 w-[1.5px] bg-pepo-bds" />
+          {activeShifts.length === 1 ? (
+            // Med KUN én vagt tilknyttet ser den separate lodrette streg
+            // (som ved 2+ vagter går hele vejen ned til den sidste vagts
+            // vandrette "tud") ud som om den vil fortsætte videre til et
+            // vagtkort mere, der aldrig kommer — fordi et enkelt, isoleret
+            // stykke lodret streg ved siden af ét kort ikke læses som en
+            // afsluttet forbindelse. Tegnes derfor i stedet som ét samlet,
+            // afrundet "hjørne" (└) med border-left+border-bottom, der er
+            // sit eget klare, færdige element — ShiftCardets egen vandrette
+            // "tud" (se showTick nedenfor) udelades i dette tilfælde, så der
+            // ikke opstår to separate streger der skal ramme hinanden.
+            <div className="absolute left-2 -top-2 w-3.5 h-10 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px]" />
+          ) : (
+            <div className="absolute left-2 -top-2 bottom-8 w-[1.5px] bg-pepo-bds" />
+          )}
           {activeShifts.map((shift) => (
             <ShiftCard
               key={shift.id}
               shift={shift}
               isFlashing={shift.id === flashShiftId}
               onClick={() => onOpenShift(shift)}
+              showTick={activeShifts.length > 1}
             />
           ))}
         </div>
@@ -429,10 +444,18 @@ function ShiftCard({
   shift,
   isFlashing,
   onClick,
+  showTick = true,
 }: {
   shift: ShiftListItem;
   isFlashing: boolean;
   onClick: () => void;
+  /**
+   * false når EventCard i stedet tegner ét samlet "hjørne"-forbindelsesstykke
+   * for et enkeltstående vagtkort (se EventCard ovenfor) — undgår at denne
+   * vandrette "tud" og forælderens hjørne-streg begge forsøger at ramme
+   * samme punkt (og evt. ikke lige rammer helt præcist).
+   */
+  showTick?: boolean;
 }) {
   const rightText = shift.assignedFreelancerName
     ? shift.assignedFreelancerName
@@ -448,7 +471,7 @@ function ShiftCard({
         (isFlashing ? " pepo-flash-green" : "")
       }
     >
-      <div className="absolute -left-4 top-8 w-3.5 h-[1.5px] bg-pepo-bds" />
+      {showTick && <div className="absolute -left-4 top-8 w-3.5 h-[1.5px] bg-pepo-bds" />}
       <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">
         <Icon name={shift.categoryIcon || "briefcase"} size={20} />
       </div>
