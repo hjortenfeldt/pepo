@@ -358,7 +358,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
       />
       <div
         className={
-          "fixed top-0 right-0 bottom-0 w-[420px] bg-pepo-wh shadow-[-8px_0_40px_rgba(0,0,0,0.12)] transition-transform z-20 flex flex-col " +
+          "fixed top-0 right-0 bottom-0 w-full sm:w-[420px] bg-pepo-wh shadow-[-8px_0_40px_rgba(0,0,0,0.12)] transition-transform z-20 flex flex-col " +
           (panelOpen ? "translate-x-0" : "translate-x-full")
         }
       >

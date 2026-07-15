@@ -53,7 +53,7 @@ export default function DashboardBoard({
       </div>
 
       <div className="px-8 py-[22px] pb-10">
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <StatCard
             title="Events i alt"
             accent="purple"
@@ -108,7 +108,7 @@ function StatCard({
   const labelColor = accent === "purple" ? "text-pepo-p" : "text-[#1D4ED8]";
 
   return (
-    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 flex-1 h-[230px]">
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1 h-[230px]">
       <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
       <div className="flex gap-6">
         {stats.map((s, i) => (
@@ -175,9 +175,9 @@ function EventRow({ event }: { event: DashboardEventItem }) {
         <div className="text-xs font-semibold text-pepo-t1">{relativeDateLabel(event.eventDate)}</div>
         <div className="text-[11px] text-pepo-t3 mt-px">{formatDateDisplay(event.eventDate)}</div>
       </div>
-      <div className="flex-1 min-w-0 flex items-center justify-between gap-2.5">
+      <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2.5">
         <span className="text-[13.5px] font-medium text-pepo-t1">{event.title}</span>
-        <div className="flex flex-wrap gap-1.5 justify-end flex-shrink-0">
+        <div className="flex flex-wrap gap-1.5 sm:justify-end sm:flex-shrink-0">
           {event.roles.map((r) => (
             <Fragment key={r.category}>
               {r.open > 0 && <RoleBadge count={r.open} category={r.category} tone="red" />}

@@ -239,7 +239,7 @@ export default function CategoryList({
         <div className="text-[11px] font-semibold text-pepo-t3 uppercase tracking-wide mb-2.5">
           Tilføj jobfunktion
         </div>
-        <div className="flex gap-2.5">
+        <div className="flex flex-col sm:flex-row gap-2.5">
           <input
             type="text"
             value={newName}
@@ -253,7 +253,7 @@ export default function CategoryList({
           <select
             value={groupSelectValue}
             onChange={(e) => handleGroupSelectChange(e.target.value)}
-            className="w-[210px] flex-shrink-0 h-[42px] border border-pepo-bds rounded-[10px] pl-3.5 pr-8 text-[13.5px] text-pepo-t1 outline-none bg-pepo-wh focus:border-pepo-p appearance-none"
+            className="w-full sm:w-[210px] sm:flex-shrink-0 h-[42px] border border-pepo-bds rounded-[10px] pl-3.5 pr-8 text-[13.5px] text-pepo-t1 outline-none bg-pepo-wh focus:border-pepo-p appearance-none"
             style={{
               backgroundImage:
                 "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236E6E73' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
@@ -277,7 +277,7 @@ export default function CategoryList({
             disabled={!canAddCategory || isPending}
             onAnimationEnd={() => setBlink(false)}
             className={
-              "h-[42px] px-4.5 rounded-[10px] bg-pepo-p text-white text-[13.5px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:bg-pepo-bd disabled:text-pepo-t3 disabled:hover:opacity-100 flex-shrink-0 whitespace-nowrap " +
+              "h-[42px] px-4.5 rounded-[10px] bg-pepo-p text-white text-[13.5px] font-medium flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity disabled:bg-pepo-bd disabled:text-pepo-t3 disabled:hover:opacity-100 w-full sm:w-auto sm:flex-shrink-0 whitespace-nowrap " +
               (blink ? "animate-[btnblink_.3s_ease-in-out_3]" : "")
             }
           >
