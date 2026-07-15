@@ -390,44 +390,53 @@ export function EventCard({
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [corners, setCorners] = useState<{ top: number; height: number }[]>([]);
+  const [tickYs, setTickYs] = useState<number[]>([]);
 
   // Måler de faktiske korthøjder i DOM'en i stedet for at antage en fast
   // 64px korthøjde (se [[feedback_connector_line_single_shift_visual_fix]]).
-  // Den tidligere version hardcodede -top-10/h-[72px] ud fra en antaget
-  // korthøjde — virkede for kort #1 (forankret uafhængigt af søskende), men
-  // afvigelser fra antagelsen (fx to-linjet "X vagtanmodninger"-tekst eller
-  // en lang tildelt-navn-streng, der gør ét kort højere end 64px) gav en
-  // fejl der voksede for hvert efterfølgende kort — præcis mønstret Hjorth
-  // så (kun første kort korrekt, resten med stigende gab). Ved at måle
-  // `offsetTop`/`offsetHeight` pr. kort og lade hvert hjørne starte, hvor
-  // det forrige sluttede, bliver kæden altid sammenhængende uanset
-  // korthøjde. En ResizeObserver genmåler, hvis et korts indhold (og
-  // dermed højde) ændrer sig efter første måling.
+  //
+  // To designs er allerede afprøvet og forladt her:
+  // 1) Hardcodet -top-10/h-[72px] ud fra en antaget korthøjde — virkede
+  //    kun for kort #1 (forankret uafhængigt af søskende); enhver afvigelse
+  //    fra 64px (fx to-linjet "X vagtanmodninger"-tekst) gav en fejl der
+  //    voksede for hvert efterfølgende kort.
+  // 2) Målt korthøjde, men stadig ét L-formet "hjørne" pr. kort kædet
+  //    sammen (hvert hjørnes top = forrige hjørnes bund). Geometrisk
+  //    korrekt (bekræftet med getBoundingClientRect i browseren — boksene
+  //    mødtes pixel-for-pixel), men SÅ STADIG ud som et hak: `rounded-bl`
+  //    får det forrige korts venstre kant til at bue væk fra x-positionen
+  //    de sidste ~6px før dens bund, mens det næste korts kant starter
+  //    fladt fra x-positionen i nøjagtig samme højde — ingen af dem tegner
+  //    linjen i det lille overlap, så det ser ud som et gab, selv når
+  //    tallene stemmer.
+  //
+  // Løsningen: adskil "trunk" (den lodrette linje) fra "hjørne" (kurven
+  // ind i det enkelte kort). Trunken er ÉT sammenhængende element fra
+  // -8px (under event-kortet) til det SIDSTE korts tud-punkt — den kan
+  // aldrig få et hak, fordi den ikke er sat sammen af flere stykker.
+  // Hvert korts hjørne er en lille, uafhængig kasse (kun høj nok til at
+  // vise buen) forankret i KORTETS EGEN tud-position og ligger oven på
+  // trunken i stedet for at udgøre en del af den.
   useLayoutEffect(() => {
     function measure() {
-      let prevAnchor = -8; // 8px over containerens top, under event-kortet
-      const next: { top: number; height: number }[] = [];
+      const next: number[] = [];
       for (const el of cardRefs.current) {
         if (!el) continue;
-        const tickY = el.offsetTop + el.offsetHeight / 2;
-        next.push({ top: prevAnchor, height: tickY - prevAnchor });
-        prevAnchor = tickY;
+        next.push(el.offsetTop + el.offsetHeight / 2);
       }
       // Springer over setState hvis værdierne er uændrede, så en
       // ResizeObserver, der fyrer uden en reel størrelsesændring, ikke
       // selv kan skabe en render-loop.
-      setCorners((prev) =>
-        prev.length === next.length && prev.every((c, idx) => c.top === next[idx].top && c.height === next[idx].height)
-          ? prev
-          : next
-      );
+      setTickYs((prev) => (prev.length === next.length && prev.every((y, idx) => y === next[idx]) ? prev : next));
     }
     measure();
     const ro = new ResizeObserver(measure);
     cardRefs.current.forEach((el) => el && ro.observe(el));
     return () => ro.disconnect();
   }, [activeShifts]);
+
+  const CORNER_HEIGHT = 18; // nok til en blød 6px-kurve plus lidt lige indløb
+  const trunkHeight = tickYs.length > 0 ? tickYs[tickYs.length - 1] + 8 : 0;
 
   return (
     <div className="flex flex-col gap-2">
@@ -461,12 +470,18 @@ export function EventCard({
       </div>
       {activeShifts.length > 0 && (
         <div ref={containerRef} className="relative pl-6 flex flex-col gap-2">
+          {trunkHeight > 0 && (
+            <div
+              className="absolute -left-4 w-[1.5px] bg-pepo-bds pointer-events-none"
+              style={{ top: -8, height: trunkHeight }}
+            />
+          )}
           {activeShifts.map((shift, i) => (
             <Fragment key={shift.id}>
-              {corners[i] && (
+              {tickYs[i] !== undefined && (
                 <div
                   className="absolute -left-4 w-3.5 border-l-[1.5px] border-b-[1.5px] border-pepo-bds rounded-bl-[6px] pointer-events-none"
-                  style={{ top: corners[i].top, height: corners[i].height }}
+                  style={{ top: tickYs[i] - CORNER_HEIGHT, height: CORNER_HEIGHT }}
                 />
               )}
               <ShiftCard
