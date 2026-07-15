@@ -5,6 +5,8 @@ import { buildCalendarFeed, type IcsEventInput, type IcsShiftInput } from "@/lib
 
 export const dynamic = "force-dynamic";
 
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
+
 /**
  * Offentligt, token-beskyttet kalender-feed til "Sync med kalender".
  * Kaldes af kalenderapps (Google/Apple/Outlook) uden login — proxy.ts
@@ -153,8 +155,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       id: e.id,
       title: e.title,
       eventDateIso: e.event_date,
-      tenantSlug: company.slug,
       tenantName: company.name || company.slug,
+      editUrl: `https://${company.slug}.${ROOT_DOMAIN}/shifts?event=${e.id}`,
       venueAddress: fullAddress(venue),
       clientName: client?.name || client?.contact_person || "",
       clientEmail: client?.contact_email ?? null,

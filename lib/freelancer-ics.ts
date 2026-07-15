@@ -52,6 +52,19 @@ export type FreelancerIcsEventInput = {
   updatedAtIso: string; // til DTSTAMP/LAST-MODIFIED
 };
 
+// Hvor mange timer før vagten starter (dvs. før VEVENT'ens DTSTART), en
+// standard-påmindelse skal udløses i freelancerens kalender-app. Kun ÉT sted
+// at ændre, hvis Hjorth senere vil have en anden varsel-tid.
+//
+// Bemærk begrænsningen: VALARM respekteres af Apple Kalender og de fleste
+// desktop/mobil-klienter der abonnerer på et webcal/ICS-feed, MEN Google
+// Kalender fjerner bevidst alarmer fra ABONNEREDE kalendere (til forskel fra
+// importerede .ics-filer) — det er en kendt begrænsning i Googles egen
+// håndtering af eksterne feeds, ikke noget vi kan omgå fra feed-siden. En
+// freelancer der bruger Google Kalender vil derfor ikke se denne
+// påmindelse, uanset hvad vi sætter her.
+const ALARM_HOURS_BEFORE = 2;
+
 function shiftEndDateIso(eventDateIso: string, shift: FreelancerIcsShiftRow): string {
   return shift.endTime <= shift.startTime ? addDays(eventDateIso, 1) : eventDateIso;
 }
@@ -138,6 +151,16 @@ function buildVEvent(event: FreelancerIcsEventInput): string {
   lines.push(icsLine("SUMMARY", icsEscape(summary)));
   if (event.venueAddress) lines.push(icsLine("LOCATION", icsEscape(event.venueAddress)));
   lines.push(icsLine("DESCRIPTION", icsEscape(description)));
+
+  // Standard-påmindelse ALARM_HOURS_BEFORE timer før vagten starter (se
+  // konstantens kommentar ovenfor for hvilke kalender-apps der reelt
+  // respekterer dette). Negativ varighed = "før DTSTART", per RFC 5545 §3.8.6.3.
+  lines.push("BEGIN:VALARM");
+  lines.push("ACTION:DISPLAY");
+  lines.push(icsLine("DESCRIPTION", icsEscape(`Din vagt hos ${event.companyName} starter om ${ALARM_HOURS_BEFORE} timer`)));
+  lines.push(`TRIGGER:-PT${ALARM_HOURS_BEFORE}H`);
+  lines.push("END:VALARM");
+
   lines.push("END:VEVENT");
 
   return lines.join("\r\n");

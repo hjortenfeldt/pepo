@@ -23,9 +23,17 @@ export type IcsEventInput = {
   id: string;
   title: string;
   eventDateIso: string; // "2026-07-11"
-  tenantSlug: string;
   /** Virksomhedens visningsnavn — bruges i SUMMARY som "[Tenant name] (admin): ...". */
   tenantName: string;
+  /**
+   * Fuldt kvalificeret https-URL til eventets redigeringsside (fx
+   * "https://kulturbyen.pepo.team/shifts?event=<id>") — bruges BÅDE til
+   * VEVENT'ens URL-egenskab (så kalender-apps som macOS Kalender kan vise et
+   * klikbart link nederst i begivenheden, uden at admin selv skal
+   * copy/paste'e det) OG til "REDIGÉR OPLYSNINGER"-linjen i beskrivelsen
+   * (som fallback for apps der ikke viser URL-feltet).
+   */
+  editUrl: string;
   venueAddress: string | null;
   clientName: string;
   clientEmail: string | null;
@@ -159,7 +167,7 @@ function buildDescription(event: IcsEventInput): string {
   lines.push("—————");
   lines.push("");
   lines.push("REDIGÉR OPLYSNINGER:");
-  lines.push(`${event.tenantSlug}.pepo.team/shifts?event=${event.id}`);
+  lines.push(event.editUrl);
 
   return lines.join("\n");
 }
@@ -193,6 +201,12 @@ function buildVEvent(event: IcsEventInput): string {
   lines.push(icsLine("SUMMARY", icsEscape(summary)));
   if (event.venueAddress) lines.push(icsLine("LOCATION", icsEscape(event.venueAddress)));
   lines.push(icsLine("DESCRIPTION", icsEscape(description)));
+  // URL-egenskaben (RFC 5545 §3.8.4.6) er en URI-værdi, IKKE en TEXT-værdi —
+  // skal derfor IKKE gennem icsEscape() (som escaper komma/semikolon for
+  // TEXT-felter som SUMMARY/DESCRIPTION ovenfor; det ville ødelægge en gyldig
+  // URL). Kalender-apps med et selvstændigt "URL"-felt (fx macOS Kalender)
+  // viser denne som et klikbart link nederst i begivenheden.
+  lines.push(icsLine("URL", event.editUrl));
   lines.push("END:VEVENT");
 
   return lines.join("\r\n");
