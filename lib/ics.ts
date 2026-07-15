@@ -198,14 +198,21 @@ function buildVEvent(event: IcsEventInput): string {
   return lines.join("\r\n");
 }
 
-export function buildCalendarFeed(events: IcsEventInput[]): string {
+// tenantName bruges KUN til kalenderens eget navn (X-WR-CALNAME), med
+// "- Admin" tilføjet — så det er tydeligt for en administrator (i deres
+// kalender-apps liste over abonnementer) at det netop er ADMIN-feedet med
+// ALLE virksomhedens events, ikke deres eget "kun mine vagter"-feed (se
+// lib/freelancer-ics.ts). Hvert VEVENT har desuden sit eget tenantName-felt
+// (se IcsEventInput/buildVEvent ovenfor) til SUMMARY-linjen.
+export function buildCalendarFeed(tenantName: string, events: IcsEventInput[]): string {
+  const calName = `${tenantName} - Admin`;
   const body = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Pepo//Personaleportalen//DA",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    "X-WR-CALNAME:Pepo",
+    icsLine("X-WR-CALNAME", icsEscape(calName)),
     VTIMEZONE,
     ...events.map(buildVEvent),
     "END:VCALENDAR",

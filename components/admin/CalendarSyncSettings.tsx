@@ -52,7 +52,7 @@ export default function CalendarSyncSettings({
   return (
     <div className="flex flex-col">
       <div className="px-8 pt-[22px]">
-        <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Sync med kalender</div>
+        <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Sync admin-kalender</div>
         <div className="text-[13.5px] text-pepo-t2 mt-[3px]">
           Abonnér på jeres events direkte i jeres almindelige kalender-app
         </div>

@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import CalendarSyncSettings from "@/components/admin/CalendarSyncSettings";
 
-export const metadata: Metadata = { title: "Sync med kalender" };
+export const metadata: Metadata = { title: "Sync admin-kalender" };
 export const dynamic = "force-dynamic";
 
 export default async function CalendarSyncPage() {

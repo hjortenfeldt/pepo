@@ -233,7 +233,7 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
                 <div>
                   Jeres nuværende adresse (<span className="font-medium">{slug}.{ROOT_DOMAIN}</span>) holder op
                   med at virke med det samme. Eventuelle bogmærker og jeres kalender-abonnementslink (under
-                  Sync med kalender) skal opdateres til den nye adresse, ellers holder de op med at virke.
+                  Sync admin-kalender) skal opdateres til den nye adresse, ellers holder de op med at virke.
                 </div>
               </div>
               <div className="flex items-center gap-2.5">

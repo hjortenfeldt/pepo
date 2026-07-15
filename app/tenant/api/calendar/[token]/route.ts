@@ -166,7 +166,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     };
   });
 
-  const feed = buildCalendarFeed(events);
+  const feed = buildCalendarFeed(company.name, events);
 
   return new NextResponse(feed, {
     status: 200,
