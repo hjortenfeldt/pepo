@@ -9,6 +9,7 @@ import {
   type CompanyProfileInput,
 } from "@/app/tenant/(protected)/settings/company/actions";
 import CompanyLogoSettings from "./CompanyLogoSettings";
+import { useAddressCheck } from "@/components/useAddressCheck";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
 
@@ -36,6 +37,7 @@ const inputClass =
 
 export default function CompanyProfileSettings({ initial }: { initial: CompanyProfileData }) {
   const [form, setForm] = useState<CompanyProfileInput>(initial);
+  const { warning: addressWarning, check: checkAddress, clear: clearAddressWarning } = useAddressCheck();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
   const [isSavingProfile, startProfileTransition] = useTransition();
@@ -108,7 +110,11 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
           <Field label="Adresse">
             <input
               value={form.address}
-              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, address: e.target.value }));
+                clearAddressWarning();
+              }}
+              onBlur={() => checkAddress(form.address, form.postalCode, form.city)}
               className={inputClass}
             />
           </Field>
@@ -117,18 +123,33 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
             <Field label="Postnr." className="w-28">
               <input
                 value={form.postalCode}
-                onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, postalCode: e.target.value }));
+                  clearAddressWarning();
+                }}
+                onBlur={() => checkAddress(form.address, form.postalCode, form.city)}
                 className={inputClass}
               />
             </Field>
             <Field label="By" className="flex-1">
               <input
                 value={form.city}
-                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, city: e.target.value }));
+                  clearAddressWarning();
+                }}
+                onBlur={() => checkAddress(form.address, form.postalCode, form.city)}
                 className={inputClass}
               />
             </Field>
           </div>
+
+          {addressWarning && (
+            <p className="-mt-2 mb-4 text-[12px] text-[#9A6B00] bg-[#FFF7E6] border border-[#F5D889] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+              <Icon name="alert-triangle" size={14} className="flex-shrink-0 mt-px" />
+              {addressWarning}
+            </p>
+          )}
 
           <Field label="Kontaktperson">
             <input

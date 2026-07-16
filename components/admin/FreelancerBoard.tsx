@@ -13,6 +13,7 @@ import {
 } from "@/app/tenant/(protected)/freelancers/actions";
 import Icon from "@/components/Icon";
 import { lastActiveLabel, lastActivePhrase } from "@/lib/format";
+import { useAddressCheck } from "@/components/useAddressCheck";
 
 type MainTab = "approved" | "applications";
 type SubTab = "pending" | "rejected";
@@ -86,6 +87,7 @@ export default function FreelancerBoard({
   const [openId, setOpenId] = useState<string | null>(null);
   const [panelMode, setPanelMode] = useState<PanelMode>("view");
   const [form, setForm] = useState<FreelancerFormInput>(emptyForm());
+  const { warning: locationWarning, check: checkLocation, clear: clearLocationWarning } = useAddressCheck();
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -202,6 +204,7 @@ export default function FreelancerBoard({
     setExistingPhotoUrl(null);
     setShowPhotoUpload(true);
     setError(null);
+    clearLocationWarning();
   }
 
   function openEditFreelancer() {
@@ -224,6 +227,7 @@ export default function FreelancerBoard({
     setPanelMode("edit");
     setError(null);
     setConfirmingDelete(false);
+    clearLocationWarning();
   }
 
   function handleDelete() {
@@ -978,11 +982,21 @@ export default function FreelancerBoard({
                     <input
                       type="text"
                       value={form.location}
-                      onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, location: e.target.value }));
+                        clearLocationWarning();
+                      }}
+                      onBlur={() => checkLocation(form.location)}
                       placeholder="Fx 2100 København Ø"
                       className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
                     />
                   </Field>
+                  {locationWarning && (
+                    <p className="-mt-2 mb-4 text-[12px] text-[#9A6B00] bg-[#FFF7E6] border border-[#F5D889] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+                      <Icon name="alert-triangle" size={14} className="flex-shrink-0 mt-px" />
+                      {locationWarning}
+                    </p>
+                  )}
 
                   <Field label="Jobfunktion(er)">
                     <div className="flex flex-wrap gap-2">

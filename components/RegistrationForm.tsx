@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import type { RegistrationResult, WorkCategory } from "@/lib/types";
+import { useAddressCheck } from "@/components/useAddressCheck";
+import Icon from "@/components/Icon";
 
 type Props = {
   categories: WorkCategory[];
@@ -55,6 +57,7 @@ function getInitials(fullName: string) {
 export default function RegistrationForm({ categories, onSubmit, companyName }: Props) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const { warning: locationWarning, check: checkLocation, clear: clearLocationWarning } = useAddressCheck();
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +118,7 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
     setSubmitted(false);
     setError(null);
     setStep(1);
+    clearLocationWarning();
   }
 
   const categoryNameById = (id: string) =>
@@ -153,6 +157,9 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
               update={update}
               canContinue={canContinueFromStep1()}
               onNext={() => setStep(2)}
+              locationWarning={locationWarning}
+              checkLocation={checkLocation}
+              clearLocationWarning={clearLocationWarning}
             />
           )}
 
@@ -242,11 +249,17 @@ function Step1({
   update,
   canContinue,
   onNext,
+  locationWarning,
+  checkLocation,
+  clearLocationWarning,
 }: {
   form: FormState;
   update: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   canContinue: boolean;
   onNext: () => void;
+  locationWarning: string | null;
+  checkLocation: (address: string, postalCode?: string | null, city?: string | null) => void;
+  clearLocationWarning: () => void;
 }) {
   return (
     <div>
@@ -294,8 +307,18 @@ function Step1({
           className={inputClass}
           placeholder="2200 København N"
           value={form.location}
-          onChange={(e) => update("location", e.target.value)}
+          onChange={(e) => {
+            update("location", e.target.value);
+            clearLocationWarning();
+          }}
+          onBlur={() => checkLocation(form.location)}
         />
+        {locationWarning && (
+          <p className="mt-1.5 text-[12px] text-[#9A6B00] bg-[#FFF7E6] border border-[#F5D889] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+            <Icon name="alert-triangle" size={14} className="flex-shrink-0 mt-px" />
+            {locationWarning}
+          </p>
+        )}
       </Field>
 
       <Field label="Email">

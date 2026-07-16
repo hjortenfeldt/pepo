@@ -11,6 +11,7 @@ import {
   type VenueFormEntry,
 } from "@/app/tenant/(protected)/clients/actions";
 import Icon from "@/components/Icon";
+import { VenueAddressFields } from "./VenueAddressFields";
 
 type CustomerType = "company" | "private";
 type ViewMode = "grid" | "list";
@@ -483,44 +484,13 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                   <Icon name="x" size={20} />
                 </button>
               )}
-              <Field label="Navn på arbejdssted/venue">
-                <input
-                  type="text"
-                  value={v.name}
-                  onChange={(e) => updateVenueField(i, "name", e.target.value)}
-                  placeholder="Fx Kanal 4 Havnelokale"
-                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
-                />
-              </Field>
-              <Field label="Adresse">
-                <input
-                  type="text"
-                  value={v.address}
-                  onChange={(e) => updateVenueField(i, "address", e.target.value)}
-                  placeholder="Fx Nyhavn 4"
-                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
-                />
-              </Field>
-              <div className="flex gap-2.5">
-                <Field label="Postnr." className="flex-1">
-                  <input
-                    type="text"
-                    value={v.postalCode}
-                    onChange={(e) => updateVenueField(i, "postalCode", e.target.value)}
-                    placeholder="1051"
-                    className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
-                  />
-                </Field>
-                <Field label="By" className="flex-[2]">
-                  <input
-                    type="text"
-                    value={v.city}
-                    onChange={(e) => updateVenueField(i, "city", e.target.value)}
-                    placeholder="København K"
-                    className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
-                  />
-                </Field>
-              </div>
+              <VenueAddressFields
+                name={v.name}
+                address={v.address}
+                postalCode={v.postalCode}
+                city={v.city}
+                onChange={(field, value) => updateVenueField(i, field, value)}
+              />
             </div>
           ))}
           <button
