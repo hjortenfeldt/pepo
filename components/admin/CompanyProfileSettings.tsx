@@ -176,8 +176,9 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
         <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6 mb-4">
           <div className="text-[15px] font-semibold text-pepo-t1 mb-1">Transporttillæg</div>
           <div className="text-[12.5px] text-pepo-t2 mb-4 leading-relaxed">
-            Beregnes automatisk pr. event som køreafstand (fra jeres adresse ovenfor til eventets sted) × denne
-            takst × antal freelancere tildelt eventet. Kræver at eventets venue har en gyldig adresse.
+            Beregnes automatisk pr. event som køreafstand tur/retur (fra jeres adresse ovenfor til eventets sted,
+            og hjem igen) × denne takst × antal freelancere tildelt eventet. Kræver at eventets venue har en
+            gyldig adresse.
           </div>
 
           <Field label="Kr. pr. km. pr. freelancer" className="w-48">

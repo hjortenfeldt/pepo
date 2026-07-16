@@ -210,9 +210,14 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
         .filter((s) => s.status !== "cancelled" && s.assigned_freelancer_id)
         .map((s) => s.assigned_freelancer_id)
     ).size;
+    // Tur/retur: freelanceren skal jo hjem igen efter eventet, så selve
+    // tillægget beregnes på den DOBBELTE afstand — mens "Afstand"-linjen på
+    // kortet fortsat viser den rigtige, én-vejs køreafstand (det tal folk
+    // genkender fra en rutevejledning). Derfor ganges kun tillægget med 2,
+    // ikke venueDistanceKm selv.
     const transportSurchargeKr =
       venue?.distance_from_company_km != null
-        ? Math.round(venue.distance_from_company_km * transportRatePerKm * freelancerCount * 100) / 100
+        ? Math.round(venue.distance_from_company_km * 2 * transportRatePerKm * freelancerCount * 100) / 100
         : null;
 
     return {

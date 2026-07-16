@@ -468,7 +468,7 @@ export function EventCard({
           {event.transportSurchargeKr != null && (
             <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
               <Icon name="car" size={14} className="text-pepo-t3 flex-shrink-0" />
-              Transporttillæg: {krFmt.format(event.transportSurchargeKr)} kr.
+              Transporttillæg (t/r): {krFmt.format(event.transportSurchargeKr)} kr.
             </div>
           )}
         </div>
