@@ -102,6 +102,11 @@ export type EventListItem = {
   venueLabel: string | null; // fx "Havnelokale — Islands Brygge 26, 2300 København S"
   attachments: EventAttachment[];
   shifts: ShiftListItem[];
+  // Transporttillæg: køreafstand (venue.distance_from_company_km) × virksomhedens
+  // kr./km-takst × antal tildelte freelancere på eventet. `null` hvis venuens
+  // adresse endnu ikke er geokodet (fx ingen adresse angivet, eller opslaget
+  // hos Google fejlede) — vis da ingenting i stedet for et forkert 0 kr.
+  transportSurchargeKr: number | null;
 };
 
 export type ClientOption = {

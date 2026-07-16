@@ -4,6 +4,49 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import type { EventAttachment, ShiftStatus, VenueItem } from "@/lib/admin-types";
+import { geocodeAddress, getDrivingDistanceKm } from "@/lib/maps";
+
+/**
+ * Geokoder en venue-adresse og beregner køreafstanden fra virksomhedens
+ * koordinater, hvis begge dele kendes. Bruges af createVenue/updateVenue,
+ * som — i modsætning til syncVenues() i clients/actions.ts — gemmer venues
+ * enkeltvis. Fejler aldrig hårdt: manglende koordinater giver bare `null`,
+ * så transporttillægget står tomt til adressen er komplet.
+ */
+async function geocodeVenueFields(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  companyId: string,
+  address: string | null,
+  postalCode: string | null,
+  city: string | null
+) {
+  if (!address) {
+    return { latitude: null, longitude: null, distance_from_company_km: null, distance_calculated_at: null };
+  }
+
+  const location = await geocodeAddress(address, postalCode, city);
+  if (!location) {
+    return { latitude: null, longitude: null, distance_from_company_km: null, distance_calculated_at: null };
+  }
+
+  const { data: companyRow } = await supabase
+    .from("companies")
+    .select("latitude, longitude")
+    .eq("id", companyId)
+    .maybeSingle();
+
+  const distanceKm =
+    companyRow?.latitude != null && companyRow?.longitude != null
+      ? await getDrivingDistanceKm({ lat: companyRow.latitude, lng: companyRow.longitude }, location)
+      : null;
+
+  return {
+    latitude: location.lat,
+    longitude: location.lng,
+    distance_from_company_km: distanceKm,
+    distance_calculated_at: new Date().toISOString(),
+  };
+}
 
 // VIGTIGT: RLS alene skelner ikke mellem "min egen virksomhed" og "den
 // virksomhed en superadmin besøger i support-tilstand" (se
@@ -420,15 +463,21 @@ export async function createVenue(clientId: string, input: VenueFormInput) {
 
   const supabase = await createSupabaseClient();
 
+  const address = input.address.trim() || null;
+  const postalCode = input.postalCode.trim() || null;
+  const city = input.city.trim() || null;
+  const geo = await geocodeVenueFields(supabase, company.id, address, postalCode, city);
+
   const { data, error } = await supabase
     .from("client_venues")
     .insert({
       company_id: company.id,
       client_id: clientId,
       name: input.name.trim() || null,
-      address: input.address.trim() || null,
-      postal_code: input.postalCode.trim() || null,
-      city: input.city.trim() || null,
+      address,
+      postal_code: postalCode,
+      city,
+      ...geo,
     })
     .select("id, client_id, name, address, postal_code, city")
     .single();
@@ -457,13 +506,32 @@ export async function updateVenue(venueId: string, input: VenueFormInput) {
 
   const supabase = await createSupabaseClient();
 
+  const address = input.address.trim() || null;
+  const postalCode = input.postalCode.trim() || null;
+  const city = input.city.trim() || null;
+
+  const { data: existing } = await supabase
+    .from("client_venues")
+    .select("address, postal_code, city")
+    .eq("id", venueId)
+    .eq("company_id", company.id)
+    .maybeSingle();
+
+  const addressChanged =
+    address !== (existing?.address ?? null) ||
+    postalCode !== (existing?.postal_code ?? null) ||
+    city !== (existing?.city ?? null);
+
+  const geo = addressChanged ? await geocodeVenueFields(supabase, company.id, address, postalCode, city) : {};
+
   const { error } = await supabase
     .from("client_venues")
     .update({
       name: input.name.trim() || null,
-      address: input.address.trim() || null,
-      postal_code: input.postalCode.trim() || null,
-      city: input.city.trim() || null,
+      address,
+      postal_code: postalCode,
+      city,
+      ...geo,
     })
     .eq("id", venueId)
     .eq("company_id", company.id);

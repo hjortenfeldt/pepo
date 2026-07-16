@@ -18,7 +18,7 @@ export default async function CompanyProfilePage() {
   const { data, error } = await supabase
     .from("companies")
     .select(
-      "name, slug, cvr_number, address, postal_code, city, contact_person, contact_phone, contact_email, logo_url"
+      "name, slug, cvr_number, address, postal_code, city, contact_person, contact_phone, contact_email, logo_url, transport_rate_per_km"
     )
     .eq("id", company.id)
     .single();
@@ -41,6 +41,7 @@ export default async function CompanyProfilePage() {
         contactPhone: data.contact_phone ?? "",
         contactEmail: data.contact_email ?? "",
         logoUrl: data.logo_url ?? null,
+        transportRatePerKm: String(data.transport_rate_per_km ?? 5),
       }}
     />
   );

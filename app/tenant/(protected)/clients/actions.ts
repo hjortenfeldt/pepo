@@ -4,6 +4,7 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { normalizePhone } from "@/lib/format";
+import { geocodeAddress, getDrivingDistanceKm } from "@/lib/maps";
 
 // Se shifts/actions.ts for hvorfor company.id skal sættes/filtreres
 // eksplicit i stedet for at stole på RLS/databasetriggerens fallback.
@@ -73,10 +74,11 @@ async function syncVenues(
 
   const { data: existing } = await supabase
     .from("client_venues")
-    .select("id")
+    .select("id, address, postal_code, city")
     .eq("client_id", clientId)
     .eq("company_id", companyId);
-  const existingIds = new Set((existing ?? []).map((v) => v.id as string));
+  const existingById = new Map((existing ?? []).map((v) => [v.id as string, v]));
+  const existingIds = new Set(existingById.keys());
   const keptIds = new Set(toKeep.filter((v) => v.id).map((v) => v.id as string));
 
   const idsToDelete = [...existingIds].filter((id) => !keptIds.has(id));
@@ -84,14 +86,51 @@ async function syncVenues(
     await supabase.from("client_venues").delete().in("id", idsToDelete).eq("company_id", companyId);
   }
 
+  // Virksomhedens koordinater slås kun op én gang for hele synkroniseringen,
+  // ikke pr. venue — sparer API-kald når en kunde har flere arbejdssteder.
+  const { data: companyRow } = await supabase
+    .from("companies")
+    .select("latitude, longitude")
+    .eq("id", companyId)
+    .maybeSingle();
+  const companyLocation =
+    companyRow?.latitude != null && companyRow?.longitude != null
+      ? { lat: companyRow.latitude, lng: companyRow.longitude }
+      : null;
+
   for (const v of toKeep) {
-    const row = {
+    const address = v.address.trim() || null;
+    const postalCode = v.postalCode.trim() || null;
+    const city = v.city.trim() || null;
+
+    const prev = v.id ? existingById.get(v.id) : undefined;
+    const addressChanged =
+      address !== (prev?.address ?? null) || postalCode !== (prev?.postal_code ?? null) || city !== (prev?.city ?? null);
+
+    const row: Record<string, unknown> = {
       client_id: clientId,
       name: v.name.trim() || null,
-      address: v.address.trim() || null,
-      postal_code: v.postalCode.trim() || null,
-      city: v.city.trim() || null,
+      address,
+      postal_code: postalCode,
+      city,
     };
+
+    if (addressChanged) {
+      if (address) {
+        const location = await geocodeAddress(address, postalCode, city);
+        row.latitude = location?.lat ?? null;
+        row.longitude = location?.lng ?? null;
+        row.distance_from_company_km =
+          location && companyLocation ? await getDrivingDistanceKm(companyLocation, location) : null;
+        row.distance_calculated_at = new Date().toISOString();
+      } else {
+        row.latitude = null;
+        row.longitude = null;
+        row.distance_from_company_km = null;
+        row.distance_calculated_at = null;
+      }
+    }
+
     if (v.id) {
       await supabase.from("client_venues").update(row).eq("id", v.id).eq("company_id", companyId);
     } else {

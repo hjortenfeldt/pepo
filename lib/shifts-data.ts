@@ -28,6 +28,10 @@ type RawVenueRef = {
   address: string | null;
   postal_code: string | null;
   city: string | null;
+  // Kun udvalgt i events-forespørgslen nedenfor (bruges til transporttillæg)
+  // — klienters venue-liste (til vagt-guidens venue-vælger) har ikke brug
+  // for den, derfor valgfri her.
+  distance_from_company_km?: number | null;
 };
 type RawClientRef = { name: string | null; contact_person: string | null };
 type RawWorkCategoryRef = { name: string; icon: string | null };
@@ -101,13 +105,13 @@ export type ShiftsBoardData = {
 export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoardData> {
   const supabase = await createClient();
 
-  const [eventsResult, clientsResult, categoriesResult, freelancerProfilesResult] = await Promise.all([
+  const [eventsResult, clientsResult, categoriesResult, freelancerProfilesResult, companyResult] = await Promise.all([
     supabase
       .from("events")
       .select(
         `id, title, event_date, description, client_id, venue_id,
          clients(name, contact_person),
-         client_venues(id, name, address, postal_code, city),
+         client_venues(id, name, address, postal_code, city, distance_from_company_km),
          shift_attachments(id, file_name, file_url, file_type),
          shifts(id, category_id, shift_date, start_time, end_time, status, previous_status,
            assigned_freelancer_id,
@@ -136,6 +140,9 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
       .select("auth_user_id, full_name")
       .eq("company_id", companyId)
       .eq("application_status", "approved"),
+    // Transporttillæggets kr./km-takst — konfigurerbar pr. virksomhed under
+    // Indstillinger → Firmaoplysninger (se CompanyProfileSettings.tsx).
+    supabase.from("companies").select("transport_rate_per_km").eq("id", companyId).maybeSingle(),
   ]);
 
   if (eventsResult.error) {
@@ -150,6 +157,11 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
   if (freelancerProfilesResult.error) {
     console.error("getShiftsBoardData: kunne ikke hente freelancere", freelancerProfilesResult.error);
   }
+  if (companyResult.error) {
+    console.error("getShiftsBoardData: kunne ikke hente virksomhedens transporttakst", companyResult.error);
+  }
+
+  const transportRatePerKm = companyResult.data?.transport_rate_per_km ?? 5;
 
   const approvedProfiles = (freelancerProfilesResult.data ?? []) as RawFreelancerProfileRow[];
   const authIds = approvedProfiles.map((p) => p.auth_user_id);
@@ -188,6 +200,21 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
   const events: EventListItem[] = ((eventsResult.data ?? []) as RawEventRow[]).map((e) => {
     const client = one(e.clients);
     const venue = one(e.client_venues);
+
+    // Antal freelancere transporttillægget beregnes for: distinkte tildelte
+    // freelancere på eventets ikke-annullerede vagter. Bevidst distinkt
+    // (ikke antal vagter) — en freelancer der arbejder to vagter samme dag
+    // på samme event kører kun derud én gang.
+    const freelancerCount = new Set(
+      (e.shifts ?? [])
+        .filter((s) => s.status !== "cancelled" && s.assigned_freelancer_id)
+        .map((s) => s.assigned_freelancer_id)
+    ).size;
+    const transportSurchargeKr =
+      venue?.distance_from_company_km != null
+        ? Math.round(venue.distance_from_company_km * transportRatePerKm * freelancerCount * 100) / 100
+        : null;
+
     return {
       id: e.id,
       title: e.title,
@@ -204,6 +231,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
             city: venue.city,
           })
         : null,
+      transportSurchargeKr,
       attachments: (e.shift_attachments ?? []).map((a) => ({
         id: a.id,
         fileName: a.file_name,

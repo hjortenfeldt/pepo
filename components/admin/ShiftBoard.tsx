@@ -14,6 +14,8 @@ import { formatDayHeading, formatTimeRange, todayIso } from "@/lib/format";
 import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
 
+const krFmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 0 });
+
 type Tab = "upcoming" | "past" | "all";
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -454,6 +456,12 @@ export function EventCard({
             <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
               <Icon name="map-pin" size={14} className="text-pepo-t3 flex-shrink-0" />
               {event.venueLabel}
+            </div>
+          )}
+          {event.transportSurchargeKr != null && (
+            <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
+              <Icon name="car" size={14} className="text-pepo-t3 flex-shrink-0" />
+              Transporttillæg: {krFmt.format(event.transportSurchargeKr)} kr.
             </div>
           )}
         </div>

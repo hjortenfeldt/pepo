@@ -5,6 +5,7 @@ import { getCompanyBySubdomain } from "@/lib/tenant";
 import { normalizePhone } from "@/lib/format";
 import { revalidatePath, updateTag } from "next/cache";
 import { COMPANY_INFO_TAG, FREELANCER_MEMBERSHIPS_TAG } from "@/lib/freelancer";
+import { geocodeAddress, getDrivingDistanceKm } from "@/lib/maps";
 
 /**
  * companies kan kun opdateres af super-admins ifølge RLS ("Super admins
@@ -22,11 +23,17 @@ export type CompanyProfileInput = {
   contactPerson: string;
   contactPhone: string;
   contactEmail: string;
+  transportRatePerKm: string;
 };
 
 export async function updateCompanyProfile(input: CompanyProfileInput) {
   if (!input.name.trim()) {
     return { success: false as const, error: "Firmanavn må ikke være tomt." };
+  }
+
+  const parsedRate = input.transportRatePerKm.trim() === "" ? 5 : Number(input.transportRatePerKm.replace(",", "."));
+  if (!Number.isFinite(parsedRate) || parsedRate < 0) {
+    return { success: false as const, error: "Transporttillæg pr. km skal være et positivt tal." };
   }
 
   const company = await getCompanyBySubdomain();
@@ -35,23 +42,63 @@ export async function updateCompanyProfile(input: CompanyProfileInput) {
   }
 
   const supabase = createAdminClient();
+  const { data: existing } = await supabase
+    .from("companies")
+    .select("address, postal_code, city, latitude, longitude")
+    .eq("id", company.id)
+    .maybeSingle();
+
+  const address = input.address.trim() || null;
+  const postalCode = input.postalCode.trim() || null;
+  const city = input.city.trim() || null;
+
+  // Adressen geokodes kun når den rent faktisk er ændret — sparer et
+  // unødvendigt API-kald, hvis admin blot redigerer fx kontaktpersonen.
+  const addressChanged =
+    address !== (existing?.address ?? null) ||
+    postalCode !== (existing?.postal_code ?? null) ||
+    city !== (existing?.city ?? null);
+
+  let latitude = existing?.latitude ?? null;
+  let longitude = existing?.longitude ?? null;
+
+  if (addressChanged && address) {
+    const location = await geocodeAddress(address, postalCode, city);
+    latitude = location?.lat ?? null;
+    longitude = location?.lng ?? null;
+  } else if (addressChanged && !address) {
+    latitude = null;
+    longitude = null;
+  }
+
   const { error } = await supabase
     .from("companies")
     .update({
       name: input.name.trim(),
       cvr_number: input.cvrNumber.trim() || null,
-      address: input.address.trim() || null,
-      postal_code: input.postalCode.trim() || null,
-      city: input.city.trim() || null,
+      address,
+      postal_code: postalCode,
+      city,
       contact_person: input.contactPerson.trim() || null,
       contact_phone: input.contactPhone.trim() ? normalizePhone(input.contactPhone.trim()) : null,
       contact_email: input.contactEmail.trim() || null,
+      transport_rate_per_km: parsedRate,
+      latitude,
+      longitude,
     })
     .eq("id", company.id);
 
   if (error) {
     console.error("updateCompanyProfile fejlede", error);
     return { success: false as const, error: "Kunne ikke gemme ændringerne. Prøv igen." };
+  }
+
+  // Virksomhedens adresse (og dermed udgangspunktet for transportberegning)
+  // har ændret sig — genberegn køreafstanden til alle venues, der allerede
+  // har koordinater, så transporttillæg ikke viser forældede tal. Kører
+  // efter selve gemmehandlingen er lykkedes, og fejler aldrig hårdt.
+  if (addressChanged && latitude != null && longitude != null) {
+    void recalculateAllVenueDistances(company.id, { lat: latitude, lng: longitude });
   }
 
   revalidatePath("/settings/company");
@@ -62,6 +109,37 @@ export async function updateCompanyProfile(input: CompanyProfileInput) {
   updateTag(COMPANY_INFO_TAG);
   updateTag(FREELANCER_MEMBERSHIPS_TAG);
   return { success: true as const };
+}
+
+/**
+ * Genberegner distance_from_company_km for alle venues under virksomheden,
+ * der allerede har koordinater. Kaldes efter virksomhedens adresse er
+ * ændret. Kører i baggrunden (kaldes med `void`) — admin behøver ikke
+ * vente på at alle venues er genberegnet for at få succes-feedback på selve
+ * profil-gemningen.
+ */
+async function recalculateAllVenueDistances(companyId: string, companyLocation: { lat: number; lng: number }) {
+  const supabase = createAdminClient();
+  const { data: venues } = await supabase
+    .from("client_venues")
+    .select("id, latitude, longitude")
+    .eq("company_id", companyId)
+    .not("latitude", "is", null)
+    .not("longitude", "is", null);
+
+  if (!venues || venues.length === 0) return;
+
+  await Promise.all(
+    venues.map(async (venue) => {
+      if (venue.latitude == null || venue.longitude == null) return;
+      const distanceKm = await getDrivingDistanceKm(companyLocation, { lat: venue.latitude, lng: venue.longitude });
+      if (distanceKm == null) return;
+      await supabase
+        .from("client_venues")
+        .update({ distance_from_company_km: distanceKm, distance_calculated_at: new Date().toISOString() })
+        .eq("id", venue.id);
+    })
+  );
 }
 
 /**
