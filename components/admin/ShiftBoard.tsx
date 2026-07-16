@@ -15,6 +15,7 @@ import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
 
 const krFmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 0 });
+const kmFmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 1 });
 
 type Tab = "upcoming" | "past" | "all";
 
@@ -456,6 +457,12 @@ export function EventCard({
             <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
               <Icon name="map-pin" size={14} className="text-pepo-t3 flex-shrink-0" />
               {event.venueLabel}
+            </div>
+          )}
+          {event.venueDistanceKm != null && (
+            <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
+              <Icon name="route" size={14} className="text-pepo-t3 flex-shrink-0" />
+              Afstand: {kmFmt.format(event.venueDistanceKm)} km.
             </div>
           )}
           {event.transportSurchargeKr != null && (

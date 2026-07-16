@@ -231,6 +231,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
             city: venue.city,
           })
         : null,
+      venueDistanceKm: venue?.distance_from_company_km ?? null,
       transportSurchargeKr,
       attachments: (e.shift_attachments ?? []).map((a) => ({
         id: a.id,

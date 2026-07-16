@@ -102,10 +102,15 @@ export type EventListItem = {
   venueLabel: string | null; // fx "Havnelokale — Islands Brygge 26, 2300 København S"
   attachments: EventAttachment[];
   shifts: ShiftListItem[];
-  // Transporttillæg: køreafstand (venue.distance_from_company_km) × virksomhedens
-  // kr./km-takst × antal tildelte freelancere på eventet. `null` hvis venuens
-  // adresse endnu ikke er geokodet (fx ingen adresse angivet, eller opslaget
-  // hos Google fejlede) — vis da ingenting i stedet for et forkert 0 kr.
+  // Køreafstand fra virksomhedens adresse til eventets venue (cached på
+  // client_venues.distance_from_company_km) — vist for sig selv ("Afstand:
+  // X km.") ud over selve transporttillægget, så admin kan se grundlaget
+  // for beløbet. `null` hvis venuens adresse endnu ikke er geokodet.
+  venueDistanceKm: number | null;
+  // Transporttillæg: venueDistanceKm × virksomhedens kr./km-takst × antal
+  // tildelte freelancere på eventet. `null` hvis venuens adresse endnu ikke
+  // er geokodet (fx ingen adresse angivet, eller opslaget hos Google
+  // fejlede) — vis da ingenting i stedet for et forkert 0 kr.
   transportSurchargeKr: number | null;
 };
 
