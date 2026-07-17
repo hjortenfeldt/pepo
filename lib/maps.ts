@@ -45,7 +45,27 @@ export async function geocodeAddress(
       return null;
     }
 
-    const location = data.results[0].geometry?.location;
+    const result = data.results[0];
+
+    // Google falder tilbage til at matche kun landet ("Danmark", som vi
+    // altid tilføjer til søgestrengen nedenfor), hvis intet andet i
+    // adressen kan genkendes — og returnerer stadig status "OK" for det!
+    // Det betyder ren gibberish-tekst ellers altid "lykkedes" med
+    // Danmarks geografiske midtpunkt som resultat, hvilket gjorde
+    // adresse-tjekket nyttesløst (opdaget 2026-07-18, se
+    // [[project_address_soft_validation_feature]]). Et rigtigt postnummer
+    // matcher stadig fint (dets address_components indeholder "postal_code"
+    // ud over "country") — kun det RENE land-niveau-fallback afvises her.
+    const components: { types?: string[] }[] = result.address_components ?? [];
+    const hasSpecificComponent = components.some(
+      (c) => !(c.types ?? []).every((t) => t === "country" || t === "political")
+    );
+    if (!hasSpecificComponent) {
+      console.error("geocodeAddress: kun land-niveau matchede (for upræcist) for adresse", fullAddress);
+      return null;
+    }
+
+    const location = result.geometry?.location;
     if (typeof location?.lat !== "number" || typeof location?.lng !== "number") return null;
 
     return { lat: location.lat, lng: location.lng };
