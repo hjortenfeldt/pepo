@@ -82,6 +82,15 @@ export default function ShiftBoard({
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
   const [flashShiftId, setFlashShiftId] = useState<string | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // autoFocus virker kun ved selve mount af elementet — inputtet er altid i
+  // DOM'en (bredden animeres blot fra 0 til 300px), så det fanger ikke et
+  // efterfølgende åbn/luk. Sætter derfor cursoren manuelt, hver gang
+  // søgefeltet foldes ud, så man kan skrive med det samme uden et ekstra klik.
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
   // Kaldes fra ShiftDetailPanel lige efter en vellykket tildeling — panelet
   // lukker sig selv (closeOnSuccess), så dette er brugerens eneste visuelle
@@ -177,29 +186,16 @@ export default function ShiftBoard({
 
       </div>
 
-      {viewMode === "list" && (
-        <div className="flex gap-1.5 border-b border-pepo-bd px-8">
-          {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={
-                "py-2.5 px-1 mr-[22px] text-[13.5px] font-medium border-b-2 -mb-px transition-colors " +
-                (tab === t ? "text-pepo-p border-pepo-p" : "text-pepo-t2 border-transparent hover:text-pepo-t1")
-              }
-            >
-              {TAB_LABELS[t]}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="border-t border-pepo-bd" />
       <div className="flex items-center gap-2 px-8 py-4">
-        {/* Samlet view-toggle — samme tynde stroke/rounding som søge-knappen
-            lige til højre for den (border-pepo-bds, rounded-[9px]), i stedet
-            for den tidligere udfyldte bg-pepo-su-baggrund, så de to knapper
-            visuelt fremstår som ÉN samlet funktion ved siden af søgningen. */}
+        {/* Flyttet op over fanebladene, så toggle-knapperne sidder samme sted
+            uanset liste- eller kalendervisning — før lå denne række UNDER
+            fanebladene, som kun fandtes i listevisning, så hele rækken
+            hoppede opad, når man skiftede til kalendervisning. Samlet
+            view-toggle med samme tynde stroke/rounding som søge-knappen
+            (border-pepo-bds, rounded-[9px]) i stedet for den tidligere
+            udfyldte bg-pepo-su-baggrund, så de to knapper visuelt fremstår
+            som ÉN samlet funktion ved siden af søgningen. */}
         <div className="flex border border-pepo-bds rounded-[9px] bg-pepo-wh p-[3px] gap-0.5">
           <button
             onClick={() => setViewMode("list")}
@@ -242,8 +238,8 @@ export default function ShiftBoard({
             >
               <Icon name="search" size={19} className="absolute left-[11px] top-1/2 -translate-y-1/2 text-pepo-t3 pointer-events-none" />
               <input
+                ref={searchInputRef}
                 type="text"
-                autoFocus={searchOpen}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Søg..."
@@ -264,9 +260,30 @@ export default function ShiftBoard({
       </div>
       <div className="border-t border-pepo-bd" />
 
+      {/* Fanebladene skjules, mens søgningen er foldet ud — søgning kigger
+          jo bevidst på tværs af "Kommende"/"Tidligere" (se filtered ovenfor),
+          så fanebladene giver ikke mening at vise samtidig. De kommer tilbage,
+          når søgefeltet foldes ind igen (krydset nulstiller searchOpen). */}
+      {viewMode === "list" && !searchOpen && (
+        <div className="flex gap-1.5 border-b border-pepo-bd px-8">
+          {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={
+                "py-2.5 px-1 mr-[22px] text-[13.5px] font-medium border-b-2 -mb-px transition-colors " +
+                (tab === t ? "text-pepo-p border-pepo-p" : "text-pepo-t2 border-transparent hover:text-pepo-t1")
+              }
+            >
+              {TAB_LABELS[t]}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="px-8 py-[22px] pb-10 max-w-[760px]">
         {viewMode === "list" ? (
-          groupedByDate.length === 0 ? (
+          searchOpen && !search.trim() ? null : groupedByDate.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-[60px] text-pepo-t3">
               <Icon name="calendar-event" size={32} className="mb-2.5" />
               <span className="text-[13.5px]">Ingen vagter i denne visning</span>
