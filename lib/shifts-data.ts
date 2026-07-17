@@ -141,7 +141,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
       .eq("company_id", companyId)
       .eq("application_status", "approved"),
     // Transporttillæggets kr./km-takst — konfigurerbar pr. virksomhed under
-    // Indstillinger → Firmaoplysninger (se CompanyProfileSettings.tsx).
+    // Indstillinger → Variabler (se CompanyVariablesSettings.tsx).
     supabase.from("companies").select("transport_rate_per_km").eq("id", companyId).maybeSingle(),
   ]);
 

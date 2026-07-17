@@ -23,17 +23,11 @@ export type CompanyProfileInput = {
   contactPerson: string;
   contactPhone: string;
   contactEmail: string;
-  transportRatePerKm: string;
 };
 
 export async function updateCompanyProfile(input: CompanyProfileInput) {
   if (!input.name.trim()) {
     return { success: false as const, error: "Firmanavn må ikke være tomt." };
-  }
-
-  const parsedRate = input.transportRatePerKm.trim() === "" ? 5 : Number(input.transportRatePerKm.replace(",", "."));
-  if (!Number.isFinite(parsedRate) || parsedRate < 0) {
-    return { success: false as const, error: "Transporttillæg pr. km skal være et positivt tal." };
   }
 
   const company = await getCompanyBySubdomain();
@@ -82,7 +76,6 @@ export async function updateCompanyProfile(input: CompanyProfileInput) {
       contact_person: input.contactPerson.trim() || null,
       contact_phone: input.contactPhone.trim() ? normalizePhone(input.contactPhone.trim()) : null,
       contact_email: input.contactEmail.trim() || null,
-      transport_rate_per_km: parsedRate,
       latitude,
       longitude,
     })

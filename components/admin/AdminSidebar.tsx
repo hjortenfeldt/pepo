@@ -46,6 +46,7 @@ const NAV: NavItem[] = [
     active: true,
     children: [
       { href: "/settings/company", label: "Firmaoplysninger" },
+      { href: "/settings/variables", label: "Variabler" },
       { href: "/settings/admins", label: "Admin brugere" },
       { href: "/settings/calendar", label: "Sync admin-kalender" },
       { href: "/settings/urls", label: "Vigtige URL'er" },

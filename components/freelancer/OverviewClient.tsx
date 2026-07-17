@@ -4,6 +4,7 @@ import { Suspense, use, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { startShift, stopShift } from "@/app/freelancer/(protected)/actions";
+import { haversineMeters } from "@/lib/geo";
 
 export type ActiveShift = {
   entryId: string;
@@ -20,8 +21,22 @@ export type UpcomingShift = {
   endTime: string;
   title: string;
   venue: string | null;
+  venueLat: number | null;
+  venueLng: number | null;
   isToday: boolean;
 };
+
+// Resultatet af geofence-tjekket, der afgør om "Start vagt" må aktiveres.
+// "skipped" bruges både når virksomheden helt har slået funktionen fra, OG
+// når vagtens venue ikke har gemte koordinater — vi kan ikke gate på data vi
+// ikke har, så vi fejler åbent i det tilfælde i stedet for at blokere
+// freelanceren permanent pga. en mangelfuld venue-adresse.
+type GeoCheck =
+  | { status: "skipped" }
+  | { status: "checking" }
+  | { status: "within"; distanceMeters: number }
+  | { status: "outside"; distanceMeters: number }
+  | { status: "error"; message: string };
 
 export type OpenShift = {
   id: string;
@@ -64,6 +79,8 @@ export default function OverviewClient({
   activeShift,
   upcomingShifts,
   openShiftsPromise,
+  checkinGeofenceEnabled,
+  checkinRadiusMeters,
 }: {
   firstName: string;
   userFullName: string;
@@ -73,10 +90,13 @@ export default function OverviewClient({
   activeShift: ActiveShift | null;
   upcomingShifts: UpcomingShift[];
   openShiftsPromise: Promise<OpenShift[]>;
+  checkinGeofenceEnabled: boolean;
+  checkinRadiusMeters: number;
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [geoCheck, setGeoCheck] = useState<GeoCheck>({ status: "skipped" });
 
   useEffect(() => {
     if (!activeShift) return;
@@ -85,6 +105,61 @@ export default function OverviewClient({
   }, [activeShift]);
 
   const todayShift = upcomingShifts.find((s) => s.isToday) ?? null;
+
+  // Kører geofence-tjekket, hver gang der er en dagens-vagt med gemte
+  // venue-koordinater, og virksomheden har funktionen slået til. Kun ét
+  // foreground-GPS-snapshot pr. visning af Overblik — ikke løbende tracking
+  // (se [[project_calendar_sync_feature]]-området for hvorfor: iOS
+  // suspenderer geolocation når PWA'en ikke er i forgrunden, så løbende
+  // tracking ville alligevel ikke virke troværdigt).
+  function runGeoCheck(shift: UpcomingShift) {
+    if (!checkinGeofenceEnabled || shift.venueLat == null || shift.venueLng == null) {
+      setGeoCheck({ status: "skipped" });
+      return;
+    }
+    if (!("geolocation" in navigator)) {
+      setGeoCheck({ status: "error", message: "Din browser understøtter ikke lokationsdeling." });
+      return;
+    }
+    setGeoCheck({ status: "checking" });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const distanceMeters = haversineMeters(
+          { lat: pos.coords.latitude, lng: pos.coords.longitude },
+          { lat: shift.venueLat as number, lng: shift.venueLng as number }
+        );
+        setGeoCheck(
+          distanceMeters <= checkinRadiusMeters
+            ? { status: "within", distanceMeters }
+            : { status: "outside", distanceMeters }
+        );
+      },
+      (err) => {
+        const message =
+          err.code === err.PERMISSION_DENIED
+            ? "Du skal tillade lokationsdeling i browseren, før du kan starte vagten."
+            : "Kunne ikke bestemme din placering. Tjek din GPS/internetforbindelse og prøv igen.";
+        setGeoCheck({ status: "error", message });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
+
+  useEffect(() => {
+    // Ingen reset til "skipped" nødvendigt i det modsatte tilfælde — dagens
+    // vagt-kortet (og dermed geoCheck-beskederne) vises slet ikke, når der
+    // ikke er en todayShift, eller når en vagt allerede er i gang.
+    if (!todayShift || activeShift) return;
+    // runGeoCheck sætter "checking" og starter et browser-GPS-opslag
+    // (navigator.geolocation.getCurrentPosition) — en ægte ekstern
+    // side-effekt, ikke en synkron state-afledning, så vi bevidst fraviger
+    // regel react-hooks/set-state-in-effect her.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    runGeoCheck(todayShift);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayShift?.id, activeShift, checkinGeofenceEnabled, checkinRadiusMeters]);
+
+  const geoBlocksStart = geoCheck.status === "checking" || geoCheck.status === "outside" || geoCheck.status === "error";
 
   function handleStart(shiftId: string) {
     setError(null);
@@ -188,23 +263,55 @@ export default function OverviewClient({
           </div>
         </div>
       ) : todayShift ? (
-        <div className="mt-4 rounded-[14px] p-4 bg-pepo-wh border border-pepo-bd flex items-center justify-between gap-3 pepo-rise">
-          <div className="min-w-0">
-            <div className="text-[11.5px] font-semibold uppercase tracking-wide text-pepo-t3">I dag</div>
-            <div className="text-[14px] font-semibold text-pepo-t1 mt-1 truncate">{todayShift.title}</div>
-            <div className="text-[12px] text-pepo-t2 mt-0.5">
-              {todayShift.startTime}–{todayShift.endTime}
-              {todayShift.venue ? ` · ${todayShift.venue}` : ""}
+        <div className="mt-4 rounded-[14px] p-4 bg-pepo-wh border border-pepo-bd pepo-rise">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[11.5px] font-semibold uppercase tracking-wide text-pepo-t3">I dag</div>
+              <div className="text-[14px] font-semibold text-pepo-t1 mt-1 truncate">{todayShift.title}</div>
+              <div className="text-[12px] text-pepo-t2 mt-0.5">
+                {todayShift.startTime}–{todayShift.endTime}
+                {todayShift.venue ? ` · ${todayShift.venue}` : ""}
+              </div>
             </div>
+            <button
+              type="button"
+              disabled={isPending || geoBlocksStart}
+              onClick={() => handleStart(todayShift.id)}
+              title={geoBlocksStart ? "Du skal være på event-stedet for at kunne starte vagten" : undefined}
+              className="flex-shrink-0 bg-pepo-p text-white rounded-[20px] px-4 py-2.5 text-[13px] font-semibold disabled:opacity-50 transition-opacity"
+            >
+              Start vagt
+            </button>
           </div>
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => handleStart(todayShift.id)}
-            className="flex-shrink-0 bg-pepo-p text-white rounded-[20px] px-4 py-2.5 text-[13px] font-semibold disabled:opacity-50 transition-opacity"
-          >
-            Start vagt
-          </button>
+
+          {geoCheck.status === "checking" && (
+            <p className="mt-3 text-[12px] text-pepo-t2 flex items-center gap-1.5">
+              <Icon name="loader-2" size={14} className="flex-shrink-0 animate-spin" />
+              Bekræfter din placering...
+            </p>
+          )}
+          {geoCheck.status === "outside" && (
+            <p className="mt-3 text-[12px] text-[#9A6B00] bg-[#FFF7E6] border border-[#F5D889] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+              <Icon name="alert-triangle" size={14} className="flex-shrink-0 mt-px" />
+              Du er ca. {Math.round(geoCheck.distanceMeters)} m fra event-stedet — du skal være tættere på for at
+              kunne starte vagten.
+            </p>
+          )}
+          {geoCheck.status === "error" && (
+            <div className="mt-3 text-[12px] text-[#9A6B00] bg-[#FFF7E6] border border-[#F5D889] rounded-lg px-2.5 py-1.5 flex items-start justify-between gap-2">
+              <span className="flex items-start gap-1.5">
+                <Icon name="alert-triangle" size={14} className="flex-shrink-0 mt-px" />
+                {geoCheck.message}
+              </span>
+              <button
+                type="button"
+                onClick={() => runGeoCheck(todayShift)}
+                className="flex-shrink-0 font-semibold underline"
+              >
+                Prøv igen
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="mt-4 rounded-[14px] p-4 bg-pepo-wh border border-pepo-bd flex items-start gap-3 pepo-rise">

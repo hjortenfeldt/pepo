@@ -6,7 +6,14 @@ import OverviewClient, { type ActiveShift, type OpenShift, type UpcomingShift } 
 
 export const dynamic = "force-dynamic";
 
-type RawVenueRef = { name: string | null; address: string | null; postal_code: string | null; city: string | null };
+type RawVenueRef = {
+  name: string | null;
+  address: string | null;
+  postal_code: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
 type RawEventRef = { title: string };
 type RawCategoryRef = { name: string };
 
@@ -59,10 +66,12 @@ export default async function FreelancerOverviewPage() {
   // klar, mens "Ledige vagter" strømmer ind separat lige efter.
   const openShiftsPromise = getOpenShifts(supabase, user.id, today, companyId);
 
-  const [myShiftsResult, activeClockResult] = await Promise.all([
+  const [myShiftsResult, activeClockResult, companyGeofenceResult] = await Promise.all([
     supabase
       .from("shifts")
-      .select("id, shift_date, start_time, end_time, status, events(title), client_venues(name, address, postal_code, city)")
+      .select(
+        "id, shift_date, start_time, end_time, status, events(title), client_venues(name, address, postal_code, city, latitude, longitude)"
+      )
       .eq("assigned_freelancer_id", user.id)
       .eq("status", "assigned")
       .eq("company_id", companyId)
@@ -76,10 +85,23 @@ export default async function FreelancerOverviewPage() {
       .eq("freelancer_id", user.id)
       .is("clock_out_at", null)
       .maybeSingle(),
+    // Hentes direkte her i stedet for via getActiveProfile/lib/freelancer.ts's
+    // cachede company-select, for ikke at skulle udvide den cachede
+    // ActiveProfile-type (og dens FREELANCER_MEMBERSHIPS_TAG-cache-semantik)
+    // for et felt der kun bruges på denne ene side.
+    companyId
+      ? supabase
+          .from("companies")
+          .select("checkin_geofence_enabled, checkin_radius_meters")
+          .eq("id", companyId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const myShifts = (myShiftsResult.data ?? []) as unknown as RawShiftRow[];
   const activeClock = activeClockResult.data as RawTimeClockRow | null;
+  const geofenceEnabled = companyGeofenceResult.data?.checkin_geofence_enabled ?? true;
+  const geofenceRadiusMeters = companyGeofenceResult.data?.checkin_radius_meters ?? 1000;
 
   // Den vagt, der evt. er stemplet ind på, vises i stempel-ur-kortet og
   // udelades derfor fra "Kommende vagter"-listen for ikke at optræde to
@@ -99,17 +121,22 @@ export default async function FreelancerOverviewPage() {
 
   const upcomingShifts: UpcomingShift[] = myShifts
     .filter((s) => s.id !== activeShiftRow?.id)
-    .map((s) => ({
-      id: s.id,
-      date: s.shift_date,
-      startTime: hhmm(s.start_time),
-      endTime: hhmm(s.end_time),
-      title: one(s.events)?.title ?? "Vagt",
-      venue: one(s.client_venues)?.name ?? null,
-      // Kan stemples ind på fra i dag og frem — knappen i UI'en styrer
-      // selv om det giver mening (kun vist for i dag).
-      isToday: s.shift_date === today,
-    }));
+    .map((s) => {
+      const venue = one(s.client_venues);
+      return {
+        id: s.id,
+        date: s.shift_date,
+        startTime: hhmm(s.start_time),
+        endTime: hhmm(s.end_time),
+        title: one(s.events)?.title ?? "Vagt",
+        venue: venue?.name ?? null,
+        venueLat: venue?.latitude ?? null,
+        venueLng: venue?.longitude ?? null,
+        // Kan stemples ind på fra i dag og frem — knappen i UI'en styrer
+        // selv om det giver mening (kun vist for i dag).
+        isToday: s.shift_date === today,
+      };
+    });
 
   const fullName = activeProfile?.full_name ?? "";
   const firstName = fullName.split(" ")[0] || "der";
@@ -124,6 +151,8 @@ export default async function FreelancerOverviewPage() {
       activeShift={activeShift}
       upcomingShifts={upcomingShifts}
       openShiftsPromise={openShiftsPromise}
+      checkinGeofenceEnabled={geofenceEnabled}
+      checkinRadiusMeters={geofenceRadiusMeters}
     />
   );
 }
