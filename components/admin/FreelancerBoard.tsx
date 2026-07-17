@@ -542,7 +542,35 @@ export default function FreelancerBoard({
       {mainTab === "approved" && (
         <>
           <div className="border-t border-pepo-bd" />
-          <div className="flex items-center justify-between px-8 py-4">
+          <div className="flex items-center gap-2 px-8 py-4">
+            {/* Samlet view-toggle — samme tynde stroke/rounding som søge-
+                knappen lige til højre for den (border-pepo-bds,
+                rounded-[9px]), i stedet for den tidligere udfyldte
+                bg-pepo-su-baggrund, så de to knapper visuelt fremstår som ÉN
+                samlet funktion ved siden af søgningen. */}
+            <div className="flex border border-pepo-bds rounded-[9px] bg-pepo-wh p-[3px] gap-0.5 flex-shrink-0">
+              <button
+                title="Kortvisning"
+                onClick={() => setViewMode("grid")}
+                className={
+                  "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
+                  (viewMode === "grid" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2 hover:text-pepo-t1")
+                }
+              >
+                <Icon name="layout-grid" size={20} />
+              </button>
+              <button
+                title="Listevisning"
+                onClick={() => setViewMode("list")}
+                className={
+                  "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
+                  (viewMode === "list" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2 hover:text-pepo-t1")
+                }
+              >
+                <Icon name="list" size={20} />
+              </button>
+            </div>
+
             <div className="relative w-[38px] h-[38px] flex-shrink-0">
               <button
                 type="button"
@@ -576,33 +604,6 @@ export default function FreelancerBoard({
                   <Icon name="x" size={20} />
                 </div>
               </div>
-            </div>
-
-            <div className="flex bg-pepo-su rounded-[9px] p-[3px] gap-0.5 flex-shrink-0">
-              <button
-                title="Kortvisning"
-                onClick={() => setViewMode("grid")}
-                className={
-                  "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
-                  (viewMode === "grid"
-                    ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                    : "text-pepo-t2 hover:text-pepo-t1")
-                }
-              >
-                <Icon name="layout-grid" size={20} />
-              </button>
-              <button
-                title="Listevisning"
-                onClick={() => setViewMode("list")}
-                className={
-                  "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
-                  (viewMode === "list"
-                    ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                    : "text-pepo-t2 hover:text-pepo-t1")
-                }
-              >
-                <Icon name="list" size={20} />
-              </button>
             </div>
           </div>
           <div className="border-t border-pepo-bd" />

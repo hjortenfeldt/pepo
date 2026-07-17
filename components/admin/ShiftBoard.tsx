@@ -17,12 +17,11 @@ import ShiftDetailPanel from "./ShiftDetailPanel";
 const krFmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 0 });
 const kmFmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 1 });
 
-type Tab = "upcoming" | "past" | "all";
+type Tab = "upcoming" | "past";
 
 const TAB_LABELS: Record<Tab, string> = {
   upcoming: "Kommende",
   past: "Tidligere",
-  all: "Alle",
 };
 
 const STATUS_LABEL: Record<ShiftStatus, string> = {
@@ -107,11 +106,15 @@ export default function ShiftBoard({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    let list = events;
-    if (tab === "upcoming") list = list.filter((e) => e.eventDate >= now && e.shifts.some((s) => s.status !== "cancelled"));
-    if (tab === "past") list = list.filter((e) => e.eventDate < now);
     const q = search.trim().toLowerCase();
-    if (q) {
+    let list = events;
+    // Uden søgeord filtreres der på den valgte fane som hidtil. MED søgeord
+    // ignoreres fane-datofilteret helt — søgningen skal kunne finde både
+    // tidligere og kommende events uanset hvilken fane man står på.
+    if (!q) {
+      if (tab === "upcoming") list = list.filter((e) => e.eventDate >= now && e.shifts.some((s) => s.status !== "cancelled"));
+      if (tab === "past") list = list.filter((e) => e.eventDate < now);
+    } else {
       list = list.filter(
         (e) =>
           e.title.toLowerCase().includes(q) ||
@@ -123,7 +126,11 @@ export default function ShiftBoard({
           )
       );
     }
-    return [...list].sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+    // "Tidligere" vises nyeste først (faldende) — "Kommende" holder sin
+    // oprindelige stigende sortering (næste event nærmest i tid øverst).
+    return [...list].sort((a, b) =>
+      tab === "past" ? b.eventDate.localeCompare(a.eventDate) : a.eventDate.localeCompare(b.eventDate)
+    );
   }, [events, tab, search, now]);
 
   const groupedByDate = useMemo(() => {
@@ -188,8 +195,34 @@ export default function ShiftBoard({
       )}
 
       <div className="border-t border-pepo-bd" />
-      <div className="flex items-center justify-between px-8 py-4">
-        {viewMode === "list" ? (
+      <div className="flex items-center gap-2 px-8 py-4">
+        {/* Samlet view-toggle — samme tynde stroke/rounding som søge-knappen
+            lige til højre for den (border-pepo-bds, rounded-[9px]), i stedet
+            for den tidligere udfyldte bg-pepo-su-baggrund, så de to knapper
+            visuelt fremstår som ÉN samlet funktion ved siden af søgningen. */}
+        <div className="flex border border-pepo-bds rounded-[9px] bg-pepo-wh p-[3px] gap-0.5">
+          <button
+            onClick={() => setViewMode("list")}
+            className={
+              "w-[34px] h-8 rounded-[7px] flex items-center justify-center transition-colors " +
+              (viewMode === "list" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2")
+            }
+            title="Listevisning"
+          >
+            <Icon name="list" size={20} />
+          </button>
+          <button
+            onClick={() => setViewMode("calendar")}
+            className={
+              "w-[34px] h-8 rounded-[7px] flex items-center justify-center transition-colors " +
+              (viewMode === "calendar" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2")
+            }
+            title="Kalendervisning"
+          >
+            <Icon name="calendar" size={20} />
+          </button>
+        </div>
+        {viewMode === "list" && (
           <div className="relative w-[38px] h-[38px] flex-shrink-0">
             <button
               type="button"
@@ -227,31 +260,7 @@ export default function ShiftBoard({
               </div>
             </div>
           </div>
-        ) : (
-          <div />
         )}
-        <div className="flex bg-pepo-su rounded-[9px] p-[3px] gap-0.5">
-          <button
-            onClick={() => setViewMode("list")}
-            className={
-              "w-[34px] h-8 rounded-[7px] flex items-center justify-center transition-colors " +
-              (viewMode === "list" ? "bg-pepo-wh shadow-[0_1px_3px_rgba(0,0,0,0.08)] text-pepo-p" : "text-pepo-t2")
-            }
-            title="Listevisning"
-          >
-            <Icon name="list" size={20} />
-          </button>
-          <button
-            onClick={() => setViewMode("calendar")}
-            className={
-              "w-[34px] h-8 rounded-[7px] flex items-center justify-center transition-colors " +
-              (viewMode === "calendar" ? "bg-pepo-wh shadow-[0_1px_3px_rgba(0,0,0,0.08)] text-pepo-p" : "text-pepo-t2")
-            }
-            title="Kalendervisning"
-          >
-            <Icon name="calendar" size={20} />
-          </button>
-        </div>
       </div>
       <div className="border-t border-pepo-bd" />
 
