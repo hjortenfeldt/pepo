@@ -82,6 +82,14 @@ export type ShiftListItem = {
   assignedFreelancerId: string | null;
   assignedFreelancerName: string | null;
   interests: ShiftInterestItem[];
+  // Stempel-ur-data til Vagtdetaljer ("Stemplet ind"/"Stemplet ud"-felterne,
+  // kun vist når vagten er startet). `clockEntryId` er null, hvis
+  // freelanceren aldrig har stemplet ind på vagten — admin kan i så fald
+  // stadig udfylde tiderne manuelt, hvilket opretter en ny time_clock_entries-
+  // række i stedet for at opdatere en eksisterende (se updateShiftClockTimes).
+  clockEntryId: string | null;
+  clockedInAt: string | null; // ISO-timestamp
+  clockedOutAt: string | null; // ISO-timestamp
 };
 
 export type EventAttachment = {

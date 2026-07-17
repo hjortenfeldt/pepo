@@ -307,6 +307,89 @@ export async function updateShift(shiftId: string, row: ShiftRowInput) {
   return { success: true };
 }
 
+export type ShiftClockTimesInput = {
+  // Eksisterende time_clock_entries-id, eller null hvis freelanceren aldrig
+  // har stemplet ind/ud på vagten — så OPRETTES der en ny række i stedet
+  // for at opdatere en eksisterende.
+  clockEntryId: string | null;
+  // Vagtens (eventuelt lige nu redigerede) dato — stempeltider har ingen
+  // egen dato-vælger i UI'en (se ShiftDetailPanel.tsx), kun klokkeslæt, så
+  // vi antager samme dato som selve vagten.
+  shiftDate: string;
+  clockInTime: string; // "HH:MM", eller "" for ingen værdi ("Mangler")
+  clockOutTime: string; // "HH:MM", eller "" for ingen værdi
+};
+
+function combineDateAndTime(dateIso: string, hhmm: string): string | null {
+  if (!hhmm) return null;
+  return new Date(`${dateIso}T${hhmm}:00`).toISOString();
+}
+
+/**
+ * Lader admin rette stemplet-ind/ud-tiderne manuelt i Vagtdetaljer — fx når
+ * en freelancer har glemt at stemple ind/ud, eller stemplet forkert. Bruger
+ * (ligesom resten af denne fil) sessions-klienten + eksplicit company_id-
+ * scoping, ikke service role — se [[feedback_superadmin_scoping_required]]
+ * og de nye admin-RLS-policies på time_clock_entries (tilføjet sammen med
+ * denne funktion, tabellen havde før KUN en freelancer-selv-policy).
+ */
+export async function updateShiftClockTimes(shiftId: string, input: ShiftClockTimesInput) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
+  const supabase = await createSupabaseClient();
+
+  const clockInAt = combineDateAndTime(input.shiftDate, input.clockInTime);
+  const clockOutAt = combineDateAndTime(input.shiftDate, input.clockOutTime);
+
+  if (input.clockEntryId) {
+    const { error } = await supabase
+      .from("time_clock_entries")
+      .update({ clock_in_at: clockInAt, clock_out_at: clockOutAt })
+      .eq("id", input.clockEntryId)
+      .eq("company_id", company.id);
+
+    if (error) {
+      console.error("updateShiftClockTimes: opdatering fejlede", error);
+      return { success: false, error: "Kunne ikke gemme stempeltiderne. Prøv igen." };
+    }
+  } else {
+    // Ingen eksisterende stempling — freelanceren har aldrig stemplet ind på
+    // denne vagt. Kræver en tildelt freelancer, da time_clock_entries.
+    // freelancer_id er NOT NULL.
+    const { data: shiftRow, error: shiftError } = await supabase
+      .from("shifts")
+      .select("assigned_freelancer_id")
+      .eq("id", shiftId)
+      .eq("company_id", company.id)
+      .single();
+
+    if (shiftError || !shiftRow) {
+      console.error("updateShiftClockTimes: kunne ikke finde vagten", shiftError);
+      return { success: false, error: "Kunne ikke finde vagten. Prøv igen." };
+    }
+    if (!shiftRow.assigned_freelancer_id) {
+      return { success: false, error: "Vagten skal først tildeles en freelancer, før stempeltider kan udfyldes." };
+    }
+
+    const { error } = await supabase.from("time_clock_entries").insert({
+      company_id: company.id,
+      shift_id: shiftId,
+      freelancer_id: shiftRow.assigned_freelancer_id,
+      clock_in_at: clockInAt,
+      clock_out_at: clockOutAt,
+    });
+
+    if (error) {
+      console.error("updateShiftClockTimes: oprettelse fejlede", error);
+      return { success: false, error: "Kunne ikke gemme stempeltiderne. Prøv igen." };
+    }
+  }
+
+  revalidatePath("/shifts");
+  return { success: true };
+}
+
 export async function assignFreelancer(shiftId: string, freelancerId: string) {
   const company = await requireCompany();
   if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };

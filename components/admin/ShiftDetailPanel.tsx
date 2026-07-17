@@ -14,6 +14,7 @@ import {
   duplicateShift,
   uploadAttachment,
   removeAttachment,
+  updateShiftClockTimes,
   type EventFormInput,
   type ShiftRowInput,
 } from "@/app/tenant/(protected)/shifts/actions";
@@ -21,6 +22,16 @@ import { DateField, TimeField } from "./ShiftFormFields";
 import ClientVenueField from "./ClientVenueField";
 import Icon from "@/components/Icon";
 import { useSlidePanel } from "./useSlidePanel";
+
+// Konverterer en gemt stempel-tid (ISO-timestamp) til et "HH:MM"-tekstfelt i
+// browserens lokale tid — matcher hvordan OverviewClient.tsx's "elapsed()"
+// også regner ud fra new Date(clockInAt), og hvordan freelancer-appen selv
+// skrev tiden (new Date().toISOString()) da den blev stemplet.
+function isoToHHMM(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 function initials(name: string) {
   return name
@@ -85,6 +96,25 @@ export default function ShiftDetailPanel({
   const router = useRouter();
   const { visible, close } = useSlidePanel(onClose);
 
+  // "Stemplet ind"/"Stemplet ud" — kun redigerbare felter, ingen egen
+  // dato-vælger (se ShiftClockTimesInput i actions.ts: tiderne kombineres
+  // med eventForm.eventDate ved gem).
+  const [clockInTime, setClockInTime] = useState(isoToHHMM(shift.clockedInAt));
+  const [clockOutTime, setClockOutTime] = useState(isoToHHMM(shift.clockedOutAt));
+  const clockDirty = clockInTime !== isoToHHMM(shift.clockedInAt) || clockOutTime !== isoToHHMM(shift.clockedOutAt);
+
+  // Lazy initializer (som OverviewClient.tsx's stopur) i stedet for et
+  // direkte Date.now()-kald i selve render-kroppen — react-hooks/purity
+  // regner rene funktionskald under render for en fejl, men accepterer et
+  // engangs-opslag inde i useStates initializer.
+  const [now] = useState(() => Date.now());
+  const shiftStartMs = new Date(`${eventForm.eventDate}T${row.startTime || "00:00"}:00`).getTime();
+  const shiftEndMs = new Date(`${eventForm.eventDate}T${row.endTime || "00:00"}:00`).getTime();
+  // Stempel-ur-felterne vises først, når vagten faktisk er begyndt — inden
+  // da giver "Mangler"/"Vagt i gang" ingen mening.
+  const shiftHasStarted = Number.isFinite(shiftStartMs) && shiftStartMs <= now;
+  const shiftHasEnded = Number.isFinite(shiftEndMs) && shiftEndMs <= now;
+
   function onClientSaved(client: ClientOption) {
     setClientsState((prev) => (prev.some((c) => c.id === client.id) ? prev.map((c) => (c.id === client.id ? client : c)) : [...prev, client]));
   }
@@ -97,7 +127,7 @@ export default function ShiftDetailPanel({
     eventForm.description !== (event.description ?? "") ||
     eventForm.clientId !== event.clientId ||
     eventForm.venueId !== event.venueId;
-  const dirty = shiftDirty || eventDirty;
+  const dirty = shiftDirty || eventDirty || clockDirty;
 
   function run(
     action: () => Promise<{ success: boolean; error?: string }>,
@@ -140,6 +170,18 @@ export default function ShiftDetailPanel({
       }
       if (shiftDirty) {
         const result = await updateShift(shift.id, row);
+        if (!result.success) {
+          setError(result.error ?? "Der opstod en fejl.");
+          return;
+        }
+      }
+      if (clockDirty) {
+        const result = await updateShiftClockTimes(shift.id, {
+          clockEntryId: shift.clockEntryId,
+          shiftDate: eventForm.eventDate,
+          clockInTime,
+          clockOutTime,
+        });
         if (!result.success) {
           setError(result.error ?? "Der opstod en fejl.");
           return;
@@ -326,6 +368,21 @@ export default function ShiftDetailPanel({
                   <TimeField value={row.endTime} onChange={(v) => setRow((r) => ({ ...r, endTime: v }))} />
                 </Field>
               </div>
+
+              {shiftHasStarted && (
+                <div className="flex gap-2.5">
+                  <Field label="Stemplet ind" className="flex-1">
+                    <TimeField value={clockInTime} onChange={setClockInTime} placeholder="Mangler" />
+                  </Field>
+                  <Field label="Stemplet ud" className="flex-1">
+                    <TimeField
+                      value={clockOutTime}
+                      onChange={setClockOutTime}
+                      placeholder={shiftHasEnded ? "Mangler" : "Vagt i gang"}
+                    />
+                  </Field>
+                </div>
+              )}
 
               <Field label="Briefing">
                 <textarea

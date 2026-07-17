@@ -44,10 +44,14 @@ export function TimeField({
   value,
   onChange,
   disabled,
+  placeholder,
 }: {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  // Vist gråt i feltet, når value er tom — bruges af "Stemplet ind"/
+  // "Stemplet ud" i ShiftDetailPanel.tsx til "Mangler"/"Vagt i gang".
+  placeholder?: string;
 }) {
   const [text, setText] = useState(value);
   const [synced, setSynced] = useState(value);
@@ -64,6 +68,7 @@ export function TimeField({
       autoComplete="off"
       value={text}
       disabled={disabled}
+      placeholder={placeholder}
       onChange={(e) => setText(e.target.value)}
       onBlur={() => {
         const parsed = parseTimeInput(text);
@@ -72,7 +77,7 @@ export function TimeField({
         setSynced(final);
         onChange(final);
       }}
-      className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p disabled:bg-pepo-su disabled:text-pepo-t2"
+      className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p disabled:bg-pepo-su disabled:text-pepo-t2 placeholder:text-pepo-t3"
     />
   );
 }

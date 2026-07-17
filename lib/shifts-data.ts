@@ -42,6 +42,7 @@ type RawAttachmentRow = { id: string; file_name: string; file_url: string; file_
 // nu på auth.users, ikke på freelancer_profiles), navnet slås i stedet op
 // bagefter via freelancerNameMap (se nedenfor).
 type RawInterestRow = { freelancer_id: string; status: InterestStatus };
+type RawTimeClockRow = { id: string; clock_in_at: string | null; clock_out_at: string | null };
 type RawShiftRow = {
   id: string;
   category_id: string;
@@ -53,7 +54,20 @@ type RawShiftRow = {
   assigned_freelancer_id: string | null;
   work_categories: RawWorkCategoryRef | RawWorkCategoryRef[] | null;
   shift_interests: RawInterestRow[] | null;
+  time_clock_entries: RawTimeClockRow[] | null;
 };
+
+// En vagt kan i teorien have flere time_clock_entries-rækker (fx hvis
+// freelanceren har stemplet ind/ud flere gange på samme vagt) — vi viser og
+// redigerer kun ÉN sammenhængende ind/ud-tid pr. vagt i Vagtdetaljer, derfor
+// vælges her: den endnu-åbne (intet stemplet-ud) hvis der er én, ellers den
+// nyeste efter clock_in_at.
+function pickClockEntry(entries: RawTimeClockRow[] | null | undefined): RawTimeClockRow | null {
+  if (!entries || entries.length === 0) return null;
+  const open = entries.find((e) => e.clock_out_at == null);
+  if (open) return open;
+  return [...entries].sort((a, b) => (b.clock_in_at ?? "").localeCompare(a.clock_in_at ?? ""))[0];
+}
 type RawEventRow = {
   id: string;
   title: string;
@@ -116,7 +130,8 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
          shifts(id, category_id, shift_date, start_time, end_time, status, previous_status,
            assigned_freelancer_id,
            work_categories(name, icon),
-           shift_interests(freelancer_id, status))`
+           shift_interests(freelancer_id, status),
+           time_clock_entries(id, clock_in_at, clock_out_at))`
       )
       .eq("company_id", companyId)
       .order("event_date", { ascending: true }),
@@ -246,6 +261,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
       })),
       shifts: (e.shifts ?? []).map((s) => {
         const category = one(s.work_categories);
+        const clockEntry = pickClockEntry(s.time_clock_entries);
         return {
           id: s.id,
           eventId: e.id,
@@ -266,6 +282,9 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
             freelancerName: freelancerNameMap.get(i.freelancer_id) ?? "",
             status: i.status,
           })),
+          clockEntryId: clockEntry?.id ?? null,
+          clockedInAt: clockEntry?.clock_in_at ?? null,
+          clockedOutAt: clockEntry?.clock_out_at ?? null,
         };
       }),
     };
