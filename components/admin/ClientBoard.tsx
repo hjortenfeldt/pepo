@@ -119,6 +119,16 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     setSearch("");
   }
 
+  // Skifter man visning (kort/liste), nulstilles en evt. aktiv søgning, så
+  // det nye view altid starter fra sit eget standardindhold i stedet for at
+  // bevare søgeresultater fra det forrige view. Samme mønster i
+  // ShiftBoard.tsx og FreelancerBoard.tsx.
+  function changeViewMode(mode: ViewMode) {
+    setViewMode(mode);
+    setSearch("");
+    setSearchOpen(false);
+  }
+
   function openNew() {
     setEditingId(null);
     setForm(EMPTY_FORM);
@@ -264,7 +274,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
         <div className="flex border border-pepo-bds rounded-[9px] bg-pepo-wh p-[3px] gap-0.5 flex-shrink-0">
           <button
             title="Kortvisning"
-            onClick={() => setViewMode("grid")}
+            onClick={() => changeViewMode("grid")}
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
               (viewMode === "grid"
@@ -276,7 +286,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
           </button>
           <button
             title="Listevisning"
-            onClick={() => setViewMode("list")}
+            onClick={() => changeViewMode("list")}
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
               (viewMode === "list"

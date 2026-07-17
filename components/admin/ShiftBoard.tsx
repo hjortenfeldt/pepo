@@ -92,6 +92,16 @@ export default function ShiftBoard({
     if (searchOpen) searchInputRef.current?.focus();
   }, [searchOpen]);
 
+  // Skifter man visning (liste/kalender), nulstilles en evt. aktiv søgning,
+  // så det nye view altid starter fra sit eget standardindhold (faneblade
+  // synlige igen) i stedet for at bevare søgeresultater fra det forrige
+  // view. Samme mønster i FreelancerBoard.tsx og ClientBoard.tsx.
+  function changeViewMode(mode: "list" | "calendar") {
+    setViewMode(mode);
+    setSearch("");
+    setSearchOpen(false);
+  }
+
   // Kaldes fra ShiftDetailPanel lige efter en vellykket tildeling — panelet
   // lukker sig selv (closeOnSuccess), så dette er brugerens eneste visuelle
   // bekræftelse af HVILKEN vagt der lige blev opdateret. 1300ms matcher
@@ -198,7 +208,7 @@ export default function ShiftBoard({
             som ÉN samlet funktion ved siden af søgningen. */}
         <div className="flex border border-pepo-bds rounded-[9px] bg-pepo-wh p-[3px] gap-0.5">
           <button
-            onClick={() => setViewMode("list")}
+            onClick={() => changeViewMode("list")}
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center transition-colors " +
               (viewMode === "list" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2")
@@ -208,7 +218,7 @@ export default function ShiftBoard({
             <Icon name="list" size={20} />
           </button>
           <button
-            onClick={() => setViewMode("calendar")}
+            onClick={() => changeViewMode("calendar")}
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center transition-colors " +
               (viewMode === "calendar" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ApplicationStatus, CategoryOption, FreelancerListItem } from "@/lib/admin-types";
 import {
@@ -112,6 +112,25 @@ export default function FreelancerBoard({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, startDeleteTransition] = useTransition();
   const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // autoFocus virker kun ved selve mount af elementet — inputtet er altid i
+  // DOM'en (bredden animeres blot fra 0 til 300px), så det fanger ikke et
+  // efterfølgende åbn/luk. Sætter derfor cursoren manuelt, hver gang
+  // søgefeltet foldes ud, så man kan skrive med det samme uden et ekstra klik.
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  // Skifter man visning (kort/liste), nulstilles en evt. aktiv søgning, så
+  // det nye view altid starter fra sit eget standardindhold (faneblade +
+  // job-labels synlige igen) i stedet for at bevare søgeresultater fra det
+  // forrige view. Samme mønster i ShiftBoard.tsx og ClientBoard.tsx.
+  function changeViewMode(mode: ViewMode) {
+    setViewMode(mode);
+    setSearch("");
+    setSearchOpen(false);
+  }
 
   const counts = useMemo(
     () => ({
@@ -128,18 +147,13 @@ export default function FreelancerBoard({
   );
 
   const filtered = useMemo(() => {
-    let list: FreelancerListItem[];
-    if (mainTab === "approved") {
-      list = approvedList;
-      if (selectedCats.length > 0) {
-        list = list.filter((f) => f.categories.some((c) => selectedCats.includes(c.id)));
-      }
-    } else {
-      list = freelancers.filter((f) => f.applicationStatus === subTab);
-    }
     const q = search.trim().toLowerCase();
+    // Søgning ignorerer bevidst fanen (godkendt/afventer/afvist) OG det
+    // valgte jobfunktions-filter — den skal kunne finde EN HVILKEN SOM HELST
+    // freelancer, uanset status og kategori, i stedet for kun at søge
+    // indenfor den aktuelt viste fane.
     if (q) {
-      list = list.filter(
+      return freelancers.filter(
         (f) =>
           f.fullName.toLowerCase().includes(q) ||
           (f.location ?? "").toLowerCase().includes(q) ||
@@ -148,7 +162,14 @@ export default function FreelancerBoard({
           f.categories.some((c) => c.name.toLowerCase().includes(q))
       );
     }
-    return list;
+    if (mainTab === "approved") {
+      let list = approvedList;
+      if (selectedCats.length > 0) {
+        list = list.filter((f) => f.categories.some((c) => selectedCats.includes(c.id)));
+      }
+      return list;
+    }
+    return freelancers.filter((f) => f.applicationStatus === subTab);
   }, [freelancers, approvedList, mainTab, subTab, selectedCats, search]);
 
   const open = openId ? freelancers.find((f) => f.id === openId) ?? null : null;
@@ -384,112 +405,159 @@ export default function FreelancerBoard({
         </div>
       </div>
 
-      <div className="flex gap-1.5 border-b border-pepo-bd px-8">
-        <button
-          onClick={() => setMainTab("approved")}
-          className={
-            "py-2.5 mr-[22px] text-[13.5px] font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors " +
-            (mainTab === "approved"
-              ? "text-pepo-p border-pepo-p"
-              : "text-pepo-t2 border-transparent hover:text-pepo-t1")
-          }
-        >
-          Godkendte freelancere
-          <span
+      <div className="border-t border-pepo-bd" />
+      <div className="flex items-center gap-2 px-8 py-4">
+        {/* Flyttet op over fanebladene, så toggle-knapperne sidder samme sted
+            uanset hvilken fane/visning man står på — matcher mønsteret i
+            ShiftBoard.tsx. Samlet view-toggle med samme tynde stroke/rounding
+            som søge-knappen (border-pepo-bds, rounded-[9px]) i stedet for den
+            tidligere udfyldte bg-pepo-su-baggrund, så de to knapper visuelt
+            fremstår som ÉN samlet funktion ved siden af søgningen. */}
+        <div className="flex border border-pepo-bds rounded-[9px] bg-pepo-wh p-[3px] gap-0.5 flex-shrink-0">
+          <button
+            title="Kortvisning"
+            onClick={() => changeViewMode("grid")}
             className={
-              "text-[11px] font-medium px-[7px] py-[1px] rounded-full " +
-              (mainTab === "approved" ? "bg-pepo-pl text-pepo-p" : "bg-pepo-su text-pepo-t2")
+              "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
+              (viewMode === "grid" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2 hover:text-pepo-t1")
             }
           >
-            {counts.approved}
-          </span>
-        </button>
-        <button
-          onClick={() => setMainTab("applications")}
-          className={
-            "py-2.5 mr-[22px] text-[13.5px] font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors " +
-            (mainTab === "applications"
-              ? "text-pepo-p border-pepo-p"
-              : "text-pepo-t2 border-transparent hover:text-pepo-t1")
-          }
-        >
-          Ansøgninger
-          {counts.pending > 0 && (
-            <span className="bg-[#C0021A] text-white text-[11px] font-bold min-w-[18px] h-[18px] rounded-full inline-flex items-center justify-center px-1 leading-none">
-              {counts.pending}
-            </span>
-          )}
-        </button>
-      </div>
+            <Icon name="layout-grid" size={20} />
+          </button>
+          <button
+            title="Listevisning"
+            onClick={() => changeViewMode("list")}
+            className={
+              "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
+              (viewMode === "list" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2 hover:text-pepo-t1")
+            }
+          >
+            <Icon name="list" size={20} />
+          </button>
+        </div>
 
-      {mainTab === "applications" && (
-        <div className="flex items-center justify-between gap-3 px-8 py-3.5 flex-wrap">
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setSubTab("pending")}
+        <div className="relative w-[38px] h-[38px] flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            title="Søg"
+            className="w-[38px] h-[38px] rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t2 flex items-center justify-center hover:bg-pepo-su"
+          >
+            <Icon name="search" size={20} />
+          </button>
+          <div
+            className={
+              "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
+              (searchOpen
+                ? "w-[300px] border-pepo-bds opacity-100 pointer-events-auto"
+                : "w-0 border-transparent opacity-0 pointer-events-none")
+            }
+          >
+            <Icon name="search" size={19} className="absolute left-[11px] top-1/2 -translate-y-1/2 text-pepo-t3 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Søg..."
+              className="w-full h-full border-none outline-none px-[34px] text-[13.5px] bg-transparent"
+            />
+            <div
+              onClick={closeSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-[6px] flex items-center justify-center cursor-pointer text-pepo-t3 hover:bg-pepo-su hover:text-pepo-t1"
+            >
+              <Icon name="x" size={20} />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="border-t border-pepo-bd" />
+
+      {/* Fanebladene og job-labels skjules, mens søgningen er foldet ud —
+          søgning kigger jo bevidst på tværs af status/jobfunktion (se
+          filtered ovenfor), så de giver ikke mening at vise samtidig. De
+          kommer tilbage, når søgefeltet foldes ind igen (krydset nulstiller
+          searchOpen). */}
+      {!searchOpen && (
+        <div className="flex gap-1.5 border-b border-pepo-bd px-8">
+          <button
+            onClick={() => setMainTab("approved")}
+            className={
+              "py-2.5 mr-[22px] text-[13.5px] font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors " +
+              (mainTab === "approved"
+                ? "text-pepo-p border-pepo-p"
+                : "text-pepo-t2 border-transparent hover:text-pepo-t1")
+            }
+          >
+            Godkendte freelancere
+            <span
               className={
-                "px-3.5 py-[7px] rounded-full text-[12.5px] font-medium flex items-center gap-1.5 transition-colors " +
-                (subTab === "pending" ? "bg-[#FDECEA] text-[#C0021A]" : "bg-pepo-su text-pepo-t2 hover:bg-pepo-bd")
+                "text-[11px] font-medium px-[7px] py-[1px] rounded-full " +
+                (mainTab === "approved" ? "bg-pepo-pl text-pepo-p" : "bg-pepo-su text-pepo-t2")
               }
             >
-              Afventer godkendelse
-              <span
-                className={
-                  "text-[11px] font-medium px-[7px] py-[1px] rounded-full " +
-                  (subTab === "pending" ? "bg-[#C0021A]/[0.12] text-[#C0021A]" : "bg-black/[0.06] text-pepo-t2")
-                }
-              >
+              {counts.approved}
+            </span>
+          </button>
+          <button
+            onClick={() => setMainTab("applications")}
+            className={
+              "py-2.5 mr-[22px] text-[13.5px] font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors " +
+              (mainTab === "applications"
+                ? "text-pepo-p border-pepo-p"
+                : "text-pepo-t2 border-transparent hover:text-pepo-t1")
+            }
+          >
+            Ansøgninger
+            {counts.pending > 0 && (
+              <span className="bg-[#C0021A] text-white text-[11px] font-bold min-w-[18px] h-[18px] rounded-full inline-flex items-center justify-center px-1 leading-none">
                 {counts.pending}
               </span>
-            </button>
-            <button
-              onClick={() => setSubTab("rejected")}
-              className={
-                "px-3.5 py-[7px] rounded-full text-[12.5px] font-medium flex items-center gap-1.5 transition-colors " +
-                (subTab === "rejected" ? "bg-pepo-pl text-pepo-p" : "bg-pepo-su text-pepo-t2 hover:bg-pepo-bd")
-              }
-            >
-              Afvist
-              <span
-                className={
-                  "text-[11px] font-medium px-[7px] py-[1px] rounded-full " +
-                  (subTab === "rejected" ? "bg-pepo-p/[0.12] text-pepo-p" : "bg-black/[0.06] text-pepo-t2")
-                }
-              >
-                {counts.rejected}
-              </span>
-            </button>
-          </div>
-          <div className="flex bg-pepo-su rounded-[9px] p-[3px] gap-0.5 flex-shrink-0">
-            <button
-              title="Kortvisning"
-              onClick={() => setViewMode("grid")}
-              className={
-                "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
-                (viewMode === "grid"
-                  ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                  : "text-pepo-t2 hover:text-pepo-t1")
-              }
-            >
-              <Icon name="layout-grid" size={20} />
-            </button>
-            <button
-              title="Listevisning"
-              onClick={() => setViewMode("list")}
-              className={
-                "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
-                (viewMode === "list"
-                  ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                  : "text-pepo-t2 hover:text-pepo-t1")
-              }
-            >
-              <Icon name="list" size={20} />
-            </button>
-          </div>
+            )}
+          </button>
         </div>
       )}
 
-      {mainTab === "approved" && (
+      {mainTab === "applications" && !searchOpen && (
+        <div className="flex items-center gap-2 px-8 py-3.5 flex-wrap">
+          <button
+            onClick={() => setSubTab("pending")}
+            className={
+              "px-3.5 py-[7px] rounded-full text-[12.5px] font-medium flex items-center gap-1.5 transition-colors " +
+              (subTab === "pending" ? "bg-[#FDECEA] text-[#C0021A]" : "bg-pepo-su text-pepo-t2 hover:bg-pepo-bd")
+            }
+          >
+            Afventer godkendelse
+            <span
+              className={
+                "text-[11px] font-medium px-[7px] py-[1px] rounded-full " +
+                (subTab === "pending" ? "bg-[#C0021A]/[0.12] text-[#C0021A]" : "bg-black/[0.06] text-pepo-t2")
+              }
+            >
+              {counts.pending}
+            </span>
+          </button>
+          <button
+            onClick={() => setSubTab("rejected")}
+            className={
+              "px-3.5 py-[7px] rounded-full text-[12.5px] font-medium flex items-center gap-1.5 transition-colors " +
+              (subTab === "rejected" ? "bg-pepo-pl text-pepo-p" : "bg-pepo-su text-pepo-t2 hover:bg-pepo-bd")
+            }
+          >
+            Afvist
+            <span
+              className={
+                "text-[11px] font-medium px-[7px] py-[1px] rounded-full " +
+                (subTab === "rejected" ? "bg-pepo-p/[0.12] text-pepo-p" : "bg-black/[0.06] text-pepo-t2")
+              }
+            >
+              {counts.rejected}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {mainTab === "approved" && !searchOpen && (
         <div className="flex gap-2 px-8 pt-3.5 pb-5 flex-wrap">
           <button
             onClick={() => toggleCatFilter(null)}
@@ -539,79 +607,8 @@ export default function FreelancerBoard({
         </div>
       )}
 
-      {mainTab === "approved" && (
-        <>
-          <div className="border-t border-pepo-bd" />
-          <div className="flex items-center gap-2 px-8 py-4">
-            {/* Samlet view-toggle — samme tynde stroke/rounding som søge-
-                knappen lige til højre for den (border-pepo-bds,
-                rounded-[9px]), i stedet for den tidligere udfyldte
-                bg-pepo-su-baggrund, så de to knapper visuelt fremstår som ÉN
-                samlet funktion ved siden af søgningen. */}
-            <div className="flex border border-pepo-bds rounded-[9px] bg-pepo-wh p-[3px] gap-0.5 flex-shrink-0">
-              <button
-                title="Kortvisning"
-                onClick={() => setViewMode("grid")}
-                className={
-                  "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
-                  (viewMode === "grid" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2 hover:text-pepo-t1")
-                }
-              >
-                <Icon name="layout-grid" size={20} />
-              </button>
-              <button
-                title="Listevisning"
-                onClick={() => setViewMode("list")}
-                className={
-                  "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
-                  (viewMode === "list" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2 hover:text-pepo-t1")
-                }
-              >
-                <Icon name="list" size={20} />
-              </button>
-            </div>
-
-            <div className="relative w-[38px] h-[38px] flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setSearchOpen(true)}
-                title="Søg"
-                className="w-[38px] h-[38px] rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t2 flex items-center justify-center hover:bg-pepo-su"
-              >
-                <Icon name="search" size={20} />
-              </button>
-              <div
-                className={
-                  "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
-                  (searchOpen
-                    ? "w-[300px] border-pepo-bds opacity-100 pointer-events-auto"
-                    : "w-0 border-transparent opacity-0 pointer-events-none")
-                }
-              >
-                <Icon name="search" size={19} className="absolute left-[11px] top-1/2 -translate-y-1/2 text-pepo-t3 pointer-events-none" />
-                <input
-                  type="text"
-                  autoFocus={searchOpen}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Søg..."
-                  className="w-full h-full border-none outline-none px-[34px] text-[13.5px] bg-transparent"
-                />
-                <div
-                  onClick={closeSearch}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-[6px] flex items-center justify-center cursor-pointer text-pepo-t3 hover:bg-pepo-su hover:text-pepo-t1"
-                >
-                  <Icon name="x" size={20} />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-pepo-bd" />
-        </>
-      )}
-
       <div className="px-8 py-[22px] pb-10">
-        {filtered.length === 0 ? (
+        {searchOpen && !search.trim() ? null : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-pepo-t3">
             <Icon name="inbox" size={32} className="mb-2.5" />
             <span className="text-[13.5px]">Ingen freelancere i denne visning</span>
