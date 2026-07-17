@@ -7,12 +7,36 @@ import { createVenue, updateVenue, deleteVenue, type VenueFormInput } from "@/ap
 import Icon from "@/components/Icon";
 import { useSlidePanel } from "./useSlidePanel";
 import { VenueAddressFields } from "./VenueAddressFields";
-import { useAddressCheckList } from "@/components/useAddressCheckList";
+import type { ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 
-type VenueRow = { id: string | null; name: string; address: string; postalCode: string; city: string };
+type VenueRow = {
+  id: string | null;
+  name: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  addressText: string;
+  validated: boolean;
+};
 
 function blankVenueRow(): VenueRow {
-  return { id: null, name: "", address: "", postalCode: "", city: "" };
+  return { id: null, name: "", address: "", postalCode: "", city: "", addressText: "", validated: false };
+}
+
+function venueRowFromExisting(v: VenueItem): VenueRow {
+  const addressText = [v.address, v.postalCode, v.city].filter(Boolean).join(", ");
+  return {
+    id: v.id,
+    name: v.name ?? "",
+    address: v.address ?? "",
+    postalCode: v.postalCode ?? "",
+    city: v.city ?? "",
+    addressText,
+    // Allerede-gemte adresser regnes som gyldige, indtil brugeren selv
+    // rører feltet — vi genvalidér ikke gamle data bare for at redigere fx
+    // telefonnummeret.
+    validated: addressText.trim().length > 0,
+  };
 }
 
 export default function ClientQuickAddPanel({
@@ -41,15 +65,16 @@ export default function ClientQuickAddPanel({
   const [contactEmail, setContactEmail] = useState(client?.contactEmail ?? "");
   const [notes, setNotes] = useState(client?.notes ?? "");
   const [venues, setVenues] = useState<VenueRow[]>(
-    client && client.venues.length > 0
-      ? client.venues.map((v) => ({ id: v.id, name: v.name ?? "", address: v.address ?? "", postalCode: v.postalCode ?? "", city: v.city ?? "" }))
-      : [blankVenueRow()]
+    client && client.venues.length > 0 ? client.venues.map(venueRowFromExisting) : [blankVenueRow()]
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { visible, close, closeWith } = useSlidePanel(onCancel);
-  const { warnings: venueWarnings, check: checkVenueAddress, clear: clearVenueWarning, checkAllNow: checkAllVenueAddresses } = useAddressCheckList();
-  const [confirmPending, setConfirmPending] = useState(false);
+
+  // Gem skal være disabled, så længe et arbejdssted har adresse-tekst
+  // skrevet ind, som ikke er bekræftet ved et valg fra Google-dropdown'en —
+  // en helt tom adresse er stadig fint (arbejdsstedet kan gemmes uden).
+  const hasUnvalidatedAddress = venues.some((v) => v.addressText.trim().length > 0 && !v.validated);
 
   function setType(type: "company" | "private") {
     setCustomerType(type);
@@ -59,10 +84,29 @@ export default function ClientQuickAddPanel({
     }
   }
 
-  function updateVenueField(index: number, field: keyof Omit<VenueRow, "id">, value: string) {
-    setVenues((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
-    clearVenueWarning(index);
-    setConfirmPending(false);
+  function updateVenueName(index: number, value: string) {
+    setVenues((rows) => rows.map((r, i) => (i === index ? { ...r, name: value } : r)));
+  }
+
+  function updateVenueAddressText(index: number, text: string) {
+    setVenues((rows) => rows.map((r, i) => (i === index ? { ...r, addressText: text, validated: false } : r)));
+  }
+
+  function selectVenueAddress(index: number, result: ResolvedAddressResult) {
+    setVenues((rows) =>
+      rows.map((r, i) =>
+        i === index
+          ? {
+              ...r,
+              address: result.address,
+              postalCode: result.postalCode,
+              city: result.city,
+              addressText: result.formatted,
+              validated: true,
+            }
+          : r
+      )
+    );
   }
 
   function addVenueRow() {
@@ -97,22 +141,10 @@ export default function ClientQuickAddPanel({
     const toSave = nonBlank.length > 0 ? nonBlank : [venues[0]];
 
     startTransition(async () => {
-      // Afvent et DEFINITIVT svar fra Google for alle adresser, før vi
-      // beslutter om der skal gemmes med det samme eller pauses og
-      // advarslen vises først — uden dette kunne et hurtigt klik på "Gem"
-      // nå at gemme og lukke panelet, før onBlur-tjekket overhovedet var
-      // kommet tilbage (se [[project_address_soft_validation_feature]]).
-      if (!confirmPending) {
-        const allOk = await checkAllVenueAddresses(
-          toSave.map((v) => ({ address: v.address, postalCode: v.postalCode, city: v.city }))
-        );
-        if (!allOk) {
-          setConfirmPending(true);
-          return;
-        }
-      }
-      setConfirmPending(false);
-
+      // Ingen adresse-afventning nødvendig her længere — Gem-knappen er
+      // disabled (se hasUnvalidatedAddress), indtil alle udfyldte adresser
+      // allerede er bekræftet via et Google-valg, så på dette tidspunkt er
+      // address/postalCode/city allerede korrekte og klar til at gemmes.
       const clientId = client?.id;
       let resolvedId = clientId ?? null;
 
@@ -304,12 +336,11 @@ export default function ClientQuickAddPanel({
               )}
               <VenueAddressFields
                 name={v.name}
-                address={v.address}
-                postalCode={v.postalCode}
-                city={v.city}
-                onChange={(field, value) => updateVenueField(i, field, value)}
-                warning={venueWarnings[i] ?? null}
-                onBlurCheck={() => checkVenueAddress(i, v.address, v.postalCode, v.city)}
+                addressText={v.addressText}
+                validated={v.validated}
+                onNameChange={(value) => updateVenueName(i, value)}
+                onAddressTextChange={(text) => updateVenueAddressText(i, text)}
+                onAddressSelected={(result) => selectVenueAddress(i, result)}
               />
             </div>
           ))}
@@ -331,11 +362,12 @@ export default function ClientQuickAddPanel({
         <div className="px-6 py-[22px] border-t border-pepo-bd flex-shrink-0">
           <button
             onClick={save}
-            disabled={isPending}
+            disabled={isPending || hasUnvalidatedAddress}
+            title={hasUnvalidatedAddress ? "Vælg adressen fra Google-listen, før du kan gemme" : undefined}
             className="w-full h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
           >
             <Icon name="check" size={18} />
-            {isPending ? "Gemmer..." : confirmPending ? "Gem alligevel" : isEditing ? "Gem ændringer" : "Gem kunde"}
+            {isPending ? "Gemmer..." : isEditing ? "Gem ændringer" : "Gem kunde"}
           </button>
         </div>
       </div>

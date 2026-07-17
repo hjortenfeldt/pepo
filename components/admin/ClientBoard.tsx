@@ -12,19 +12,43 @@ import {
 } from "@/app/tenant/(protected)/clients/actions";
 import Icon from "@/components/Icon";
 import { VenueAddressFields } from "./VenueAddressFields";
-import { useAddressCheckList } from "@/components/useAddressCheckList";
+import type { ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 
 type CustomerType = "company" | "private";
 type ViewMode = "grid" | "list";
 
-function blankVenue(): VenueFormEntry {
-  return { id: null, name: "", address: "", postalCode: "", city: "" };
+// Udvider VenueFormEntry (det serveren forventer) med de to felter, der kun
+// bruges lokalt af adresse-søgningen: addressText er den viste søgetekst,
+// validated er om den seneste tekst faktisk er bekræftet ved et Google-valg.
+type VenueRow = VenueFormEntry & { addressText: string; validated: boolean };
+
+function blankVenue(): VenueRow {
+  return { id: null, name: "", address: "", postalCode: "", city: "", addressText: "", validated: false };
+}
+
+function venueRowFromExisting(v: VenueItem): VenueRow {
+  const addressText = [v.address, v.postalCode, v.city].filter(Boolean).join(", ");
+  return {
+    id: v.id,
+    name: v.name ?? "",
+    address: v.address ?? "",
+    postalCode: v.postalCode ?? "",
+    city: v.city ?? "",
+    addressText,
+    // Allerede-gemte adresser regnes som gyldige, indtil brugeren selv
+    // rører feltet — vi genvalidér ikke gamle data bare for at redigere fx
+    // telefonnummeret.
+    validated: addressText.trim().length > 0,
+  };
 }
 
 // ClientBoard håndterer altid en rigtig venues-liste (i modsætning til
 // ClientQuickAddPanel, som administrerer venues separat) — derfor en
-// strammere lokal type, hvor venues ikke er optional.
-type ClientBoardFormInput = ClientFormInput & { venues: VenueFormEntry[] };
+// strammere lokal type, hvor venues ikke er optional. Omit fjerner
+// ClientFormInput's egen (valgfri VenueFormEntry[]) venues-felt FØRST, for
+// at undgå at TypeScript prøver at skære de to array-typer sammen til en
+// underlig intersection, der taber addressText/validated undervejs.
+type ClientBoardFormInput = Omit<ClientFormInput, "venues"> & { venues: VenueRow[] };
 
 const EMPTY_FORM: ClientBoardFormInput = {
   name: "",
@@ -63,8 +87,10 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const { warnings: venueWarnings, check: checkVenueAddress, clear: clearVenueWarning, checkAllNow: checkAllVenueAddresses, reset: resetVenueWarnings } = useAddressCheckList();
-  const [confirmPending, setConfirmPending] = useState(false);
+
+  // Gem skal være disabled, så længe et arbejdssted har adresse-tekst
+  // skrevet ind, som ikke er bekræftet ved et valg fra Google-dropdown'en.
+  const hasUnvalidatedAddress = form.venues.some((v) => v.addressText.trim().length > 0 && !v.validated);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -98,8 +124,6 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     setForm(EMPTY_FORM);
     setCustomerType("company");
     setError(null);
-    resetVenueWarnings();
-    setConfirmPending(false);
     setPanelOpen(true);
   }
 
@@ -112,21 +136,10 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
       contactPhone: c.contactPhone ?? "",
       contactEmail: c.contactEmail ?? "",
       notes: c.notes ?? "",
-      venues:
-        c.venues.length > 0
-          ? c.venues.map((v) => ({
-              id: v.id,
-              name: v.name ?? "",
-              address: v.address ?? "",
-              postalCode: v.postalCode ?? "",
-              city: v.city ?? "",
-            }))
-          : [blankVenue()],
+      venues: c.venues.length > 0 ? c.venues.map(venueRowFromExisting) : [blankVenue()],
     });
     setCustomerType(c.name ? "company" : "private");
     setError(null);
-    resetVenueWarnings();
-    setConfirmPending(false);
     setPanelOpen(true);
   }
 
@@ -141,13 +154,36 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     }
   }
 
-  function updateVenueField(index: number, field: keyof VenueFormEntry, value: string) {
+  function updateVenueName(index: number, value: string) {
     setForm((f) => ({
       ...f,
-      venues: f.venues.map((v, i) => (i === index ? { ...v, [field]: value } : v)),
+      venues: f.venues.map((v, i) => (i === index ? { ...v, name: value } : v)),
     }));
-    clearVenueWarning(index);
-    setConfirmPending(false);
+  }
+
+  function updateVenueAddressText(index: number, text: string) {
+    setForm((f) => ({
+      ...f,
+      venues: f.venues.map((v, i) => (i === index ? { ...v, addressText: text, validated: false } : v)),
+    }));
+  }
+
+  function selectVenueAddress(index: number, result: ResolvedAddressResult) {
+    setForm((f) => ({
+      ...f,
+      venues: f.venues.map((v, i) =>
+        i === index
+          ? {
+              ...v,
+              address: result.address,
+              postalCode: result.postalCode,
+              city: result.city,
+              addressText: result.formatted,
+              validated: true,
+            }
+          : v
+      ),
+    }));
   }
 
   function addVenueBlock() {
@@ -165,22 +201,9 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     setError(null);
     const input = customerType === "private" ? { ...form, name: "", cvrNumber: "" } : form;
     startTransition(async () => {
-      // Afvent et DEFINITIVT svar fra Google for alle venue-adresser, før vi
-      // beslutter om der skal gemmes med det samme eller pauses og
-      // advarslen vises først (se [[project_address_soft_validation_feature]]
-      // for hvorfor: uden dette kunne et hurtigt klik på "Gem" nå at gemme
-      // og lukke panelet, før onBlur-tjekket overhovedet var kommet tilbage).
-      if (!confirmPending) {
-        const allOk = await checkAllVenueAddresses(
-          form.venues.map((v) => ({ address: v.address, postalCode: v.postalCode, city: v.city }))
-        );
-        if (!allOk) {
-          setConfirmPending(true);
-          return;
-        }
-      }
-      setConfirmPending(false);
-
+      // Ingen adresse-afventning nødvendig her længere — Gem-knappen er
+      // disabled (se hasUnvalidatedAddress), indtil alle udfyldte adresser
+      // allerede er bekræftet via et Google-valg.
       const result = editingId
         ? await updateClientRecord(editingId, input)
         : await createClientRecord(input);
@@ -511,12 +534,11 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
               )}
               <VenueAddressFields
                 name={v.name}
-                address={v.address}
-                postalCode={v.postalCode}
-                city={v.city}
-                onChange={(field, value) => updateVenueField(i, field, value)}
-                warning={venueWarnings[i] ?? null}
-                onBlurCheck={() => checkVenueAddress(i, v.address, v.postalCode, v.city)}
+                addressText={v.addressText}
+                validated={v.validated}
+                onNameChange={(value) => updateVenueName(i, value)}
+                onAddressTextChange={(text) => updateVenueAddressText(i, text)}
+                onAddressSelected={(result) => selectVenueAddress(i, result)}
               />
             </div>
           ))}
@@ -550,11 +572,12 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
           )}
           <button
             onClick={save}
-            disabled={isPending}
+            disabled={isPending || hasUnvalidatedAddress}
+            title={hasUnvalidatedAddress ? "Vælg adressen fra Google-listen, før du kan gemme" : undefined}
             className="flex-1 h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
           >
             <Icon name="check" size={18} />
-            {isPending ? "Gemmer..." : confirmPending ? "Gem alligevel" : "Gem kunde"}
+            {isPending ? "Gemmer..." : "Gem kunde"}
           </button>
         </div>
       </div>

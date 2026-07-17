@@ -9,7 +9,7 @@ import {
   type CompanyProfileInput,
 } from "@/app/tenant/(protected)/settings/company/actions";
 import CompanyLogoSettings from "./CompanyLogoSettings";
-import { useAddressCheck } from "@/components/useAddressCheck";
+import { AddressAutocompleteInput, type ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
 
@@ -37,11 +37,22 @@ const inputClass =
 
 export default function CompanyProfileSettings({ initial }: { initial: CompanyProfileData }) {
   const [form, setForm] = useState<CompanyProfileInput>(initial);
-  const { warning: addressWarning, check: checkAddress, clear: clearAddressWarning } = useAddressCheck();
+  const initialAddressText = [initial.address, initial.postalCode, initial.city].filter(Boolean).join(", ");
+  const [addressText, setAddressText] = useState(initialAddressText);
+  // Allerede-gemt adresse regnes som gyldig, indtil brugeren selv rører
+  // feltet — vi genvalidér ikke gamle data bare for at redigere fx CVR-nr.
+  const [addressValidated, setAddressValidated] = useState(initialAddressText.trim().length > 0);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
-  const [confirmPending, setConfirmPending] = useState(false);
   const [isSavingProfile, startProfileTransition] = useTransition();
+
+  const hasUnvalidatedAddress = addressText.trim().length > 0 && !addressValidated;
+
+  function handleAddressSelected(result: ResolvedAddressResult) {
+    setForm((f) => ({ ...f, address: result.address, postalCode: result.postalCode, city: result.city }));
+    setAddressText(result.formatted);
+    setAddressValidated(true);
+  }
 
   const [slug, setSlug] = useState(initial.slug);
   const [slugInput, setSlugInput] = useState(initial.slug);
@@ -54,20 +65,9 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
     setProfileError(null);
     setProfileSaved(false);
     startProfileTransition(async () => {
-      // Afvent et DEFINITIVT svar fra Google, før vi beslutter om der skal
-      // gemmes med det samme eller pauses og advarslen vises først (se
-      // [[project_address_soft_validation_feature]] — uden dette kunne et
-      // hurtigt klik på "Gem ændringer" nå at gemme, før onBlur-tjekket
-      // overhovedet var kommet tilbage).
-      if (!confirmPending) {
-        const ok = await checkAddress(form.address, form.postalCode, form.city);
-        if (!ok) {
-          setConfirmPending(true);
-          return;
-        }
-      }
-      setConfirmPending(false);
-
+      // Ingen adresse-afventning nødvendig her længere — Gem-knappen er
+      // disabled (se hasUnvalidatedAddress), indtil adressen allerede er
+      // bekræftet via et Google-valg.
       const res = await updateCompanyProfile(form);
       if (!res.success) {
         setProfileError(res.error);
@@ -123,49 +123,22 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
           </Field>
 
           <Field label="Adresse">
-            <input
-              value={form.address}
-              onChange={(e) => {
-                setForm((f) => ({ ...f, address: e.target.value }));
-                clearAddressWarning();
-                setConfirmPending(false);
+            <AddressAutocompleteInput
+              value={addressText}
+              onChangeText={(text) => {
+                setAddressText(text);
+                setAddressValidated(false);
               }}
-              onBlur={() => checkAddress(form.address, form.postalCode, form.city)}
+              onSelect={handleAddressSelected}
+              placeholder="Søg adresse, fx Nyhavn 4, 1051 København K"
               className={inputClass}
             />
           </Field>
 
-          <div className="flex gap-3">
-            <Field label="Postnr." className="w-28">
-              <input
-                value={form.postalCode}
-                onChange={(e) => {
-                  setForm((f) => ({ ...f, postalCode: e.target.value }));
-                  clearAddressWarning();
-                  setConfirmPending(false);
-                }}
-                onBlur={() => checkAddress(form.address, form.postalCode, form.city)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="By" className="flex-1">
-              <input
-                value={form.city}
-                onChange={(e) => {
-                  setForm((f) => ({ ...f, city: e.target.value }));
-                  clearAddressWarning();
-                  setConfirmPending(false);
-                }}
-                onBlur={() => checkAddress(form.address, form.postalCode, form.city)}
-                className={inputClass}
-              />
-            </Field>
-          </div>
-
-          {addressWarning && (
+          {hasUnvalidatedAddress && (
             <p className="-mt-2 mb-4 text-[12px] text-[#9A6B00] bg-[#FFF7E6] border border-[#F5D889] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
               <Icon name="alert-triangle" size={14} className="flex-shrink-0 mt-px" />
-              {addressWarning}
+              Vælg adressen fra listen, der dukker op, mens du skriver — den skal bekræftes hos Google, før den kan gemmes.
             </p>
           )}
 
@@ -204,11 +177,12 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
           <button
             type="button"
             onClick={saveProfile}
-            disabled={isSavingProfile}
+            disabled={isSavingProfile || hasUnvalidatedAddress}
+            title={hasUnvalidatedAddress ? "Vælg adressen fra Google-listen, før du kan gemme" : undefined}
             className="h-11 px-4 rounded-[10px] text-[13px] font-medium bg-pepo-p text-white flex items-center gap-1.5 disabled:opacity-40"
           >
             <Icon name="check" size={16} />
-            {isSavingProfile ? "Gemmer..." : profileSaved ? "Gemt" : confirmPending ? "Gem alligevel" : "Gem ændringer"}
+            {isSavingProfile ? "Gemmer..." : profileSaved ? "Gemt" : "Gem ændringer"}
           </button>
         </div>
 

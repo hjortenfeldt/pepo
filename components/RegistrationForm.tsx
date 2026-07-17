@@ -2,8 +2,12 @@
 
 import { useMemo, useState, useTransition } from "react";
 import type { RegistrationResult, WorkCategory } from "@/lib/types";
-import { useAddressCheck } from "@/components/useAddressCheck";
+import { AddressAutocompleteInput, type ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 import Icon from "@/components/Icon";
+
+// By/postnummer skal kun matche på det niveau, ikke en fuld gadeadresse —
+// se samme afgrænsning i FreelancerBoard.tsx (admin-siden for freelancere).
+const LOCATION_TYPES = ["locality", "postal_code"];
 
 type Props = {
   categories: WorkCategory[];
@@ -57,8 +61,8 @@ function getInitials(fullName: string) {
 export default function RegistrationForm({ categories, onSubmit, companyName }: Props) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const { warning: locationWarning, check: checkLocation, clear: clearLocationWarning } = useAddressCheck();
-  const [locationConfirmPending, setLocationConfirmPending] = useState(false);
+  const [locationText, setLocationText] = useState("");
+  const [locationValidated, setLocationValidated] = useState(false);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,31 +83,22 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
     }));
   }
 
+  const hasUnvalidatedLocation = locationText.trim().length > 0 && !locationValidated;
+
   function canContinueFromStep1() {
     return (
       form.fullName.trim().length > 0 &&
       form.birthDate.length > 0 &&
       form.email.trim().length > 0 &&
-      form.phone.trim().length > 0
+      form.phone.trim().length > 0 &&
+      !hasUnvalidatedLocation
     );
   }
 
-  // Afvent et DEFINITIVT svar fra Google, før vi går videre til trin 2,
-  // eller pauses og advarslen vises først (se
-  // [[project_address_soft_validation_feature]] — uden dette kunne et
-  // hurtigt klik på "Fortsæt" nå at gå videre, før onBlur-tjekket
-  // overhovedet var kommet tilbage, og lokationen ville aldrig blive set
-  // igen af brugeren før ansøgningen sendes).
-  async function handleStep1Next() {
-    if (!locationConfirmPending) {
-      const ok = await checkLocation(form.location);
-      if (!ok) {
-        setLocationConfirmPending(true);
-        return;
-      }
-    }
-    setLocationConfirmPending(false);
-    setStep(2);
+  function handleLocationSelected(result: ResolvedAddressResult) {
+    update("location", result.formatted);
+    setLocationText(result.formatted);
+    setLocationValidated(true);
   }
 
   function handleSubmit() {
@@ -137,8 +132,8 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
     setSubmitted(false);
     setError(null);
     setStep(1);
-    clearLocationWarning();
-    setLocationConfirmPending(false);
+    setLocationText("");
+    setLocationValidated(false);
   }
 
   const categoryNameById = (id: string) =>
@@ -176,14 +171,14 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
               form={form}
               update={update}
               canContinue={canContinueFromStep1()}
-              onNext={handleStep1Next}
-              confirmPending={locationConfirmPending}
-              locationWarning={locationWarning}
-              checkLocation={checkLocation}
-              clearLocationWarning={() => {
-                clearLocationWarning();
-                setLocationConfirmPending(false);
+              onNext={() => setStep(2)}
+              locationText={locationText}
+              onLocationTextChange={(text) => {
+                setLocationText(text);
+                setLocationValidated(false);
               }}
+              onLocationSelected={handleLocationSelected}
+              hasUnvalidatedLocation={hasUnvalidatedLocation}
             />
           )}
 
@@ -273,19 +268,19 @@ function Step1({
   update,
   canContinue,
   onNext,
-  confirmPending,
-  locationWarning,
-  checkLocation,
-  clearLocationWarning,
+  locationText,
+  onLocationTextChange,
+  onLocationSelected,
+  hasUnvalidatedLocation,
 }: {
   form: FormState;
   update: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   canContinue: boolean;
   onNext: () => void;
-  confirmPending: boolean;
-  locationWarning: string | null;
-  checkLocation: (address: string, postalCode?: string | null, city?: string | null) => Promise<boolean>;
-  clearLocationWarning: () => void;
+  locationText: string;
+  onLocationTextChange: (text: string) => void;
+  onLocationSelected: (result: ResolvedAddressResult) => void;
+  hasUnvalidatedLocation: boolean;
 }) {
   return (
     <div>
@@ -328,21 +323,18 @@ function Step1({
       </div>
 
       <Field label="By / postnummer">
-        <input
-          type="text"
-          className={inputClass}
+        <AddressAutocompleteInput
+          value={locationText}
+          onChangeText={onLocationTextChange}
+          onSelect={onLocationSelected}
+          includedPrimaryTypes={LOCATION_TYPES}
           placeholder="2200 København N"
-          value={form.location}
-          onChange={(e) => {
-            update("location", e.target.value);
-            clearLocationWarning();
-          }}
-          onBlur={() => checkLocation(form.location)}
+          className={inputClass}
         />
-        {locationWarning && (
+        {hasUnvalidatedLocation && (
           <p className="mt-1.5 text-[12px] text-[#9A6B00] bg-[#FFF7E6] border border-[#F5D889] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
             <Icon name="alert-triangle" size={14} className="flex-shrink-0 mt-px" />
-            {locationWarning}
+            Vælg din by/postnummer fra listen, der dukker op, mens du skriver.
           </p>
         )}
       </Field>
@@ -379,7 +371,7 @@ function Step1({
 
       <div className="flex gap-2.5 mt-2">
         <PrimaryButton onClick={onNext} disabled={!canContinue}>
-          {confirmPending ? "Fortsæt alligevel" : "Fortsæt"}
+          Fortsæt
         </PrimaryButton>
       </div>
     </div>

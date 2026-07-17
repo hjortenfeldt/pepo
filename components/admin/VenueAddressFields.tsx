@@ -1,6 +1,7 @@
 "use client";
 
 import Icon from "@/components/Icon";
+import { AddressAutocompleteInput, type ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 
 const inputClass =
   "w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p";
@@ -15,89 +16,67 @@ function Field({ label, children, className = "" }: { label: string; children: R
 }
 
 /**
- * Navn + adresse/postnr./by-felterne for ét arbejdssted (venue). Delt
- * mellem ClientBoard.tsx (kundesidens fulde redigeringspanel) og
+ * Navn + adresse-felterne for ét arbejdssted (venue). Delt mellem
+ * ClientBoard.tsx (kundesidens fulde redigeringspanel) og
  * ClientQuickAddPanel.tsx (hurtig opret/redigér-panel, brugt bl.a. fra
- * ClientVenueField i vagt-guiden) — de to havde tidligere identisk,
- * duplikeret markup for disse felter; samlet ét sted, så adresse-tjekket
- * (useAddressCheck) og selve feltlayoutet kun skal vedligeholdes ét sted.
+ * ClientVenueField i vagt-guiden).
  *
- * Adresse-tjekket sker ved blur af ethvert af de tre felter (adresse,
- * postnr., by) med de aktuelle værdier af alle tre — så en slåfejl fanges
- * uanset hvilket felt brugeren forlader sidst. Blokerer aldrig gemning.
+ * Adresse-feltet er en Google Places-søgning (AddressAutocompleteInput) —
+ * brugeren SKAL vælge et forslag fra dropdown'en, ikke bare skrive frit.
+ * Dette afløste et blødt "advarsel men bloker aldrig"-tjek, som viste sig
+ * virkningsløst: Google returnerede "OK" for ren gibberish-tekst ved at
+ * falde tilbage til kun at matche landet (se
+ * [[project_address_soft_validation_feature]]). Nu er det slet ikke muligt
+ * at gemme en adresse, Google ikke selv har foreslået.
  *
- * Kontrolleret udefra (warning + onBlurCheck som props) i stedet for at
- * holde sin egen useAddressCheck-hook internt: begge kaldere har en
- * DYNAMISK LISTE af venue-blokke, og deres save()-flow skal kunne afvente
- * et definitivt svar for ALLE rækker samlet, før det besluttes om der skal
- * gemmes eller pauses og advarslen vises først — det kræver at
- * tjekket/warning-state ejes af listen i den overordnede komponent (via
- * useAddressCheckList), ikke af hver enkelt VenueAddressFields-instans.
+ * Kontrolleret udefra (addressText + validated som props) i stedet for at
+ * holde egen state internt: begge kaldere har en DYNAMISK LISTE af
+ * venue-blokke, og deres Gem-knap skal vide om ALLE rækker er valideret
+ * samlet, før den kan aktiveres — det kræver at valideret-status ejes af
+ * listen i den overordnede komponent, ikke af hver enkelt
+ * VenueAddressFields-instans.
  */
 export function VenueAddressFields({
   name,
-  address,
-  postalCode,
-  city,
-  onChange,
-  warning,
-  onBlurCheck,
+  addressText,
+  validated,
+  onNameChange,
+  onAddressTextChange,
+  onAddressSelected,
 }: {
   name: string;
-  address: string;
-  postalCode: string;
-  city: string;
-  onChange: (field: "name" | "address" | "postalCode" | "city", value: string) => void;
-  warning: string | null;
-  onBlurCheck: () => void;
+  addressText: string;
+  validated: boolean;
+  onNameChange: (value: string) => void;
+  onAddressTextChange: (text: string) => void;
+  onAddressSelected: (result: ResolvedAddressResult) => void;
 }) {
+  const needsSelection = addressText.trim().length > 0 && !validated;
+
   return (
     <>
       <Field label="Navn på arbejdssted/venue">
         <input
           type="text"
           value={name}
-          onChange={(e) => onChange("name", e.target.value)}
+          onChange={(e) => onNameChange(e.target.value)}
           placeholder="Fx Kanal 4 Havnelokale"
           className={inputClass}
         />
       </Field>
       <Field label="Adresse">
-        <input
-          type="text"
-          value={address}
-          onChange={(e) => onChange("address", e.target.value)}
-          onBlur={onBlurCheck}
-          placeholder="Fx Nyhavn 4"
+        <AddressAutocompleteInput
+          value={addressText}
+          onChangeText={onAddressTextChange}
+          onSelect={onAddressSelected}
+          placeholder="Søg adresse, fx Nyhavn 4, 1051 København K"
           className={inputClass}
         />
       </Field>
-      <div className="flex gap-2.5">
-        <Field label="Postnr." className="flex-1">
-          <input
-            type="text"
-            value={postalCode}
-            onChange={(e) => onChange("postalCode", e.target.value)}
-            onBlur={onBlurCheck}
-            placeholder="1051"
-            className={inputClass}
-          />
-        </Field>
-        <Field label="By" className="flex-[2]">
-          <input
-            type="text"
-            value={city}
-            onChange={(e) => onChange("city", e.target.value)}
-            onBlur={onBlurCheck}
-            placeholder="København K"
-            className={inputClass}
-          />
-        </Field>
-      </div>
-      {warning && (
+      {needsSelection && (
         <p className="-mt-2 mb-3.5 text-[12px] text-[#9A6B00] bg-[#FFF7E6] border border-[#F5D889] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
           <Icon name="alert-triangle" size={14} className="flex-shrink-0 mt-px" />
-          {warning}
+          Vælg adressen fra listen, der dukker op, mens du skriver — den skal bekræftes hos Google, før den kan gemmes.
         </p>
       )}
     </>

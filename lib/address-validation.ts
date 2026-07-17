@@ -1,6 +1,6 @@
 "use server";
 
-import { geocodeAddress } from "@/lib/maps";
+import { geocodeAddress, autocompleteAddress, getPlaceDetails, type AddressSuggestion, type ResolvedAddress } from "@/lib/maps";
 
 /**
  * Tjekker om en adresse/lokation kan slås op hos Google Maps — kaldes fra
@@ -34,4 +34,30 @@ export async function checkAddressResolves(
   if (!address.trim()) return true; // tomt felt er ikke en "forkert adresse" — intet at advare om
   const location = await geocodeAddress(address, postalCode, city);
   return location !== null;
+}
+
+/**
+ * Narrow "use server"-wrappere om Places API (New)-funktionerne i
+ * lib/maps.ts, til den rigtige adresse-søgning med dropdown (se
+ * AddressAutocompleteInput.tsx). Erstatter det bløde
+ * checkAddressResolves-tjek ovenfor, som Google kunne omgå ved at falde
+ * tilbage til kun at matche landet — se
+ * [[project_address_soft_validation_feature]] for hele historikken. Samme
+ * ingen-auth-begrundelse gælder her: kaldes også fra den offentlige
+ * ansøgningsside, og er en ren proxy til Google uden noget
+ * virksomhedsspecifikt.
+ */
+export async function searchAddressSuggestions(
+  input: string,
+  sessionToken: string,
+  includedPrimaryTypes?: string[]
+): Promise<AddressSuggestion[]> {
+  return autocompleteAddress(input, sessionToken, includedPrimaryTypes);
+}
+
+export async function resolveSelectedAddress(
+  placeId: string,
+  sessionToken: string
+): Promise<ResolvedAddress | null> {
+  return getPlaceDetails(placeId, sessionToken);
 }

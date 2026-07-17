@@ -13,7 +13,12 @@ import {
 } from "@/app/tenant/(protected)/freelancers/actions";
 import Icon from "@/components/Icon";
 import { lastActiveLabel, lastActivePhrase } from "@/lib/format";
-import { useAddressCheck } from "@/components/useAddressCheck";
+import { AddressAutocompleteInput, type ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
+
+// Freelancer-lokation skal kun matche by/postnummer-niveau, ikke en fuld
+// gadeadresse — feltet er bevidst grovere end kunde/venue- og
+// virksomhedsadresserne (se [[project_address_soft_validation_feature]]).
+const LOCATION_TYPES = ["locality", "postal_code"];
 
 type MainTab = "approved" | "applications";
 type SubTab = "pending" | "rejected";
@@ -87,8 +92,11 @@ export default function FreelancerBoard({
   const [openId, setOpenId] = useState<string | null>(null);
   const [panelMode, setPanelMode] = useState<PanelMode>("view");
   const [form, setForm] = useState<FreelancerFormInput>(emptyForm());
-  const { warning: locationWarning, check: checkLocation, clear: clearLocationWarning } = useAddressCheck();
-  const [confirmPending, setConfirmPending] = useState(false);
+  // Adressen (form.location) opdateres kun ved et bekræftet valg fra
+  // Google-dropdown'en — addressText er den viste søgetekst, som kan være
+  // midt i at blive redigeret uden endnu at være valideret.
+  const [locationText, setLocationText] = useState("");
+  const [locationValidated, setLocationValidated] = useState(false);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,19 +213,20 @@ export default function FreelancerBoard({
     setExistingPhotoUrl(null);
     setShowPhotoUpload(true);
     setError(null);
-    clearLocationWarning();
-    setConfirmPending(false);
+    setLocationText("");
+    setLocationValidated(false);
   }
 
   function openEditFreelancer() {
     if (!open) return;
+    const location = open.location ?? "";
     setForm({
       fullName: open.fullName,
       gender: open.gender ?? "",
       birthDate: open.birthDate ?? "",
       phone: open.phone,
       email: open.email ?? "",
-      location: open.location ?? "",
+      location,
       bio: open.bio ?? "",
       socialMediaUrl: open.socialMediaUrl ?? "",
       categoryIds: open.categories.map((c) => c.id),
@@ -229,9 +238,19 @@ export default function FreelancerBoard({
     setPanelMode("edit");
     setError(null);
     setConfirmingDelete(false);
-    clearLocationWarning();
-    setConfirmPending(false);
+    setLocationText(location);
+    // Allerede-gemt lokation regnes som gyldig, indtil brugeren selv rører
+    // feltet — vi genvalidér ikke gamle data bare for at redigere fx bio.
+    setLocationValidated(location.trim().length > 0);
   }
+
+  function handleLocationSelected(result: ResolvedAddressResult) {
+    setForm((f) => ({ ...f, location: result.formatted }));
+    setLocationText(result.formatted);
+    setLocationValidated(true);
+  }
+
+  const hasUnvalidatedLocation = locationText.trim().length > 0 && !locationValidated;
 
   function handleDelete() {
     if (!openId) return;
@@ -296,20 +315,9 @@ export default function FreelancerBoard({
       return;
     }
     startTransition(async () => {
-      // Afvent et DEFINITIVT svar fra Google, før vi beslutter om der skal
-      // gemmes med det samme eller pauses og advarslen vises først (se
-      // [[project_address_soft_validation_feature]] — uden dette kunne et
-      // hurtigt klik på "Gem" nå at gemme, før onBlur-tjekket overhovedet
-      // var kommet tilbage).
-      if (!confirmPending) {
-        const ok = await checkLocation(form.location);
-        if (!ok) {
-          setConfirmPending(true);
-          return;
-        }
-      }
-      setConfirmPending(false);
-
+      // Ingen adresse-afventning nødvendig her længere — Gem-knappen er
+      // disabled (se hasUnvalidatedLocation), indtil lokationen allerede er
+      // bekræftet via et Google-valg.
       const result = await createFreelancer(form);
       if (!result.success) {
         setError(result.error ?? "Der opstod en fejl.");
@@ -342,15 +350,6 @@ export default function FreelancerBoard({
     }
     startTransition(async () => {
       // Se kommentar i saveNewFreelancer().
-      if (!confirmPending) {
-        const ok = await checkLocation(form.location);
-        if (!ok) {
-          setConfirmPending(true);
-          return;
-        }
-      }
-      setConfirmPending(false);
-
       const result = await updateFreelancer(openId, form);
       if (!result.success) {
         setError(result.error ?? "Der opstod en fejl.");
@@ -1006,23 +1005,22 @@ export default function FreelancerBoard({
                   </div>
 
                   <Field label="Lokation">
-                    <input
-                      type="text"
-                      value={form.location}
-                      onChange={(e) => {
-                        setForm((f) => ({ ...f, location: e.target.value }));
-                        clearLocationWarning();
-                        setConfirmPending(false);
+                    <AddressAutocompleteInput
+                      value={locationText}
+                      onChangeText={(text) => {
+                        setLocationText(text);
+                        setLocationValidated(false);
                       }}
-                      onBlur={() => checkLocation(form.location)}
+                      onSelect={handleLocationSelected}
+                      includedPrimaryTypes={LOCATION_TYPES}
                       placeholder="Fx 2100 København Ø"
                       className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
                     />
                   </Field>
-                  {locationWarning && (
+                  {hasUnvalidatedLocation && (
                     <p className="-mt-2 mb-4 text-[12px] text-[#9A6B00] bg-[#FFF7E6] border border-[#F5D889] rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
                       <Icon name="alert-triangle" size={14} className="flex-shrink-0 mt-px" />
-                      {locationWarning}
+                      Vælg lokationen fra listen, der dukker op, mens du skriver — den skal bekræftes hos Google, før den kan gemmes.
                     </p>
                   )}
 
@@ -1128,14 +1126,13 @@ export default function FreelancerBoard({
                 <div className="px-6 py-[22px] border-t border-pepo-bd flex-shrink-0 flex gap-2.5">
                   <button
                     onClick={panelMode === "create" ? saveNewFreelancer : saveEditFreelancer}
-                    disabled={isPending}
+                    disabled={isPending || hasUnvalidatedLocation}
+                    title={hasUnvalidatedLocation ? "Vælg lokationen fra Google-listen, før du kan gemme" : undefined}
                     className="flex-1 h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
                   >
                     <Icon name="check" size={18} />
                     {isPending
                       ? "Gemmer..."
-                      : confirmPending
-                      ? "Gem alligevel"
                       : panelMode === "create"
                       ? "Gem freelancer"
                       : "Gem ændringer"}
