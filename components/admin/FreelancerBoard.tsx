@@ -88,6 +88,7 @@ export default function FreelancerBoard({
   const [panelMode, setPanelMode] = useState<PanelMode>("view");
   const [form, setForm] = useState<FreelancerFormInput>(emptyForm());
   const { warning: locationWarning, check: checkLocation, clear: clearLocationWarning } = useAddressCheck();
+  const [confirmPending, setConfirmPending] = useState(false);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,6 +206,7 @@ export default function FreelancerBoard({
     setShowPhotoUpload(true);
     setError(null);
     clearLocationWarning();
+    setConfirmPending(false);
   }
 
   function openEditFreelancer() {
@@ -228,6 +230,7 @@ export default function FreelancerBoard({
     setError(null);
     setConfirmingDelete(false);
     clearLocationWarning();
+    setConfirmPending(false);
   }
 
   function handleDelete() {
@@ -293,6 +296,20 @@ export default function FreelancerBoard({
       return;
     }
     startTransition(async () => {
+      // Afvent et DEFINITIVT svar fra Google, før vi beslutter om der skal
+      // gemmes med det samme eller pauses og advarslen vises først (se
+      // [[project_address_soft_validation_feature]] — uden dette kunne et
+      // hurtigt klik på "Gem" nå at gemme, før onBlur-tjekket overhovedet
+      // var kommet tilbage).
+      if (!confirmPending) {
+        const ok = await checkLocation(form.location);
+        if (!ok) {
+          setConfirmPending(true);
+          return;
+        }
+      }
+      setConfirmPending(false);
+
       const result = await createFreelancer(form);
       if (!result.success) {
         setError(result.error ?? "Der opstod en fejl.");
@@ -324,6 +341,16 @@ export default function FreelancerBoard({
       return;
     }
     startTransition(async () => {
+      // Se kommentar i saveNewFreelancer().
+      if (!confirmPending) {
+        const ok = await checkLocation(form.location);
+        if (!ok) {
+          setConfirmPending(true);
+          return;
+        }
+      }
+      setConfirmPending(false);
+
       const result = await updateFreelancer(openId, form);
       if (!result.success) {
         setError(result.error ?? "Der opstod en fejl.");
@@ -985,6 +1012,7 @@ export default function FreelancerBoard({
                       onChange={(e) => {
                         setForm((f) => ({ ...f, location: e.target.value }));
                         clearLocationWarning();
+                        setConfirmPending(false);
                       }}
                       onBlur={() => checkLocation(form.location)}
                       placeholder="Fx 2100 København Ø"
@@ -1106,6 +1134,8 @@ export default function FreelancerBoard({
                     <Icon name="check" size={18} />
                     {isPending
                       ? "Gemmer..."
+                      : confirmPending
+                      ? "Gem alligevel"
                       : panelMode === "create"
                       ? "Gem freelancer"
                       : "Gem ændringer"}

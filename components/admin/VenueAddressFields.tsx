@@ -1,7 +1,6 @@
 "use client";
 
 import Icon from "@/components/Icon";
-import { useAddressCheck } from "@/components/useAddressCheck";
 
 const inputClass =
   "w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p";
@@ -26,6 +25,14 @@ function Field({ label, children, className = "" }: { label: string; children: R
  * Adresse-tjekket sker ved blur af ethvert af de tre felter (adresse,
  * postnr., by) med de aktuelle værdier af alle tre — så en slåfejl fanges
  * uanset hvilket felt brugeren forlader sidst. Blokerer aldrig gemning.
+ *
+ * Kontrolleret udefra (warning + onBlurCheck som props) i stedet for at
+ * holde sin egen useAddressCheck-hook internt: begge kaldere har en
+ * DYNAMISK LISTE af venue-blokke, og deres save()-flow skal kunne afvente
+ * et definitivt svar for ALLE rækker samlet, før det besluttes om der skal
+ * gemmes eller pauses og advarslen vises først — det kræver at
+ * tjekket/warning-state ejes af listen i den overordnede komponent (via
+ * useAddressCheckList), ikke af hver enkelt VenueAddressFields-instans.
  */
 export function VenueAddressFields({
   name,
@@ -33,19 +40,17 @@ export function VenueAddressFields({
   postalCode,
   city,
   onChange,
+  warning,
+  onBlurCheck,
 }: {
   name: string;
   address: string;
   postalCode: string;
   city: string;
   onChange: (field: "name" | "address" | "postalCode" | "city", value: string) => void;
+  warning: string | null;
+  onBlurCheck: () => void;
 }) {
-  const { warning, check, clear } = useAddressCheck();
-
-  function runCheck() {
-    check(address, postalCode, city);
-  }
-
   return (
     <>
       <Field label="Navn på arbejdssted/venue">
@@ -61,11 +66,8 @@ export function VenueAddressFields({
         <input
           type="text"
           value={address}
-          onChange={(e) => {
-            onChange("address", e.target.value);
-            clear();
-          }}
-          onBlur={runCheck}
+          onChange={(e) => onChange("address", e.target.value)}
+          onBlur={onBlurCheck}
           placeholder="Fx Nyhavn 4"
           className={inputClass}
         />
@@ -75,11 +77,8 @@ export function VenueAddressFields({
           <input
             type="text"
             value={postalCode}
-            onChange={(e) => {
-              onChange("postalCode", e.target.value);
-              clear();
-            }}
-            onBlur={runCheck}
+            onChange={(e) => onChange("postalCode", e.target.value)}
+            onBlur={onBlurCheck}
             placeholder="1051"
             className={inputClass}
           />
@@ -88,11 +87,8 @@ export function VenueAddressFields({
           <input
             type="text"
             value={city}
-            onChange={(e) => {
-              onChange("city", e.target.value);
-              clear();
-            }}
-            onBlur={runCheck}
+            onChange={(e) => onChange("city", e.target.value)}
+            onBlur={onBlurCheck}
             placeholder="København K"
             className={inputClass}
           />

@@ -40,6 +40,7 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
   const { warning: addressWarning, check: checkAddress, clear: clearAddressWarning } = useAddressCheck();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [confirmPending, setConfirmPending] = useState(false);
   const [isSavingProfile, startProfileTransition] = useTransition();
 
   const [slug, setSlug] = useState(initial.slug);
@@ -53,6 +54,20 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
     setProfileError(null);
     setProfileSaved(false);
     startProfileTransition(async () => {
+      // Afvent et DEFINITIVT svar fra Google, før vi beslutter om der skal
+      // gemmes med det samme eller pauses og advarslen vises først (se
+      // [[project_address_soft_validation_feature]] — uden dette kunne et
+      // hurtigt klik på "Gem ændringer" nå at gemme, før onBlur-tjekket
+      // overhovedet var kommet tilbage).
+      if (!confirmPending) {
+        const ok = await checkAddress(form.address, form.postalCode, form.city);
+        if (!ok) {
+          setConfirmPending(true);
+          return;
+        }
+      }
+      setConfirmPending(false);
+
       const res = await updateCompanyProfile(form);
       if (!res.success) {
         setProfileError(res.error);
@@ -113,6 +128,7 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
               onChange={(e) => {
                 setForm((f) => ({ ...f, address: e.target.value }));
                 clearAddressWarning();
+                setConfirmPending(false);
               }}
               onBlur={() => checkAddress(form.address, form.postalCode, form.city)}
               className={inputClass}
@@ -126,6 +142,7 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
                 onChange={(e) => {
                   setForm((f) => ({ ...f, postalCode: e.target.value }));
                   clearAddressWarning();
+                  setConfirmPending(false);
                 }}
                 onBlur={() => checkAddress(form.address, form.postalCode, form.city)}
                 className={inputClass}
@@ -137,6 +154,7 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
                 onChange={(e) => {
                   setForm((f) => ({ ...f, city: e.target.value }));
                   clearAddressWarning();
+                  setConfirmPending(false);
                 }}
                 onBlur={() => checkAddress(form.address, form.postalCode, form.city)}
                 className={inputClass}
@@ -190,7 +208,7 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
             className="h-11 px-4 rounded-[10px] text-[13px] font-medium bg-pepo-p text-white flex items-center gap-1.5 disabled:opacity-40"
           >
             <Icon name="check" size={16} />
-            {isSavingProfile ? "Gemmer..." : profileSaved ? "Gemt" : "Gem ændringer"}
+            {isSavingProfile ? "Gemmer..." : profileSaved ? "Gemt" : confirmPending ? "Gem alligevel" : "Gem ændringer"}
           </button>
         </div>
 

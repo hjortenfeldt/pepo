@@ -12,6 +12,7 @@ import {
 } from "@/app/tenant/(protected)/clients/actions";
 import Icon from "@/components/Icon";
 import { VenueAddressFields } from "./VenueAddressFields";
+import { useAddressCheckList } from "@/components/useAddressCheckList";
 
 type CustomerType = "company" | "private";
 type ViewMode = "grid" | "list";
@@ -62,6 +63,8 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { warnings: venueWarnings, check: checkVenueAddress, clear: clearVenueWarning, checkAllNow: checkAllVenueAddresses, reset: resetVenueWarnings } = useAddressCheckList();
+  const [confirmPending, setConfirmPending] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -95,6 +98,8 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     setForm(EMPTY_FORM);
     setCustomerType("company");
     setError(null);
+    resetVenueWarnings();
+    setConfirmPending(false);
     setPanelOpen(true);
   }
 
@@ -120,6 +125,8 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     });
     setCustomerType(c.name ? "company" : "private");
     setError(null);
+    resetVenueWarnings();
+    setConfirmPending(false);
     setPanelOpen(true);
   }
 
@@ -139,6 +146,8 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
       ...f,
       venues: f.venues.map((v, i) => (i === index ? { ...v, [field]: value } : v)),
     }));
+    clearVenueWarning(index);
+    setConfirmPending(false);
   }
 
   function addVenueBlock() {
@@ -156,6 +165,22 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
     setError(null);
     const input = customerType === "private" ? { ...form, name: "", cvrNumber: "" } : form;
     startTransition(async () => {
+      // Afvent et DEFINITIVT svar fra Google for alle venue-adresser, før vi
+      // beslutter om der skal gemmes med det samme eller pauses og
+      // advarslen vises først (se [[project_address_soft_validation_feature]]
+      // for hvorfor: uden dette kunne et hurtigt klik på "Gem" nå at gemme
+      // og lukke panelet, før onBlur-tjekket overhovedet var kommet tilbage).
+      if (!confirmPending) {
+        const allOk = await checkAllVenueAddresses(
+          form.venues.map((v) => ({ address: v.address, postalCode: v.postalCode, city: v.city }))
+        );
+        if (!allOk) {
+          setConfirmPending(true);
+          return;
+        }
+      }
+      setConfirmPending(false);
+
       const result = editingId
         ? await updateClientRecord(editingId, input)
         : await createClientRecord(input);
@@ -490,6 +515,8 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                 postalCode={v.postalCode}
                 city={v.city}
                 onChange={(field, value) => updateVenueField(i, field, value)}
+                warning={venueWarnings[i] ?? null}
+                onBlurCheck={() => checkVenueAddress(i, v.address, v.postalCode, v.city)}
               />
             </div>
           ))}
@@ -527,7 +554,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             className="flex-1 h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
           >
             <Icon name="check" size={18} />
-            {isPending ? "Gemmer..." : "Gem kunde"}
+            {isPending ? "Gemmer..." : confirmPending ? "Gem alligevel" : "Gem kunde"}
           </button>
         </div>
       </div>

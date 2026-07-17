@@ -7,6 +7,7 @@ import { createVenue, updateVenue, deleteVenue, type VenueFormInput } from "@/ap
 import Icon from "@/components/Icon";
 import { useSlidePanel } from "./useSlidePanel";
 import { VenueAddressFields } from "./VenueAddressFields";
+import { useAddressCheckList } from "@/components/useAddressCheckList";
 
 type VenueRow = { id: string | null; name: string; address: string; postalCode: string; city: string };
 
@@ -47,6 +48,8 @@ export default function ClientQuickAddPanel({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { visible, close, closeWith } = useSlidePanel(onCancel);
+  const { warnings: venueWarnings, check: checkVenueAddress, clear: clearVenueWarning, checkAllNow: checkAllVenueAddresses } = useAddressCheckList();
+  const [confirmPending, setConfirmPending] = useState(false);
 
   function setType(type: "company" | "private") {
     setCustomerType(type);
@@ -58,6 +61,8 @@ export default function ClientQuickAddPanel({
 
   function updateVenueField(index: number, field: keyof Omit<VenueRow, "id">, value: string) {
     setVenues((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+    clearVenueWarning(index);
+    setConfirmPending(false);
   }
 
   function addVenueRow() {
@@ -86,7 +91,28 @@ export default function ClientQuickAddPanel({
       // nedenfor via createVenue/updateVenue/deleteVenue.
     };
 
+    // Ligesom prototypen: mindst ét arbejdssted bevares altid, også hvis alle
+    // felter er tomme, så kunden altid har en (evt. unavngivet) venue-post.
+    const nonBlank = venues.filter((v) => v.name.trim() || v.address.trim() || v.postalCode.trim() || v.city.trim());
+    const toSave = nonBlank.length > 0 ? nonBlank : [venues[0]];
+
     startTransition(async () => {
+      // Afvent et DEFINITIVT svar fra Google for alle adresser, før vi
+      // beslutter om der skal gemmes med det samme eller pauses og
+      // advarslen vises først — uden dette kunne et hurtigt klik på "Gem"
+      // nå at gemme og lukke panelet, før onBlur-tjekket overhovedet var
+      // kommet tilbage (se [[project_address_soft_validation_feature]]).
+      if (!confirmPending) {
+        const allOk = await checkAllVenueAddresses(
+          toSave.map((v) => ({ address: v.address, postalCode: v.postalCode, city: v.city }))
+        );
+        if (!allOk) {
+          setConfirmPending(true);
+          return;
+        }
+      }
+      setConfirmPending(false);
+
       const clientId = client?.id;
       let resolvedId = clientId ?? null;
 
@@ -108,11 +134,6 @@ export default function ClientQuickAddPanel({
         setError("Der opstod en fejl.");
         return;
       }
-
-      // Ligesom prototypen: mindst ét arbejdssted bevares altid, også hvis alle
-      // felter er tomme, så kunden altid har en (evt. unavngivet) venue-post.
-      const nonBlank = venues.filter((v) => v.name.trim() || v.address.trim() || v.postalCode.trim() || v.city.trim());
-      const toSave = nonBlank.length > 0 ? nonBlank : [venues[0]];
 
       const existingIds = client?.venues.map((v) => v.id) ?? [];
       const keptIds = toSave.filter((v) => v.id).map((v) => v.id as string);
@@ -287,6 +308,8 @@ export default function ClientQuickAddPanel({
                 postalCode={v.postalCode}
                 city={v.city}
                 onChange={(field, value) => updateVenueField(i, field, value)}
+                warning={venueWarnings[i] ?? null}
+                onBlurCheck={() => checkVenueAddress(i, v.address, v.postalCode, v.city)}
               />
             </div>
           ))}
@@ -312,7 +335,7 @@ export default function ClientQuickAddPanel({
             className="w-full h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
           >
             <Icon name="check" size={18} />
-            {isPending ? "Gemmer..." : isEditing ? "Gem ændringer" : "Gem kunde"}
+            {isPending ? "Gemmer..." : confirmPending ? "Gem alligevel" : isEditing ? "Gem ændringer" : "Gem kunde"}
           </button>
         </div>
       </div>

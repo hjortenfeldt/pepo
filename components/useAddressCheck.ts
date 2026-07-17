@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { checkAddressResolves } from "@/lib/address-validation";
 
 const WARNING_TEXT = "Denne adresse kunne ikke bekræftes hos Google Maps — tjek for stavefejl.";
@@ -25,20 +25,26 @@ const WARNING_TEXT = "Denne adresse kunne ikke bekræftes hos Google Maps — tj
  */
 export function useAddressCheck() {
   const [warning, setWarning] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
   const requestId = useRef(0);
 
-  function check(address: string, postalCode?: string | null, city?: string | null) {
+  // Returnerer et Promise<boolean> (true = OK/intet at advare om), så
+  // kaldende gem-flows kan `await`e et definitivt svar FØR de beslutter om
+  // der skal gemmes med det samme eller pauses og vises en advarsel —
+  // uden det ville et hurtigt klik på "Gem" nå at gemme og lukke panelet,
+  // før Googles svar overhovedet var kommet tilbage (se
+  // [[feedback_await_address_check_before_save]] for hvorfor dette blev
+  // rettet). Almindelig onBlur-brug kalder stadig bare `check(...)` uden at
+  // afvente den — så opdateres advarslen bare, når svaret kommer.
+  async function check(address: string, postalCode?: string | null, city?: string | null): Promise<boolean> {
     const id = ++requestId.current;
     if (!address.trim()) {
       setWarning(null);
-      return;
+      return true;
     }
-    startTransition(async () => {
-      const ok = await checkAddressResolves(address, postalCode ?? null, city ?? null);
-      if (id !== requestId.current) return; // et nyere kald/reset er startet siden — kasser dette svar
-      setWarning(ok ? null : WARNING_TEXT);
-    });
+    const ok = await checkAddressResolves(address, postalCode ?? null, city ?? null);
+    if (id !== requestId.current) return true; // et nyere kald/reset er startet siden — kasser dette svar, og bloker ikke for noget
+    setWarning(ok ? null : WARNING_TEXT);
+    return ok;
   }
 
   // Kaldes fra onChange, så en advarsel fra den FORRIGE værdi ikke bliver

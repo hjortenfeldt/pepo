@@ -58,6 +58,7 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const { warning: locationWarning, check: checkLocation, clear: clearLocationWarning } = useAddressCheck();
+  const [locationConfirmPending, setLocationConfirmPending] = useState(false);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +86,24 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
       form.email.trim().length > 0 &&
       form.phone.trim().length > 0
     );
+  }
+
+  // Afvent et DEFINITIVT svar fra Google, før vi går videre til trin 2,
+  // eller pauses og advarslen vises først (se
+  // [[project_address_soft_validation_feature]] — uden dette kunne et
+  // hurtigt klik på "Fortsæt" nå at gå videre, før onBlur-tjekket
+  // overhovedet var kommet tilbage, og lokationen ville aldrig blive set
+  // igen af brugeren før ansøgningen sendes).
+  async function handleStep1Next() {
+    if (!locationConfirmPending) {
+      const ok = await checkLocation(form.location);
+      if (!ok) {
+        setLocationConfirmPending(true);
+        return;
+      }
+    }
+    setLocationConfirmPending(false);
+    setStep(2);
   }
 
   function handleSubmit() {
@@ -119,6 +138,7 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
     setError(null);
     setStep(1);
     clearLocationWarning();
+    setLocationConfirmPending(false);
   }
 
   const categoryNameById = (id: string) =>
@@ -156,10 +176,14 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
               form={form}
               update={update}
               canContinue={canContinueFromStep1()}
-              onNext={() => setStep(2)}
+              onNext={handleStep1Next}
+              confirmPending={locationConfirmPending}
               locationWarning={locationWarning}
               checkLocation={checkLocation}
-              clearLocationWarning={clearLocationWarning}
+              clearLocationWarning={() => {
+                clearLocationWarning();
+                setLocationConfirmPending(false);
+              }}
             />
           )}
 
@@ -249,6 +273,7 @@ function Step1({
   update,
   canContinue,
   onNext,
+  confirmPending,
   locationWarning,
   checkLocation,
   clearLocationWarning,
@@ -257,8 +282,9 @@ function Step1({
   update: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   canContinue: boolean;
   onNext: () => void;
+  confirmPending: boolean;
   locationWarning: string | null;
-  checkLocation: (address: string, postalCode?: string | null, city?: string | null) => void;
+  checkLocation: (address: string, postalCode?: string | null, city?: string | null) => Promise<boolean>;
   clearLocationWarning: () => void;
 }) {
   return (
@@ -353,7 +379,7 @@ function Step1({
 
       <div className="flex gap-2.5 mt-2">
         <PrimaryButton onClick={onNext} disabled={!canContinue}>
-          Fortsæt
+          {confirmPending ? "Fortsæt alligevel" : "Fortsæt"}
         </PrimaryButton>
       </div>
     </div>
