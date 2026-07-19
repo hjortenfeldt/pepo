@@ -5,6 +5,13 @@ import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import type { EventAttachment, ShiftStatus, VenueItem } from "@/lib/admin-types";
 import { geocodeAddress, getDrivingDistanceKm } from "@/lib/maps";
+import {
+  pushShiftAssigned,
+  pushShiftReleased,
+  pushShiftCancelled,
+  pushShiftChanged,
+  queueOpenShiftNotifications,
+} from "@/lib/shift-notifications";
 
 /**
  * Geokoder en venue-adresse og beregner køreafstanden fra virksomhedens
@@ -139,17 +146,20 @@ export async function createEventWithShifts(input: EventFormInput, rows: ShiftRo
   }
 
   const shiftFields = eventFieldsForShift(input);
-  const { error: shiftsError } = await supabase.from("shifts").insert(
-    rows.map((r) => ({
-      company_id: company.id,
-      event_id: event.id,
-      category_id: r.categoryId,
-      start_time: r.startTime,
-      end_time: r.endTime,
-      status: "open" as ShiftStatus,
-      ...shiftFields,
-    }))
-  );
+  const { data: insertedShifts, error: shiftsError } = await supabase
+    .from("shifts")
+    .insert(
+      rows.map((r) => ({
+        company_id: company.id,
+        event_id: event.id,
+        category_id: r.categoryId,
+        start_time: r.startTime,
+        end_time: r.endTime,
+        status: "open" as ShiftStatus,
+        ...shiftFields,
+      }))
+    )
+    .select("id, category_id");
 
   if (shiftsError) {
     console.error("createEventWithShifts: kunne ikke oprette vagter", shiftsError);
@@ -157,6 +167,15 @@ export async function createEventWithShifts(input: EventFormInput, rows: ShiftRo
     await supabase.from("events").delete().eq("id", event.id);
     return { success: false as const, error: "Kunne ikke oprette vagterne. Prøv igen." };
   }
+
+  // #5 Ny(e) ledig(e) vagt(er) — se queueOpenShiftNotifications for hvorfor
+  // dette ikke sender en push direkte (grupperes af cron-jobbet). Afventes
+  // bevidst (se samme begrundelse som i messages/actions.ts sendMessage) —
+  // Vercels serverless-runtime kan afbryde baggrundsarbejde uden await, så
+  // snart funktionen returnerer.
+  await Promise.all(
+    (insertedShifts ?? []).map((s) => queueOpenShiftNotifications(company.id, s.category_id as string, s.id as string))
+  );
 
   revalidatePath("/shifts");
   return { success: true as const, eventId: event.id as string };
@@ -205,6 +224,16 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
 
   const supabase = await createSupabaseClient();
 
+  // Hentet FØR opdateringen — bruges til at afgøre om dato/kunde/venue reelt
+  // ændrede sig, så allerede tildelte freelancere kun får en #4-push ved
+  // faktiske ændringer, ikke ved enhver gemning af eventet.
+  const { data: beforeEvent } = await supabase
+    .from("events")
+    .select("event_date, client_id, venue_id")
+    .eq("id", eventId)
+    .eq("company_id", company.id)
+    .maybeSingle();
+
   const { error: eventError } = await supabase
     .from("events")
     .update({
@@ -234,6 +263,25 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
     return { success: false, error: "Event blev gemt, men vagterne kunne ikke opdateres." };
   }
 
+  const reallyChanged =
+    !!beforeEvent &&
+    (beforeEvent.event_date !== input.eventDate ||
+      beforeEvent.client_id !== input.clientId ||
+      beforeEvent.venue_id !== input.venueId);
+
+  if (reallyChanged) {
+    const { data: assignedShifts } = await supabase
+      .from("shifts")
+      .select("id, assigned_freelancer_id")
+      .eq("event_id", eventId)
+      .eq("company_id", company.id)
+      .not("assigned_freelancer_id", "is", null);
+
+    await Promise.all(
+      (assignedShifts ?? []).map((s) => pushShiftChanged(s.id as string, s.assigned_freelancer_id as string))
+    );
+  }
+
   revalidatePath("/shifts");
   return { success: true };
 }
@@ -259,26 +307,33 @@ export async function addShiftsToEvent(eventId: string, rows: ShiftRowInput[]) {
     return { success: false, error: "Kunne ikke finde eventet. Prøv igen." };
   }
 
-  const { error } = await supabase.from("shifts").insert(
-    rows.map((r) => ({
-      company_id: company.id,
-      event_id: eventId,
-      category_id: r.categoryId,
-      start_time: r.startTime,
-      end_time: r.endTime,
-      status: "open" as ShiftStatus,
-      title: event.title,
-      description: event.description,
-      shift_date: event.event_date,
-      client_id: event.client_id,
-      venue_id: event.venue_id,
-    }))
-  );
+  const { data: insertedShifts, error } = await supabase
+    .from("shifts")
+    .insert(
+      rows.map((r) => ({
+        company_id: company.id,
+        event_id: eventId,
+        category_id: r.categoryId,
+        start_time: r.startTime,
+        end_time: r.endTime,
+        status: "open" as ShiftStatus,
+        title: event.title,
+        description: event.description,
+        shift_date: event.event_date,
+        client_id: event.client_id,
+        venue_id: event.venue_id,
+      }))
+    )
+    .select("id, category_id");
 
   if (error) {
     console.error("addShiftsToEvent fejlede", error);
     return { success: false, error: "Kunne ikke tilføje vagterne. Prøv igen." };
   }
+
+  await Promise.all(
+    (insertedShifts ?? []).map((s) => queueOpenShiftNotifications(company.id, s.category_id as string, s.id as string))
+  );
 
   revalidatePath("/shifts");
   return { success: true };
@@ -292,6 +347,16 @@ export async function updateShift(shiftId: string, row: ShiftRowInput) {
   if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
 
   const supabase = await createSupabaseClient();
+
+  // Hentet FØR opdateringen, så vi kan afgøre om ændringen er "reel" nok til
+  // at sende en #4-push (kun ved faktisk ændrede felter, ikke enhver gemning).
+  const { data: before } = await supabase
+    .from("shifts")
+    .select("category_id, start_time, end_time, assigned_freelancer_id")
+    .eq("id", shiftId)
+    .eq("company_id", company.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("shifts")
     .update({ category_id: row.categoryId, start_time: row.startTime, end_time: row.endTime })
@@ -301,6 +366,16 @@ export async function updateShift(shiftId: string, row: ShiftRowInput) {
   if (error) {
     console.error("updateShift fejlede", error);
     return { success: false, error: "Kunne ikke gemme vagten. Prøv igen." };
+  }
+
+  const reallyChanged =
+    !!before &&
+    (before.category_id !== row.categoryId ||
+      (before.start_time as string).slice(0, 5) !== row.startTime ||
+      (before.end_time as string).slice(0, 5) !== row.endTime);
+
+  if (reallyChanged && before?.assigned_freelancer_id) {
+    await pushShiftChanged(shiftId, before.assigned_freelancer_id);
   }
 
   revalidatePath("/shifts");
@@ -415,6 +490,9 @@ export async function assignFreelancer(shiftId: string, freelancerId: string) {
     .eq("shift_id", shiftId)
     .eq("freelancer_id", freelancerId);
 
+  // #1 Vagt tildelt.
+  await pushShiftAssigned(shiftId, freelancerId);
+
   revalidatePath("/shifts");
   return { success: true };
 }
@@ -424,6 +502,16 @@ export async function releaseShift(shiftId: string) {
   if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
 
   const supabase = await createSupabaseClient();
+
+  // Hentet FØR opdateringen rydder assigned_freelancer_id, så vi stadig ved
+  // hvem der skal have #2-pushen bagefter.
+  const { data: before } = await supabase
+    .from("shifts")
+    .select("assigned_freelancer_id, category_id")
+    .eq("id", shiftId)
+    .eq("company_id", company.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("shifts")
     .update({ assigned_freelancer_id: null, status: "open" as ShiftStatus })
@@ -433,6 +521,15 @@ export async function releaseShift(shiftId: string) {
   if (error) {
     console.error("releaseShift fejlede", error);
     return { success: false, error: "Kunne ikke frigive vagten. Prøv igen." };
+  }
+
+  // #2 Vagt frigivet (til den tidligere tildelte), + #5 (kø til andre
+  // matchende freelancere, da vagten nu igen er ledig).
+  if (before?.assigned_freelancer_id) {
+    await pushShiftReleased(shiftId, before.assigned_freelancer_id);
+  }
+  if (before?.category_id) {
+    await queueOpenShiftNotifications(company.id, before.category_id, shiftId);
   }
 
   revalidatePath("/shifts");
@@ -447,7 +544,7 @@ export async function deleteShift(shiftId: string) {
 
   const { data: current, error: fetchError } = await supabase
     .from("shifts")
-    .select("status")
+    .select("status, assigned_freelancer_id")
     .eq("id", shiftId)
     .eq("company_id", company.id)
     .single();
@@ -468,6 +565,11 @@ export async function deleteShift(shiftId: string) {
     return { success: false, error: "Kunne ikke slette vagten. Prøv igen." };
   }
 
+  // #3 Vagt aflyst — kun hvis vagten rent faktisk var tildelt nogen.
+  if (current.assigned_freelancer_id) {
+    await pushShiftCancelled(shiftId, current.assigned_freelancer_id);
+  }
+
   revalidatePath("/shifts");
   return { success: true };
 }
@@ -480,7 +582,7 @@ export async function undeleteShift(shiftId: string) {
 
   const { data: current, error: fetchError } = await supabase
     .from("shifts")
-    .select("previous_status")
+    .select("previous_status, category_id")
     .eq("id", shiftId)
     .eq("company_id", company.id)
     .single();
@@ -490,15 +592,23 @@ export async function undeleteShift(shiftId: string) {
     return { success: false, error: "Kunne ikke fortryde sletningen. Prøv igen." };
   }
 
+  const restoredStatus = (current.previous_status ?? "open") as ShiftStatus;
+
   const { error } = await supabase
     .from("shifts")
-    .update({ status: (current.previous_status ?? "open") as ShiftStatus, previous_status: null })
+    .update({ status: restoredStatus, previous_status: null })
     .eq("id", shiftId)
     .eq("company_id", company.id);
 
   if (error) {
     console.error("undeleteShift fejlede", error);
     return { success: false, error: "Kunne ikke fortryde sletningen. Prøv igen." };
+  }
+
+  // #5 — hvis vagten igen bliver "open" (og ikke fx "assigned"), er den
+  // relevant for den grupperede ny-ledig-vagt-notifikation igen.
+  if (restoredStatus === "open") {
+    await queueOpenShiftNotifications(company.id, current.category_id, shiftId);
   }
 
   revalidatePath("/shifts");
@@ -523,18 +633,26 @@ export async function duplicateShift(shiftId: string) {
     return { success: false, error: "Kunne ikke duplikere vagten. Prøv igen." };
   }
 
-  const { error } = await supabase.from("shifts").insert({
-    ...original,
-    company_id: company.id,
-    status: "open" as ShiftStatus,
-    assigned_freelancer_id: null,
-    previous_status: null,
-  });
+  const { data: inserted, error } = await supabase
+    .from("shifts")
+    .insert({
+      ...original,
+      company_id: company.id,
+      status: "open" as ShiftStatus,
+      assigned_freelancer_id: null,
+      previous_status: null,
+    })
+    .select("id, category_id")
+    .single();
 
-  if (error) {
+  if (error || !inserted) {
     console.error("duplicateShift fejlede", error);
     return { success: false, error: "Kunne ikke duplikere vagten. Prøv igen." };
   }
+
+  // #5 — den nye, duplikerede vagt er open og dermed relevant for den
+  // grupperede ny-ledig-vagt-notifikation.
+  await queueOpenShiftNotifications(company.id, inserted.category_id as string, inserted.id as string);
 
   revalidatePath("/shifts");
   return { success: true };

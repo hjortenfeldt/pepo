@@ -114,8 +114,8 @@ export async function sendMessage(input: MessageFormInput) {
     // push-afsendelsen fejler (se lib/push.ts) — beskeden er allerede gemt.
     try {
       await sendPushToFreelancers(recipientIds, {
-        title: input.subject.trim(),
-        body: input.body.trim(),
+        title: `Besked fra ${company.name}`,
+        body: `${input.subject.trim()}... Læs hele beskeden >`,
         url: "/beskeder",
       });
     } catch (err) {
