@@ -90,13 +90,21 @@ export default function PushToggle() {
         {status !== "denied" && status !== "checking" && (
           <button
             type="button"
+            role="switch"
+            aria-checked={status === "on"}
             disabled={isPending}
             onClick={status === "on" ? disable : enable}
-            className={`flex-shrink-0 rounded-[16px] px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50 transition-opacity ${
-              status === "on" ? "bg-pepo-su text-pepo-t2" : "bg-pepo-pl text-pepo-p"
-            }`}
+            className={
+              "w-10 h-6 rounded-full flex-shrink-0 relative transition-colors disabled:opacity-50 " +
+              (status === "on" ? "bg-pepo-p" : "bg-pepo-bd")
+            }
           >
-            {status === "on" ? "Slå fra" : "Aktivér"}
+            <span
+              className={
+                "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform " +
+                (status === "on" ? "translate-x-4" : "translate-x-0")
+              }
+            />
           </button>
         )}
       </div>
