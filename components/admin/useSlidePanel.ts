@@ -11,7 +11,13 @@ import { useEffect, useState } from "react";
 // Brug: `const { visible, close } = useSlidePanel(onClose);` — brug `close`
 // i stedet for `onClose` alle steder i komponenten (luk-knap, overlay-klik,
 // og efter et vellykket gem), og brug `visible` til at style panelet:
-// `(visible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0")`.
+// `(visible ? "opacity-100" : "translate-x-full opacity-0")`.
+//
+// VIGTIGT: brug ALDRIG "translate-x-0" i den synlige gren, kun fravær af
+// transform-klasse. translate-x-0 sætter stadig transform !== none, hvilket
+// laver en ny stacking context/containing block og kan blokere native
+// popups (fx <input type="date">'s kalendervælger) i Chrome — se
+// [[feedback_slide_panel_native_picker_bug]].
 export function useSlidePanel(onClose: () => void, duration = 200) {
   const [visible, setVisible] = useState(false);
 

@@ -233,7 +233,17 @@ export default function ShiftWizardPanel({
       <div
         className={
           "fixed top-0 right-0 bottom-0 w-full sm:w-[472px] bg-pepo-wh shadow-[-8px_0_40px_rgba(0,0,0,0.12)] transition-transform duration-200 z-20 flex flex-col " +
-          (visible ? "translate-x-0" : "translate-x-full")
+          // BEVIDST ingen "translate-x-0" i synlig tilstand — selv translateX(0)
+          // sætter transform !== none, hvilket laver panelet til et nyt
+          // containing block for fixed-positionerede efterkommere OG en ny
+          // stacking context. Chrome kobler heraf nogle gange en indlejret
+          // native <input type="date">'s kalendervælger til den forkerte
+          // stacking context og viser den slet ikke (oplevet bug: dato-feltet
+          // i "Ny event"/"Redigér event" åbnede ikke kalenderen). At skifte
+          // mellem translate-x-full og "intet transform" (i stedet for
+          // translate-x-0) fjerner problemet, uden at ændre selve
+          // skyde-ind-animationen (CSS transitionerer korrekt til/fra "none").
+          (visible ? "" : "translate-x-full")
         }
       >
         <div className="flex items-center justify-between px-5 py-[18px] border-b border-pepo-bd flex-shrink-0">

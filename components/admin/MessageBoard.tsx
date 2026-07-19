@@ -199,7 +199,9 @@ export default function MessageBoard({
       <div
         className={
           "fixed top-0 right-0 bottom-0 w-full sm:w-[460px] bg-pepo-wh shadow-[-8px_0_40px_rgba(0,0,0,0.12)] transition-transform z-20 flex flex-col " +
-          (panelOpen ? "translate-x-0" : "translate-x-full")
+          // Ingen "translate-x-0" i synlig tilstand — se
+          // [[feedback_slide_panel_native_picker_bug]] for hvorfor.
+          (panelOpen ? "" : "translate-x-full")
         }
       >
         {composing && (
