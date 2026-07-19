@@ -3,30 +3,9 @@
 import { useEffect, useState, useTransition } from "react";
 import Icon from "@/components/Icon";
 import { savePushSubscription, removePushSubscription } from "@/app/freelancer/(protected)/actions";
+import { detectPushStatus, urlBase64ToUint8Array, type PushStatus } from "@/lib/push-client";
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
-}
-
-type Status = "unsupported" | "checking" | "off" | "on" | "denied";
-
-/**
- * Afgør nuværende push-status uden at kalde setState direkte i effekten
- * (kaldes altid via .then(setStatus), ikke synkront i effekt-kroppen) —
- * undgår cascading renders og matcher react-hooks/set-state-in-effect.
- */
-async function detectPushStatus(): Promise<Status> {
-  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-    return "unsupported";
-  }
-  if (Notification.permission === "denied") return "denied";
-  const registration = await navigator.serviceWorker.register("/sw.js");
-  const existing = await registration.pushManager.getSubscription();
-  return existing ? "on" : "off";
-}
+type Status = PushStatus | "checking";
 
 /**
  * Beder aldrig om notifikationstilladelse automatisk ved sideindlæsning —
