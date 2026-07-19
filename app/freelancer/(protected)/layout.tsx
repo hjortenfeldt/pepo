@@ -5,6 +5,7 @@ import { getFreelancerMemberships, getActiveProfile, touchProfileActivity } from
 import { logout } from "../login/actions";
 import BottomNav from "@/components/freelancer/BottomNav";
 import PullToRefresh from "@/components/freelancer/PullToRefresh";
+import UpdateChecker from "@/components/freelancer/UpdateChecker";
 import Icon from "@/components/Icon";
 
 export default async function ProtectedFreelancerLayout({
@@ -65,6 +66,7 @@ export default async function ProtectedFreelancerLayout({
     // bundnavigationen sticky lige over browserens UI, både i Safari/Chrome
     // og i den installerede standalone-app.
     <div className="flex flex-col h-dvh overflow-hidden bg-pepo-su">
+      <UpdateChecker />
       <PullToRefresh>{children}</PullToRefresh>
       <BottomNav />
     </div>
