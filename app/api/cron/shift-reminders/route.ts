@@ -30,8 +30,11 @@ type ReminderRow = {
  * UTC). Denne route holder sig bevidst til at læse resultater, sende push,
  * og markere som sendt — hver reminder_*_sent_at-kolonne på shifts sikrer
  * at samme påmindelse aldrig sendes to gange.
+ *
+ * POST (ikke GET) — Supabase pg_cron kalder via net.http_post(), som altid
+ * sender POST.
  */
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -21,8 +21,11 @@ function isAuthorized(request: Request): boolean {
  * lib/shift-notifications.ts) er udløbet. Formålet er at undgå at spamme en
  * freelancer med 5 separate pushes, hvis en administrator bulk-opretter 5
  * tjenervagter inden for få minutter.
+ *
+ * POST (ikke GET) — Supabase pg_cron kalder via net.http_post(), som altid
+ * sender POST.
  */
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
