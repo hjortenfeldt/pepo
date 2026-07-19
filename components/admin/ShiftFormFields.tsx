@@ -1,11 +1,23 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { formatEventDate, parseTimeInput } from "@/lib/format";
+import { useState } from "react";
+import { parseTimeInput } from "@/lib/format";
 
-// Datofelt: en tekst vi selv formaterer på dansk ligger ovenpå en usynlig
-// native date-input — klik/tastatur åbner stadig browserens indbyggede
-// kalender-picker. Matcher prototypens .date-field-wrap/.date-display-mønster.
+// Datofelt: almindelig, synlig native <input type="date"> — samme mønster
+// som "Fødselsdato" på "Opret freelancer"-siden (FreelancerBoard.tsx).
+//
+// Havde tidligere en dansk-formateret tekst-visning ovenpå en usynlig,
+// fuldt udstrakt native date-input (opacity-0, inset-0), for at vise en
+// pænere dato-tekst end browserens egen. Det så rigtigt ud, men var reelt i
+// stykker i Chrome: et <input type="date"> åbner kun kalender-vælgeren ved
+// klik på selve kalender-ikonet i input'ets skygge-DOM, ikke ved klik på
+// dato-segmenterne (dag/måned/år) — og når input'et strækkes til at dække
+// hele feltet, havner det usynlige kalender-ikon helt ude i højre side,
+// mens resten af feltet kun "fokuserer" et usynligt tekst-segment uden at
+// åbne noget. Deraf buggen: kun et klik helt ude i højre side virkede.
+// Løsningen er at droppe overlay-tricket og vise input'et direkte, ligesom
+// Fødselsdato — mister den pæne "9. juli 2026"-formatering til fordel for
+// browserens egen (fx "dd/mm/åååå"), men er faktisk klikbart alle steder.
 export function DateField({
   value,
   onChange,
@@ -15,26 +27,14 @@ export function DateField({
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   return (
-    <div className="relative">
-      <div
-        className={
-          "border rounded-[9px] px-3 py-2.5 text-[13.5px] " +
-          (disabled ? "bg-pepo-su text-pepo-t2 border-pepo-bds" : "bg-pepo-wh border-pepo-bds " + (value ? "text-pepo-t1" : "text-pepo-t3"))
-        }
-      >
-        {value ? formatEventDate(value) : "Vælg en dato"}
-      </div>
-      <input
-        ref={inputRef}
-        type="date"
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-      />
-    </div>
+    <input
+      type="date"
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p disabled:bg-pepo-su disabled:text-pepo-t2"
+    />
   );
 }
 
