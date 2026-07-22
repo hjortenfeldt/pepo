@@ -2,6 +2,7 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import { formatDateDisplay } from "@/lib/format";
 import type { CompanyColleague } from "@/lib/freelancer";
+import { PullToRefreshHeader } from "@/components/freelancer/PullToRefresh";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -19,12 +20,14 @@ export default function ColleagueDetail({
 }) {
   return (
     <div>
-      <div className="sticky top-0 z-10 bg-pepo-wh px-4 py-3 border-b border-pepo-bd flex items-center">
-        <Link href="/kontakter" className="flex items-center gap-2 text-pepo-t1 -ml-1 px-1 py-0.5">
-          <Icon name="arrow-left" size={18} />
-          <span className="text-[14px] font-medium">Kontakter</span>
-        </Link>
-      </div>
+      <PullToRefreshHeader>
+        <div className="z-10 bg-pepo-wh px-4 py-3 border-b border-pepo-bd flex items-center">
+          <Link href="/kontakter" className="flex items-center gap-2 text-pepo-t1 -ml-1 px-1 py-0.5">
+            <Icon name="arrow-left" size={18} />
+            <span className="text-[14px] font-medium">Kontakter</span>
+          </Link>
+        </div>
+      </PullToRefreshHeader>
 
       <div className="px-5 pt-6 pb-8 flex flex-col items-center">
         <div className="w-20 h-20 rounded-full bg-pepo-pl text-pepo-p text-[24px] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0">

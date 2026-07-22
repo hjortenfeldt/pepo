@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 
@@ -48,6 +49,30 @@ function rubberBand(delta: number) {
   return (delta * MAX_DISTANCE * RUBBER_BAND_COEFFICIENT) / (MAX_DISTANCE + RUBBER_BAND_COEFFICIENT * delta);
 }
 
+type PullToRefreshSlots = { header: HTMLDivElement | null; footer: HTMLDivElement | null };
+const PullToRefreshSlotContext = createContext<PullToRefreshSlots>({ header: null, footer: null });
+
+/**
+ * Portalerer children ind i den faste top-bar-plads ved siden af (uden for)
+ * scrollRef — se doc-kommentaren på selve PullToRefresh.tsx for hvorfor.
+ * Erstatter det gamle mønster med en `sticky top-0`-div som første barn af
+ * sidens indhold. Returnerer null indtil slottet er monteret (kortvarigt ved
+ * allerførste render, før layout-effekten når at sætte det) — ingen synlig
+ * flimren i praksis, da det sker før browserens første maling.
+ */
+export function PullToRefreshHeader({ children }: { children: React.ReactNode }) {
+  const { header } = useContext(PullToRefreshSlotContext);
+  if (!header) return null;
+  return createPortal(children, header);
+}
+
+/** Samme som PullToRefreshHeader, men for en fast bund-knap/handlingsbar. */
+export function PullToRefreshFooter({ children }: { children: React.ReactNode }) {
+  const { footer } = useContext(PullToRefreshSlotContext);
+  if (!footer) return null;
+  return createPortal(children, footer);
+}
+
 /**
  * Native-app-agtig scrolloplevelse for selve sidens indhold — ikke hele
  * PWA-shell'en. Bruges af BÅDE Freelancer Appen (altid aktiv) og Admin Appen
@@ -69,19 +94,39 @@ function rubberBand(delta: number) {
  *    (ingen offentlig API for det) — observerer i stedet native `scroll`-
  *    events og udleder fart/retning selv.
  *
- * VIGTIGT — kun selve INDHOLDET må bounce', ikke sider/paneler der ser
- * "faste" ud: en CSS `transform` på et element gør elementet til et nyt
- * "containing block" for alle `position: fixed`-efterkommere (så de flytter
- * sig med i stedet for at blive hængende i viewporten), og enhver
- * `position: sticky`-efterkommer flytter uundgåeligt med som en del af hele
- * den transformerede boks. Løses ved at finde alle `.sticky`/`.fixed`-
- * efterkommere (Tailwinds egne, bogstavelige klassenavne) og give dem en
- * lige stor MODSAT transform, så de to transforms ophæver hinanden visuelt
- * for netop de elementer — resten af indholdet bounce'r som normalt. Kræver
- * INGEN ændringer i de sider der bruger sticky headers/bund-knapper (fx
- * OverviewClient.tsx, KontakterClient.tsx, ShiftRequestDetail.tsx,
- * ColleagueDetail.tsx, ProfileEditForm.tsx) eller i slide-in-panelerne
- * (ShiftWizardPanel.tsx m.fl., som bruger `fixed inset-0`).
+ * VIGTIGT — kun selve INDHOLDET må bounce', ikke sidernes top-bar/bund-knap:
+ * en CSS `transform` på et element gør det til et nyt "containing block" for
+ * alle `position: fixed`-efterkommere (så de flytter sig med i stedet for at
+ * blive hængende i viewporten), og enhver `position: sticky`-efterkommer
+ * flytter uundgåeligt med som en del af hele den transformerede boks — også
+ * selvom den KUN er "sticky" og ikke selv "fixed". Første forsøg (v0.27.1)
+ * modvirkede dette med en modsat transform på alle `.sticky`/`.fixed`-
+ * elementer, men det løste ikke det underliggende problem Hjorth faktisk så:
+ * fordi header/bund-bar stadig lå SOM BØRN AF scrollRef (bare `sticky` i
+ * stedet for løst placeret), talte de stadig med i scrollRef's egen
+ * `scrollHeight`, så browserens NATIVE scrollbar i højre side dækkede både
+ * indhold og header — det var synligt forkert, uanset transform-modvirkningen.
+ *
+ * Rigtig løsning (v0.27.2): to ægte DOM-SØSKENDE til scrollRef —
+ * `headerSlotRef`/`footerSlotRef` — der slet ikke er en del af den
+ * scrollende/transformerede boks. Sider der har en fast top-bar eller
+ * bund-knap (OverviewClient.tsx, KontakterClient.tsx, ShiftRequestDetail.tsx,
+ * ColleagueDetail.tsx, ProfileEditForm.tsx) bruger nu de eksporterede
+ * `<PullToRefreshHeader>`/`<PullToRefreshFooter>` i stedet for en
+ * `sticky top-0`/`sticky bottom-0`-div — de portalerer (via React's
+ * `createPortal`) deres indhold ind i disse slots. Contexten
+ * (`PullToRefreshSlotContext`) gør slottets DOM-node tilgængelig for enhver
+ * efterkommer i React-træet, uanset hvor dybt nede i `{children}` den sider —
+ * portalering flytter kun selve DOM-outputtet, ikke React-konteksten. Fordel
+ * frem for v0.27.1's modvirkende transform: header/footer er nu strukturelt
+ * uden for scrollRef, så de hverken kan bounce ELLER tælle med i scrollbaren.
+ *
+ * `.sticky`/`.fixed`-modvirkningen fra v0.27.1 er bevaret som et defensivt
+ * fallback for ægte `position: fixed`-elementer der IKKE bruger disse slots
+ * (fx slide-in-panelerne i ShiftWizardPanel.tsx m.fl., som bruger
+ * `fixed inset-0` direkte i sidens markup) — de har intet scrollbar-problem
+ * (fixed elementer tæller aldrig med i en forfaders scrollHeight), men ville
+ * stadig visuelt bounce med uden modvirkningen.
  *
  * Erstatter browserens egen overscroll-bounce (som var slået fra med
  * overscroll-none, da den så akavet ud sammen med adresselinje/PWA-chrome,
@@ -112,6 +157,8 @@ export default function PullToRefresh({
   enabled?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const headerSlotRef = useRef<HTMLDivElement>(null);
+  const footerSlotRef = useRef<HTMLDivElement>(null);
   const spinnerWrapRef = useRef<HTMLDivElement>(null);
   const spinnerIconRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef<number | null>(null);
@@ -130,7 +177,15 @@ export default function PullToRefresh({
 
   const [refreshing, setRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [slots, setSlots] = useState<PullToRefreshSlots>({ header: null, footer: null });
   const router = useRouter();
+
+  // useLayoutEffect (ikke useEffect): sætter slot-noderne synkront FØR
+  // browseren når at male, så en side der bruger <PullToRefreshHeader> ikke
+  // først viser et hul og derefter popper ind.
+  useLayoutEffect(() => {
+    setSlots({ header: headerSlotRef.current, footer: footerSlotRef.current });
+  }, []);
 
   function setVisualPull(distance: number, transition: string) {
     const scrollEl = scrollRef.current;
@@ -346,24 +401,35 @@ export default function PullToRefresh({
   }, [refreshing, isPending]);
 
   return (
-    // min-w-0 (ikke kun min-h-0): harmløst i Freelancer Appens flex-col-
-    // sammenhæng, men nødvendigt i Admin Appen, hvor denne komponent sidder
-    // som flex-item ved siden af AdminSidebar i en flex-row (se
-    // [[feedback_admin_layout_single_scroll_panel]]) — samlet ét sted i
-    // stedet for at have to divergerende varianter af denne klasse.
-    <div className="relative flex-1 min-w-0 min-h-0 overflow-hidden">
-      <div
-        ref={spinnerWrapRef}
-        className="absolute top-0 left-0 right-0 z-0 flex items-center justify-center overflow-hidden"
-        style={{ height: 0 }}
-      >
-        <div ref={spinnerIconRef} className={refreshing ? "animate-spin" : ""} style={{ opacity: 0 }}>
-          <Icon name="loader-2" size={22} className="text-pepo-p" />
+    <PullToRefreshSlotContext.Provider value={slots}>
+      {/* min-w-0 (ikke kun min-h-0): harmløst i Freelancer Appens flex-col-
+          sammenhæng, men nødvendigt i Admin Appen, hvor denne komponent
+          sidder som flex-item ved siden af AdminSidebar i en flex-row (se
+          [[feedback_admin_layout_single_scroll_panel]]) — samlet ét sted i
+          stedet for at have to divergerende varianter af denne klasse. */}
+      <div className="relative flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col">
+        {/* Header-slot: ægte DOM-søskende til scrollRef, uden for den
+            transformerede/bounce'ende boks — se PullToRefreshHeader. Tom når
+            en side ikke bruger den (fx sider uden fast top-bar). */}
+        <div ref={headerSlotRef} className="relative z-[2] flex-shrink-0" />
+        <div className="relative flex-1 min-h-0 overflow-hidden">
+          <div
+            ref={spinnerWrapRef}
+            className="absolute top-0 left-0 right-0 z-0 flex items-center justify-center overflow-hidden"
+            style={{ height: 0 }}
+          >
+            <div ref={spinnerIconRef} className={refreshing ? "animate-spin" : ""} style={{ opacity: 0 }}>
+              <Icon name="loader-2" size={22} className="text-pepo-p" />
+            </div>
+          </div>
+          <div ref={scrollRef} className="relative z-[1] h-full overflow-y-auto overscroll-none bg-pepo-su">
+            {children}
+          </div>
         </div>
+        {/* Bund-slot: samme idé, for en fast bund-knap/handlingsbar — se
+            PullToRefreshFooter. */}
+        <div ref={footerSlotRef} className="relative z-[2] flex-shrink-0" />
       </div>
-      <div ref={scrollRef} className="relative z-[1] h-full overflow-y-auto overscroll-none bg-pepo-su">
-        {children}
-      </div>
-    </div>
+    </PullToRefreshSlotContext.Provider>
   );
 }

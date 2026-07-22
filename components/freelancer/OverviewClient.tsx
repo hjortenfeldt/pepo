@@ -5,6 +5,7 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import { startShift, stopShift } from "@/app/freelancer/(protected)/actions";
 import { haversineMeters } from "@/lib/geo";
+import { PullToRefreshHeader } from "@/components/freelancer/PullToRefresh";
 
 export type ActiveShift = {
   entryId: string;
@@ -180,57 +181,61 @@ export default function OverviewClient({
 
   return (
     <div>
-      {/* sticky, ikke fixed — skal stadig sidde inde i layoutets egen
-          overflow-y-auto-container (se (protected)/layout.tsx), så den kun
-          låser sig fast i toppen AF DEN scroll-container, i stedet for at
-          overlappe bundnavigationen eller browserens egen UI. Samme
-          baggrundsfarve som resten af siden (bg-pepo-su), så den smelter
-          sammen med indholdet i ro, men en bund-border gør den synligt
-          adskilt fra indholdet, når det scroller op bagved. */}
-      <div className="sticky top-0 z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise flex justify-between gap-3">
-        {/* Kun logoet herinde — ingen ikon, ingen ekstra tekstlinje. Fylder
-            hele barens højde (minus paddingen ovenfor/nedenunder) og højst
-            halvdelen af bredden, så der altid er plads nok til navn +
-            firmanavn i højre side, uanset længden af begge. Uden logo
-            falder vi tilbage til firmanavnet som overskrift, ligesom før. */}
-        <div className="flex-1 max-w-[50%] min-w-0 flex items-center">
-          {companyLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={companyLogoUrl}
-              alt={companyName ?? "Firmalogo"}
-              className="h-full max-h-[100px] max-w-full object-contain object-left"
-              style={{ maxWidth: "min(100%, 550px)" }}
-            />
-          ) : (
-            companyName && <div className="text-[20px] font-bold text-pepo-t1 truncate">{companyName}</div>
-          )}
-        </div>
-
-        {/* Åbner samme side som "Mere" i bundnavigationen — kun i toppen af
-            Overblik, ikke en fælles top-bar på tværs af alle faner.
-            Firmanavnet står nu under brugerens fornavn her i stedet for i
-            venstre side. */}
-        <Link
-          href="/mere"
-          className="flex-1 max-w-[50%] min-w-0 flex items-center justify-end gap-2 active:opacity-70 transition-opacity"
-        >
-          <div className="w-8 h-8 rounded-full bg-pepo-pl text-pepo-p text-[12px] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0">
-            {userPhotoUrl ? (
+      {/* Portalerer ind i PullToRefresh's header-slot — en ægte DOM-søskende
+          til den scrollende/bounce'ende container, IKKE en `sticky top-0`-div
+          inde i indholdet (se PullToRefresh.tsx's doc-kommentar for hvorfor:
+          en sticky-div der stadig er barn af scrollRef bouncer med OG tæller
+          med i browserens scrollbar for indholdet, begge dele forkert for en
+          "fast" top-bar). Samme baggrundsfarve som resten af siden
+          (bg-pepo-su), så den smelter sammen med indholdet i ro, men en
+          bund-border gør den synligt adskilt fra indholdet, når det scroller
+          op bagved. */}
+      <PullToRefreshHeader>
+        <div className="z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise flex justify-between gap-3">
+          {/* Kun logoet herinde — ingen ikon, ingen ekstra tekstlinje. Fylder
+              hele barens højde (minus paddingen ovenfor/nedenunder) og højst
+              halvdelen af bredden, så der altid er plads nok til navn +
+              firmanavn i højre side, uanset længden af begge. Uden logo
+              falder vi tilbage til firmanavnet som overskrift, ligesom før. */}
+          <div className="flex-1 max-w-[50%] min-w-0 flex items-center">
+            {companyLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={userPhotoUrl} alt="" className="w-full h-full object-cover" />
+              <img
+                src={companyLogoUrl}
+                alt={companyName ?? "Firmalogo"}
+                className="h-full max-h-[100px] max-w-full object-contain object-left"
+                style={{ maxWidth: "min(100%, 550px)" }}
+              />
             ) : (
-              initials(userFullName)
+              companyName && <div className="text-[20px] font-bold text-pepo-t1 truncate">{companyName}</div>
             )}
           </div>
-          <div className="min-w-0">
-            <div className="text-[13.5px] font-medium text-pepo-t1 truncate">{firstName}</div>
-            {companyName && (
-              <div className="text-[11.5px] text-pepo-t2 truncate">{companyName}</div>
-            )}
-          </div>
-        </Link>
-      </div>
+
+          {/* Åbner samme side som "Mere" i bundnavigationen — kun i toppen af
+              Overblik, ikke en fælles top-bar på tværs af alle faner.
+              Firmanavnet står nu under brugerens fornavn her i stedet for i
+              venstre side. */}
+          <Link
+            href="/mere"
+            className="flex-1 max-w-[50%] min-w-0 flex items-center justify-end gap-2 active:opacity-70 transition-opacity"
+          >
+            <div className="w-8 h-8 rounded-full bg-pepo-pl text-pepo-p text-[12px] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0">
+              {userPhotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={userPhotoUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                initials(userFullName)
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-medium text-pepo-t1 truncate">{firstName}</div>
+              {companyName && (
+                <div className="text-[11.5px] text-pepo-t2 truncate">{companyName}</div>
+              )}
+            </div>
+          </Link>
+        </div>
+      </PullToRefreshHeader>
 
       <div className="px-5 pt-4 pb-6">
       {error && (

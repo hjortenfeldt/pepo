@@ -6,6 +6,7 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import { requestShift, withdrawShiftRequest } from "@/app/freelancer/(protected)/actions";
 import { formatEventDate, formatTimeRange, hoursBetween } from "@/lib/format";
+import { PullToRefreshHeader, PullToRefreshFooter } from "@/components/freelancer/PullToRefresh";
 
 export type ShiftStatus = "open" | "for_resale" | "assigned" | "completed" | "cancelled";
 
@@ -114,12 +115,14 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
 
   return (
     <div>
-      <div className="sticky top-0 z-10 bg-pepo-wh px-4 py-3 border-b border-pepo-bd flex items-center">
-        <Link href="/" className="flex items-center gap-2 text-pepo-t1 -ml-1 px-1 py-0.5">
-          <Icon name="arrow-left" size={18} />
-          <span className="text-[14px] font-medium">Vagtdetaljer</span>
-        </Link>
-      </div>
+      <PullToRefreshHeader>
+        <div className="z-10 bg-pepo-wh px-4 py-3 border-b border-pepo-bd flex items-center">
+          <Link href="/" className="flex items-center gap-2 text-pepo-t1 -ml-1 px-1 py-0.5">
+            <Icon name="arrow-left" size={18} />
+            <span className="text-[14px] font-medium">Vagtdetaljer</span>
+          </Link>
+        </div>
+      </PullToRefreshHeader>
 
       <div className="px-5 pt-5 pb-8">
         <span className="inline-flex items-center gap-2 bg-pepo-pl text-pepo-p rounded-full px-5 py-2 text-[24px] font-semibold mb-3">
@@ -211,44 +214,46 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
         )}
       </div>
 
-      <div className="sticky bottom-0 bg-pepo-wh border-t border-pepo-bd px-5 py-3.5">
-        {!requestable ? (
-          <div className="text-center text-[12.5px] text-pepo-t3 py-2.5">
-            {shift.status === "assigned" && shift.isMine
-              ? "Dette er din vagt."
-              : "Denne vagt er ikke længere ledig."}
-          </div>
-        ) : alreadyApplied ? (
-          <>
+      <PullToRefreshFooter>
+        <div className="bg-pepo-wh border-t border-pepo-bd px-5 py-3.5">
+          {!requestable ? (
+            <div className="text-center text-[12.5px] text-pepo-t3 py-2.5">
+              {shift.status === "assigned" && shift.isMine
+                ? "Dette er din vagt."
+                : "Denne vagt er ikke længere ledig."}
+            </div>
+          ) : alreadyApplied ? (
+            <>
+              <button
+                type="button"
+                disabled
+                className="w-full h-[46px] rounded-[10px] text-[15px] font-semibold bg-[#1A7A34] text-white flex items-center justify-center gap-2 opacity-90"
+              >
+                <Icon name="check" size={18} />
+                Anmodet
+              </button>
+              <button
+                type="button"
+                onClick={handleWithdraw}
+                disabled={isPending}
+                className="w-full text-center text-[13px] text-pepo-t3 underline decoration-pepo-t3 mt-2.5 disabled:opacity-50"
+              >
+                Annuller anmodning
+              </button>
+            </>
+          ) : (
             <button
               type="button"
-              disabled
-              className="w-full h-[46px] rounded-[10px] text-[15px] font-semibold bg-[#1A7A34] text-white flex items-center justify-center gap-2 opacity-90"
-            >
-              <Icon name="check" size={18} />
-              Anmodet
-            </button>
-            <button
-              type="button"
-              onClick={handleWithdraw}
+              onClick={handleRequest}
               disabled={isPending}
-              className="w-full text-center text-[13px] text-pepo-t3 underline decoration-pepo-t3 mt-2.5 disabled:opacity-50"
+              className="w-full h-[46px] rounded-[10px] text-[15px] font-semibold bg-pepo-p text-white flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
             >
-              Annuller anmodning
+              <Icon name="hand-stop" size={18} />
+              {isPending ? "Sender anmodning..." : "Anmod om vagt"}
             </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={handleRequest}
-            disabled={isPending}
-            className="w-full h-[46px] rounded-[10px] text-[15px] font-semibold bg-pepo-p text-white flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
-          >
-            <Icon name="hand-stop" size={18} />
-            {isPending ? "Sender anmodning..." : "Anmod om vagt"}
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      </PullToRefreshFooter>
     </div>
   );
 }

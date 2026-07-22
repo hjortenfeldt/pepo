@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import type { CompanyColleague } from "@/lib/freelancer";
+import { PullToRefreshHeader } from "@/components/freelancer/PullToRefresh";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -43,22 +44,24 @@ export default function KontakterClient({
 
   return (
     <div className="pb-6">
-      {/* sticky, samme mønster som Overblik-sidens header (se
-          OverviewClient.tsx) — låser sig kun fast i toppen af layoutets
-          egen scroll-container, ikke i hele viewporten. */}
-      <div className="sticky top-0 z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise">
-        <div className="text-[20px] font-bold text-pepo-t1 mb-3">Kontakter</div>
-        <div className="flex items-center gap-2 bg-pepo-wh border border-pepo-bd rounded-[10px] px-3 py-2.5">
-          <Icon name="search" size={16} className="text-pepo-t3 flex-shrink-0" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Søg"
-            className="flex-1 bg-transparent text-[14px] text-pepo-t1 placeholder:text-pepo-t3 outline-none min-w-0"
-          />
+      {/* Portalerer ind i PullToRefresh's header-slot, samme mønster som
+          Overblik-sidens header (se OverviewClient.tsx og
+          PullToRefresh.tsx's doc-kommentar). */}
+      <PullToRefreshHeader>
+        <div className="z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise">
+          <div className="text-[20px] font-bold text-pepo-t1 mb-3">Kontakter</div>
+          <div className="flex items-center gap-2 bg-pepo-wh border border-pepo-bd rounded-[10px] px-3 py-2.5">
+            <Icon name="search" size={16} className="text-pepo-t3 flex-shrink-0" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Søg"
+              className="flex-1 bg-transparent text-[14px] text-pepo-t1 placeholder:text-pepo-t3 outline-none min-w-0"
+            />
+          </div>
         </div>
-      </div>
+      </PullToRefreshHeader>
 
       <div className="px-5">
         {colleagues.length === 0 ? (

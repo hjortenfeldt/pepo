@@ -8,6 +8,7 @@ import Icon from "@/components/Icon";
 import { AddressAutocompleteInput, type ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 import { updateMyProfile, type MyProfileFormInput } from "@/app/freelancer/(protected)/profil/actions";
 import type { EditableProfile, WorkCategoryOption } from "@/lib/freelancer";
+import { PullToRefreshHeader, PullToRefreshFooter } from "@/components/freelancer/PullToRefresh";
 
 // Freelancer-lokation skal kun matche by/postnummer-niveau, ikke en fuld
 // gadeadresse — samme grovere granularitet som admins "Redigér freelancer"
@@ -27,9 +28,10 @@ function initials(name: string) {
  * freelancer"-panel i components/admin/FreelancerBoard.tsx (samme labels,
  * samme rækkefølge, samme lokations-/foto-/jobfunktions-logik) — se
  * feedback_freelancer_profile_fields_in_sync. Layoutet er dog en almindelig
- * fremadrettet side (sticky header + sticky gem-knap i bunden af det
- * scrollende indhold), ikke et slide-in-panel, da freelancer-appen ikke har
- * det mønster andre steder (se fx ShiftRequestDetail.tsx/ColleagueDetail.tsx).
+ * fremadrettet side (fast header + fast gem-knap i bunden, via
+ * PullToRefreshHeader/-Footer — se PullToRefresh.tsx), ikke et slide-in-panel,
+ * da freelancer-appen ikke har det mønster andre steder (se fx
+ * ShiftRequestDetail.tsx/ColleagueDetail.tsx).
  */
 export default function ProfileEditForm({
   profileId,
@@ -118,12 +120,14 @@ export default function ProfileEditForm({
 
   return (
     <div>
-      <div className="sticky top-0 z-10 bg-pepo-wh px-4 py-3 border-b border-pepo-bd flex items-center">
-        <Link href="/mere" className="flex items-center gap-2 text-pepo-t1 -ml-1 px-1 py-0.5">
-          <Icon name="arrow-left" size={18} />
-          <span className="text-[14px] font-medium">Rediger profil</span>
-        </Link>
-      </div>
+      <PullToRefreshHeader>
+        <div className="z-10 bg-pepo-wh px-4 py-3 border-b border-pepo-bd flex items-center">
+          <Link href="/mere" className="flex items-center gap-2 text-pepo-t1 -ml-1 px-1 py-0.5">
+            <Icon name="arrow-left" size={18} />
+            <span className="text-[14px] font-medium">Rediger profil</span>
+          </Link>
+        </div>
+      </PullToRefreshHeader>
 
       <div className="px-5 pt-5 pb-8">
         {!showPhotoUpload ? (
@@ -305,18 +309,20 @@ export default function ProfileEditForm({
         )}
       </div>
 
-      <div className="sticky bottom-0 bg-pepo-wh border-t border-pepo-bd px-5 py-3.5">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isPending || hasUnvalidatedLocation}
-          title={hasUnvalidatedLocation ? "Vælg lokationen fra Google-listen, før du kan gemme" : undefined}
-          className="w-full h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
-        >
-          <Icon name="check" size={18} />
-          {isPending ? "Gemmer..." : "Gem ændringer"}
-        </button>
-      </div>
+      <PullToRefreshFooter>
+        <div className="bg-pepo-wh border-t border-pepo-bd px-5 py-3.5">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isPending || hasUnvalidatedLocation}
+            title={hasUnvalidatedLocation ? "Vælg lokationen fra Google-listen, før du kan gemme" : undefined}
+            className="w-full h-11 rounded-[10px] text-sm font-medium bg-pepo-p text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
+          >
+            <Icon name="check" size={18} />
+            {isPending ? "Gemmer..." : "Gem ændringer"}
+          </button>
+        </div>
+      </PullToRefreshFooter>
     </div>
   );
 }
