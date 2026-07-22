@@ -95,15 +95,18 @@ export default function AdminPushGate({ children }: { children: React.ReactNode 
   if (state === "checking") {
     // Kort, tomt øjeblik mens vi afgør enhed/push-status — undgår flash af
     // enten dashboard eller prompt, hvis det ender med at være forkert.
-    // h-screen (ikke flex-1) fordi denne gate — i modsætning til
+    // h-dvh (ikke h-screen/flex-1) fordi denne gate — i modsætning til
     // freelancer-appens PushGate — dækker HELE skærmen, ikke kun
-    // indholdsområdet inde i et allerede-eksisterende layout.
-    return <div className="h-screen bg-pepo-su" />;
+    // indholdsområdet inde i et allerede-eksisterende layout. h-dvh (ikke
+    // 100vh) af samme grund som (protected)/layout.tsx: undgår at "Ikke
+    // nu"-knappen ender skjult neden for det faktiske synlige område, når
+    // mobilens adresselinje er synlig.
+    return <div className="h-dvh bg-pepo-su" />;
   }
 
   if (state === "prompt") {
     return (
-      <div className="h-screen flex flex-col bg-pepo-su relative overflow-hidden">
+      <div className="h-dvh flex flex-col bg-pepo-su relative overflow-hidden">
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center">
           <div className="mb-8">
             <div className="w-20 h-20 rounded-full bg-pepo-pl flex items-center justify-center">

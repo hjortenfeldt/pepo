@@ -88,7 +88,15 @@ export default async function ProtectedTenantLayout({
     // stedet for kun uden om {children}, jf. Hjorths eksplicitte valg om
     // "fuldskærm, skjuler sidebar" for disse gates.
     <AdminPushGate>
-      <div className="flex flex-col h-screen overflow-hidden bg-pepo-su">
+      {/* h-dvh (dynamic viewport height), IKKE h-screen (100vh) — samme
+          rettelse som freelancer-appens (protected)/layout.tsx. 100vh låser
+          sig til browserens STØRSTE mulige visningsområde (adresselinje
+          skjult); på mobil, med adresselinjen synlig, betød det at bunden
+          af siden (fx "Gem ændringer"-knappen på Variabler-siden) lå uden
+          for det faktiske synlige område UDEN at scroll-panelet vidste det
+          skulle give ekstra scroll-plads — man kunne altså ikke scrolle sig
+          ned til den. h-dvh følger det aktuelt synlige område live. */}
+      <div className="flex flex-col h-dvh overflow-hidden bg-pepo-su">
         <AdminTopBar
           name={displayName}
           onLogout={logout}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { CategoryOption, FreelancerOption, MessageListItem } from "@/lib/admin-types";
 import { sendMessage } from "@/app/tenant/(protected)/messages/actions";
 import Icon from "@/components/Icon";
+import ExpandingSearchButton from "./ExpandingSearchButton";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" });
@@ -105,46 +106,7 @@ export default function MessageBoard({
 
       <div className="border-t border-pepo-bd" />
       <div className="flex items-center px-8 py-4">
-        <div className="relative w-[38px] h-[38px] flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            title="Søg"
-            className="w-[38px] h-[38px] rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t2 flex items-center justify-center hover:bg-pepo-su"
-          >
-            <Icon name="search" size={20} />
-          </button>
-          <div
-            className={
-              "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
-              (searchOpen
-                ? // min(300px, ...) — undgår at søgefeltet løber ud over skærmens
-                  // højrekant på smalle mobilskærme (samme rettelse i
-                  // ShiftBoard/ClientBoard/FreelancerBoard's tilsvarende søgefelt).
-                  "w-[min(300px,calc(100vw-96px))] border-pepo-bds opacity-100 pointer-events-auto"
-                : "w-0 border-transparent opacity-0 pointer-events-none")
-            }
-          >
-            <Icon name="search" size={19} className="absolute left-[11px] top-1/2 -translate-y-1/2 text-pepo-t3 pointer-events-none" />
-            <input
-              type="text"
-              autoFocus={searchOpen}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Søg..."
-              className="w-full h-full border-none outline-none px-[34px] text-[13.5px] bg-transparent"
-            />
-            <div
-              onClick={() => {
-                setSearch("");
-                setSearchOpen(false);
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-[6px] flex items-center justify-center cursor-pointer text-pepo-t3 hover:bg-pepo-su hover:text-pepo-t1"
-            >
-              <Icon name="x" size={20} />
-            </div>
-          </div>
-        </div>
+        <ExpandingSearchButton open={searchOpen} onOpenChange={setSearchOpen} value={search} onValueChange={setSearch} />
       </div>
       <div className="border-t border-pepo-bd" />
 

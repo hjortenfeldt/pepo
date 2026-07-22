@@ -12,6 +12,7 @@ import {
 } from "@/app/tenant/(protected)/clients/actions";
 import Icon from "@/components/Icon";
 import { VenueAddressFields } from "./VenueAddressFields";
+import ExpandingSearchButton from "./ExpandingSearchButton";
 import type { ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 
 type CustomerType = "company" | "private";
@@ -109,15 +110,6 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
       );
     });
   }, [clients, search]);
-
-  function openSearch() {
-    setSearchOpen(true);
-  }
-
-  function closeSearch() {
-    setSearchOpen(false);
-    setSearch("");
-  }
 
   // Skifter man visning (kort/liste), nulstilles en evt. aktiv søgning, så
   // det nye view altid starter fra sit eget standardindhold i stedet for at
@@ -298,43 +290,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
           </button>
         </div>
 
-        <div className="relative w-[38px] h-[38px] flex-shrink-0">
-          <button
-            type="button"
-            onClick={openSearch}
-            title="Søg"
-            className="w-[38px] h-[38px] rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t2 flex items-center justify-center hover:bg-pepo-su"
-          >
-            <Icon name="search" size={20} />
-          </button>
-          <div
-            className={
-              "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
-              (searchOpen
-                ? // min(300px, ...) — undgår at søgefeltet løber ud over skærmens
-                  // højrekant på smalle mobilskærme (samme rettelse i
-                  // MessageBoard/ShiftBoard/FreelancerBoard's tilsvarende søgefelt).
-                  "w-[min(300px,calc(100vw-96px))] border-pepo-bds opacity-100 pointer-events-auto"
-                : "w-0 border-transparent opacity-0 pointer-events-none")
-            }
-          >
-            <Icon name="search" size={19} className="absolute left-[11px] top-1/2 -translate-y-1/2 text-pepo-t3 pointer-events-none" />
-            <input
-              type="text"
-              autoFocus={searchOpen}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Søg..."
-              className="w-full h-full border-none outline-none px-[34px] text-[13.5px] bg-transparent"
-            />
-            <div
-              onClick={closeSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-[6px] flex items-center justify-center cursor-pointer text-pepo-t3 hover:bg-pepo-su hover:text-pepo-t1"
-            >
-              <Icon name="x" size={20} />
-            </div>
-          </div>
-        </div>
+        <ExpandingSearchButton open={searchOpen} onOpenChange={setSearchOpen} value={search} onValueChange={setSearch} />
       </div>
       <div className="border-t border-pepo-bd" />
 

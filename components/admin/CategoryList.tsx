@@ -248,7 +248,14 @@ export default function CategoryList({
               if (e.key === "Enter") addCategory();
             }}
             placeholder="Fx Chauffør"
-            className="flex-1 min-w-0 h-[42px] border border-pepo-bds rounded-[10px] px-3.5 text-[13.5px] outline-none bg-pepo-wh focus:border-pepo-p"
+            // w-full (ikke flex-1) på mobil: i en flex-col-container er
+            // hovedaksen lodret, så flex-1 (flex-basis: 0%) ville i praksis
+            // overstyre den eksplicitte h-[42px] og give feltet en lille,
+            // sammenklemt højde baseret på indhold i stedet for de andre
+            // felters faste 42px — kun fra sm og op (flex-row, hvor
+            // hovedaksen er vandret) giver flex-1 mening til at fordele
+            // BREDDEN mellem input/select/knap.
+            className="w-full sm:w-auto sm:flex-1 sm:min-w-0 h-[42px] border border-pepo-bds rounded-[10px] px-3.5 text-[13.5px] outline-none bg-pepo-wh focus:border-pepo-p"
           />
           <select
             value={groupSelectValue}
