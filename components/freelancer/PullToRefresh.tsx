@@ -146,6 +146,7 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
 export default function PullToRefresh({
   children,
   enabled = true,
+  nativeBounce = false,
 }: {
   children: React.ReactNode;
   /**
@@ -155,6 +156,20 @@ export default function PullToRefresh({
    * ikke sker noget layout-hop når enheden afgøres asynkront efter mount.
    */
   enabled?: boolean;
+  /**
+   * MIDLERTIDIGT TEST-FLAG (bedt om af Hjorth 2026-07-22): slår HELE vores
+   * eget bounce/pull-to-refresh-flow fra for denne instans og lader
+   * browserens egen native rubber-band-scrolling styre i stedet (kræver at
+   * `overscroll-none` fjernes fra scrollRef, se className nedenfor) — bruges
+   * til at sammenligne følelsen side om side på Kontakter-siden (se
+   * PullToRefreshRouter.tsx) mod resten af appens sider, som stadig bruger
+   * vores egen genopbyggede bounce. Bemærk: selve genindlæsnings-handlingen
+   * (træk-for-at-genindlæse) virker IKKE mens dette er sat til true — der er
+   * ingen browser-API til at hooke en handling på native overscroll, kun på
+   * vores eget JS-drevne træk. Fjern dette flag + PullToRefreshRouter.tsx
+   * igen, når Hjorth har besluttet sig for hvilken model der skal bruges.
+   */
+  nativeBounce?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerSlotRef = useRef<HTMLDivElement>(null);
@@ -219,7 +234,7 @@ export default function PullToRefresh({
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || !enabled) return;
+    if (!el || !enabled || nativeBounce) return;
 
     function atTop() {
       return el!.scrollTop <= 0;
@@ -383,7 +398,7 @@ export default function PullToRefresh({
       if (momentumBounceTimerRef.current) clearTimeout(momentumBounceTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, refreshing]);
+  }, [enabled, nativeBounce, refreshing]);
 
   // Så snart selve genindlæsningen (router.refresh()) er færdig — men
   // tidligst efter MIN_REFRESH_VISIBLE_MS — glider indholdet op på plads
@@ -422,7 +437,10 @@ export default function PullToRefresh({
               <Icon name="loader-2" size={22} className="text-pepo-p" />
             </div>
           </div>
-          <div ref={scrollRef} className="relative z-[1] h-full overflow-y-auto overscroll-none bg-pepo-su">
+          <div
+            ref={scrollRef}
+            className={`relative z-[1] h-full overflow-y-auto bg-pepo-su ${nativeBounce ? "overscroll-auto" : "overscroll-none"}`}
+          >
             {children}
           </div>
         </div>
