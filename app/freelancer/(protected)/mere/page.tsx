@@ -59,7 +59,7 @@ export default async function FreelancerMerePage() {
           <div className="text-[15px] font-semibold text-pepo-t1 truncate">{profile?.full_name}</div>
           <div className="text-[12.5px] text-pepo-t2 truncate">{profile?.email}</div>
         </div>
-        <Icon name="chevron-right" size={16} className="text-pepo-t3 flex-shrink-0" />
+        <Icon name="chevron-right" size={24} className="text-pepo-t2 flex-shrink-0" />
       </Link>
 
       {approvedProfiles.length > 1 && activeProfile && (
@@ -97,9 +97,9 @@ export default async function FreelancerMerePage() {
 function MenuRow({ icon, label, href }: { icon: string; label: string; href?: string }) {
   const content = (
     <>
-      <Icon name={icon} size={18} className="text-pepo-t2" />
+      <Icon name={icon} size={22} className="text-pepo-t2" />
       <span className="flex-1">{label}</span>
-      <Icon name="chevron-right" size={16} className="text-pepo-t3" />
+      <Icon name="chevron-right" size={24} className="text-pepo-t2" />
     </>
   );
 

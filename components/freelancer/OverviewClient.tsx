@@ -352,7 +352,7 @@ export default function OverviewClient({
                     {shift.venue ? ` · ${shift.venue}` : ""}
                   </div>
                 </div>
-                <Icon name="chevron-right" size={16} className="text-pepo-t3 flex-shrink-0" />
+                <Icon name="chevron-right" size={24} className="text-pepo-t2 flex-shrink-0" />
               </Link>
             );
           })}
@@ -408,7 +408,7 @@ function OpenShiftsList({ promise }: { promise: Promise<OpenShift[]> }) {
                 Anmodet
               </span>
             ) : (
-              <Icon name="chevron-right" size={16} className="text-pepo-t3 flex-shrink-0" />
+              <Icon name="chevron-right" size={24} className="text-pepo-t2 flex-shrink-0" />
             )}
           </Link>
         );

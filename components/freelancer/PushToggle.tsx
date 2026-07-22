@@ -76,7 +76,7 @@ export default function PushToggle() {
   return (
     <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-4 mt-4 pepo-rise">
       <div className="flex items-center gap-2.5">
-        <Icon name="bell" size={18} className="text-pepo-t2" />
+        <Icon name="bell" size={22} className="text-pepo-t2" />
         <div className="flex-1">
           <div className="text-[13.5px] font-medium text-pepo-t1">Push-notifikationer</div>
           <div className="text-[12px] text-pepo-t2 mt-0.5">

@@ -101,7 +101,7 @@ export default function KontakterClient({
                         <div className="text-[12px] text-pepo-t2 truncate">{person.category_names[0]}</div>
                       )}
                     </div>
-                    <Icon name="chevron-right" size={16} className="text-pepo-t3 flex-shrink-0" />
+                    <Icon name="chevron-right" size={24} className="text-pepo-t2 flex-shrink-0" />
                   </Link>
                 ))}
               </div>

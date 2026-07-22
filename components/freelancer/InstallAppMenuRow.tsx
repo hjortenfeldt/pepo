@@ -22,9 +22,9 @@ export default function InstallAppMenuRow() {
       onClick={handleClick}
       className="w-full flex items-center gap-3 px-4 py-3.5 text-[13.5px] text-pepo-t1 text-left"
     >
-      <Icon name="download" size={18} className="text-pepo-t2" />
+      <Icon name="download" size={22} className="text-pepo-t2" />
       <span className="flex-1">Installér Pepo App&apos;en</span>
-      <Icon name="chevron-right" size={16} className="text-pepo-t3" />
+      <Icon name="chevron-right" size={24} className="text-pepo-t2" />
     </button>
   );
 }

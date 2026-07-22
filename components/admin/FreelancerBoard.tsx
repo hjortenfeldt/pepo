@@ -960,7 +960,7 @@ export default function FreelancerBoard({
                   </Field>
 
                   <div className="flex gap-2.5">
-                    <Field label="Køn" className="flex-1">
+                    <Field label="Køn" className="flex-1 min-w-0">
                       <select
                         value={form.gender}
                         onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
@@ -973,18 +973,18 @@ export default function FreelancerBoard({
                         <option>Ønsker ikke at oplyse</option>
                       </select>
                     </Field>
-                    <Field label="Fødselsdato" className="flex-1">
+                    <Field label="Fødselsdato" className="flex-1 min-w-0">
                       <input
                         type="date"
                         value={form.birthDate}
                         onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
-                        className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
+                        className="w-full min-w-0 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
                       />
                     </Field>
                   </div>
 
                   <div className="flex gap-2.5">
-                    <Field label="Telefon" className="flex-1">
+                    <Field label="Telefon" className="flex-1 min-w-0">
                       <input
                         type="text"
                         value={form.phone}
@@ -993,7 +993,7 @@ export default function FreelancerBoard({
                         className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
                       />
                     </Field>
-                    <Field label="Email" className="flex-1">
+                    <Field label="Email" className="flex-1 min-w-0">
                       <input
                         type="text"
                         value={form.email}
