@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { isMobileDevice } from "@/lib/device-detection";
 import PullToRefresh from "@/components/freelancer/PullToRefresh";
+import { NAV } from "@/components/admin/AdminSidebar";
 
 /**
  * Admin Appens tynde wrapper omkring components/freelancer/PullToRefresh.tsx
@@ -28,10 +30,20 @@ import PullToRefresh from "@/components/freelancer/PullToRefresh";
  */
 export default function AdminPullToRefresh({ children }: { children: React.ReactNode }) {
   const [mobile, setMobile] = useState(false);
+  const pathname = usePathname();
+  // Samme matching-logik som AdminNavLinks bruger til at markere den aktive
+  // fane (se AdminSidebar.tsx) — genbruges her så pull-spinneren viser samme
+  // ikon som menupunktet brugeren står på. "/settings/..."-undersider matcher
+  // fortsat "Indstillinger"s ikon, da startsWith også fanger dem.
+  const navItem = NAV.find((item) => (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)));
 
   useEffect(() => {
     Promise.resolve().then(() => setMobile(isMobileDevice()));
   }, []);
 
-  return <PullToRefresh enabled={mobile}>{children}</PullToRefresh>;
+  return (
+    <PullToRefresh enabled={mobile} icon={navItem?.icon}>
+      {children}
+    </PullToRefresh>
+  );
 }

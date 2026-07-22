@@ -32,7 +32,10 @@ type NavItem = {
 // Ruterne er relative til virksomhedens eget subdomæne (fx
 // kulturbyen.pepo.team/shifts) — intet "/admin"-præfiks, da middleware.ts
 // allerede har rewritet requestet internt til /tenant/*.
-const NAV: NavItem[] = [
+// Eksporteret så AdminPullToRefresh.tsx kan genbruge samme sti->ikon-mapping
+// til pull-to-refresh-spinneren (samme ikon som menupunktet brugeren står på,
+// se PullToRefresh.tsx's `icon`-prop).
+export const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "layout-dashboard", active: true },
   { href: "/shifts", label: "Events & vagter", icon: "calendar-event", active: true },
   { href: "/freelancers", label: "Freelancere", icon: "users", active: true },

@@ -25,6 +25,7 @@ const SPINNER_HEIGHT = 52;
 // Så spinneren ikke bare blinker forbi ved et lynhurtigt genindlæs — de
 // fleste apps (Mail, Twitter/X m.fl.) holder den synlig i et minimum af tid.
 const MIN_REFRESH_VISIBLE_MS = 500;
+const DEFAULT_ICON = "refresh";
 
 const SPRING_BACK_TRANSITION = "300ms cubic-bezier(0.34, 1.56, 0.64, 1)";
 const INSTANT = "0ms";
@@ -64,76 +65,66 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
  * wrapper omkring denne komponent — importeres bevidst på tværs af app-mapper,
  * samme etablerede mønster som fx ShareIosIcon.tsx).
  *
- * HYBRID-MODEL (v0.27.4, gjort permanent og universel i v0.28.0 efter at
- * Hjorth testede den på Kontakter-siden og godkendte følelsen ubetinget):
- * browseren styrer ALT scroll-relateret bounce selv (bund-elastik OG et
- * hurtigt swipe der ankommer via momentum, finger allerede løftet) via
- * `overscroll-behavior: auto` — det var derfor Hjorths oprindelige idé om
- * "kan vi ikke bare bruge browserens egen model" var rigtig, for netop de to
- * dele. Den ENESTE del vi selv står for er det AKTIVE træk i toppen af
- * indholdet, fordi det er den eneste del der reelt kræver et JS-hook: der
- * findes ingen browser-API til at hooke en "genindlæs"-handling på native
- * overscroll. Det aktiveres udelukkende når `scrollTop <= 0` OG brugeren
- * rent faktisk trækker nedad der — et hurtigt momentum-swipe der ankommer
- * til toppen (finger allerede løftet) rammer ALDRIG denne kode, da der ikke
- * er noget aktivt touchmove at opsnappe, og falder derfor automatisk
- * tilbage til browserens egen native bounce i toppen, ligesom i bunden.
+ * HYBRID-MODEL (v0.27.4, gjort permanent og universel i v0.28.0): browseren
+ * styrer ALT scroll-relateret bounce selv (bund-elastik OG et hurtigt swipe
+ * der ankommer via momentum, finger allerede løftet) via
+ * `overscroll-behavior: auto`. Den ENESTE del vi selv står for er det AKTIVE
+ * træk i toppen af indholdet, fordi det er den eneste del der reelt kræver et
+ * JS-hook: der findes ingen browser-API til at hooke en "genindlæs"-handling
+ * på native overscroll. Det aktiveres udelukkende når `scrollTop <= 0` OG
+ * brugeren rent faktisk trækker nedad der.
  *
- * (Ældre historik: v0.27.0–v0.27.1 byggede en fuld genimplementering af
- * bund-bounce + momentum-bounce ovenpå `overscroll-none`, fordi den
- * oprindelige antagelse var at ALT skulle bygges selv for at få en app-agtig
- * følelse. v0.27.3 testede ren native scrolling på én side for at
- * sammenligne, hvilket bekræftede at kun toppens genindlæsnings-gestus
- * reelt havde brug for eget JS — se project-memory for den fulde forløb,
- * hvis den historik bliver relevant igen.)
+ * VIGTIGT (v0.28.1 → v0.28.2, se project-memory for hele fejlsøgningen):
+ * trækket flytter IKKE noget som helst med en CSS `transform` — hverken
+ * scrollRef selv eller en indre wrapper. I stedet er `spinnerWrapRef` en helt
+ * almindelig div i starten af det scrollende indhold, hvis HØJDE animeres fra
+ * 0 og op under trækket. Da denne gestus kun nogensinde er aktiv mens
+ * `scrollTop <= 0` (se `atTop()`), skubber højdevæksten resten af indholdet
+ * nedad via helt almindeligt blok-layout, med nøjagtig samme visuelle
+ * resultat som en transform ville have givet — men uden at røre en scroll-
+ * lag-relateret CSS-egenskab overhovedet. Tidligere (v0.28.1) blev en indre
+ * `pullWrapRef` transformeret i stedet for `scrollRef` selv, hvilket løste
+ * det oprindelige fryse-problem, men efterlod pull-spinneren usynlig (den var
+ * bygget til at blive "afsløret" af at scrollRef flyttede sig, hvilket ikke
+ * længere skete) — højde-baseret fortrængning løser begge dele på én gang og
+ * er samtidig simplere kode, ikke mere.
  *
- * VIGTIGT — kun selve INDHOLDET må bounce', ikke sidernes top-bar/bund-knap:
- * en CSS `transform` på et element gør det til et nyt "containing block" for
- * alle `position: fixed`-efterkommere (så de flytter sig med i stedet for at
- * blive hængende i viewporten), og enhver `position: sticky`-efterkommer
- * flytter uundgåeligt med som en del af hele den transformerede boks — også
- * selvom den KUN er "sticky" og ikke selv "fixed". Løsning: to ægte
- * DOM-SØSKENDE til scrollRef — `headerSlotRef`/`footerSlotRef` — der slet
- * ikke er en del af den scrollende/transformerede boks. Sider der har en
- * fast top-bar eller bund-knap (OverviewClient.tsx, KontakterClient.tsx,
- * ShiftRequestDetail.tsx, ColleagueDetail.tsx, ProfileEditForm.tsx) bruger de
- * eksporterede `<PullToRefreshHeader>`/`<PullToRefreshFooter>` i stedet for
- * en `sticky top-0`/`sticky bottom-0`-div — de portalerer (via React's
+ * `overflow-anchor: none` på scrollRef er nødvendig for højde-teknikken:
+ * uden den kan browserens "scroll anchoring" (Chrome bl.a.) forsøge at
+ * kompensere for indholdsændringer over det synlige område ved selv at
+ * justere scrollTop — hvilket ville modarbejde vores bevidste højdevækst.
+ *
+ * Da INGEN transform længere bruges noget sted i selve trækket, er den
+ * tidligere `.sticky`/`.fixed`-modvirkning (se ældre versioner af denne fil)
+ * heller ikke længere nødvendig og er fjernet — der er intet at modvirke,
+ * når ingenting flytter sig via transform.
+ *
+ * Header/footer-slots: to ægte DOM-SØSKENDE til scrollRef —
+ * `headerSlotRef`/`footerSlotRef` — der slet ikke er en del af den
+ * scrollende boks. Sider der har en fast top-bar eller bund-knap
+ * (OverviewClient.tsx, KontakterClient.tsx, ShiftRequestDetail.tsx,
+ * ColleagueDetail.tsx, ProfileEditForm.tsx) bruger de eksporterede
+ * `<PullToRefreshHeader>`/`<PullToRefreshFooter>` i stedet for en
+ * `sticky top-0`/`sticky bottom-0`-div — de portalerer (via React's
  * `createPortal`) deres indhold ind i disse slots. Contexten
  * (`PullToRefreshSlotContext`) gør slottets DOM-node tilgængelig for enhver
- * efterkommer i React-træet, uanset hvor dybt nede i `{children}` den sider —
- * portalering flytter kun selve DOM-outputtet, ikke React-konteksten.
+ * efterkommer i React-træet, uanset hvor dybt nede i `{children}` den sider.
  *
- * En modsat transform på `.sticky`/`.fixed`-efterkommere (Tailwinds egne,
- * bogstavelige klassenavne) er bevaret som et defensivt fallback for ægte
- * `position: fixed`-elementer der IKKE bruger disse slots (fx slide-in-
- * panelerne i ShiftWizardPanel.tsx m.fl., som bruger `fixed inset-0` direkte
- * i sidens markup) — kun relevant mens toppens aktive træk rent faktisk
- * kører (den eneste del af flowet der stadig sætter en transform).
+ * Ikon (v0.28.2): spinneren viser IKKE en generisk spinnende cirkel-streg
+ * mere, men det samme ikon som sidens eget menupunkt i bund-/sidenavigationen
+ * (fx "users" på Kontakter, "layout-dashboard" på Admin Appens Dashboard) —
+ * valgt af den app-specifikke wrapper (PullToRefreshWithIcon.tsx for
+ * Freelancer Appen, direkte i AdminPullToRefresh.tsx for Admin Appen), som
+ * kender den aktuelle rutes menupunkt. Falder tilbage til et almindeligt
+ * genindlæsnings-ikon (`DEFAULT_ICON`), hvis siden ikke matcher noget
+ * menupunkt (fx underdetaljesider som /vagt/[id]). Ikonet roterer/spinner
+ * IKKE — det vises blot statisk, både under selve trækket (med stigende
+ * opacity) og mens genindlæsningen står på.
  *
  * Selve trækket manipulerer DOM'en direkte via refs (IKKE React state) for
  * at holde det flydende på 60fps — kun de "faste" tilstande (genindlæser
  * eller ej) går gennem React state, da de alligevel altid animeres med en
  * CSS-transition og derfor ikke skal opdatere på hver eneste touchmove.
- *
- * VIGTIGT (v0.28.1-fix, se project-memory for hele fejlsøgningen): selve
- * trækkets `translateY(...)`-transform sættes på `pullWrapRef` — en
- * indre wrapper-div INDE I scrollRef, som pakker `{children}` ind — ALDRIG
- * direkte på `scrollRef` selv. `scrollRef` er det element der reelt har
- * `overflow-y-auto` og dermed Safaris native momentum-scroll-lag. At sætte
- * en CSS `transform` DIREKTE på det element der selv momentum-scroller er en
- * kendt, veldokumenteret iOS Safari-fælde: compositoren kan miste kontakten
- * med sit eget scroll-lag og lade siden "fryse" (ingen touch/scroll reagerer
- * længere) — ofte forsinket og ikke ved selve trækket, men først næste gang
- * brugeren rammer en scroll-grænse (præcis Hjorths rapporterede symptom:
- * "scroller til bunden, swiper igen, fryser" — først en tilsyneladende
- * urelateret handling senere udløste den fejl der reelt blev sået tidligere
- * af transformen på scrollRef). At navigere væk og tilbage "fixede" det, fordi
- * det genskaber DOM-noden og dermed et helt nyt, upåvirket scroll-lag.
- * Løsningen er at holde `scrollRef` 100% fri for enhver inline `transform` —
- * al visuel forskydning sker på `pullWrapRef` i stedet, som IKKE selv
- * scroller (det er blot et almindeligt blok-element inde i scrollRef), så
- * dets transform aldrig rører ved det momentum-scrollende lag.
  *
  * touchmove-lytteren tilføjes manuelt med { passive: false } (ikke som et
  * almindeligt React onTouchMove-prop) — React's syntetiske touch-lyttere er
@@ -143,6 +134,7 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
 export default function PullToRefresh({
   children,
   enabled = true,
+  icon = DEFAULT_ICON,
 }: {
   children: React.ReactNode;
   /**
@@ -152,9 +144,15 @@ export default function PullToRefresh({
    * sker noget layout-hop når enheden afgøres asynkront efter mount.
    */
   enabled?: boolean;
+  /**
+   * Tabler-ikonnavn (se components/Icon.tsx) vist i pull-spinneren — normalt
+   * samme ikon som sidens eget menupunkt, valgt af den kaldende wrapper (se
+   * doc-kommentaren ovenfor). Falder tilbage til DEFAULT_ICON ("refresh"),
+   * hvis ikke angivet.
+   */
+  icon?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const pullWrapRef = useRef<HTMLDivElement>(null);
   const headerSlotRef = useRef<HTMLDivElement>(null);
   const footerSlotRef = useRef<HTMLDivElement>(null);
   const spinnerWrapRef = useRef<HTMLDivElement>(null);
@@ -163,9 +161,6 @@ export default function PullToRefresh({
   const pullDistanceRef = useRef(0);
   const draggingRef = useRef(false);
   const refreshStartedAtRef = useRef(0);
-  // Cachet ved touchstart i stedet for at forespørge DOM'en på hver eneste
-  // touchmove-frame.
-  const fixedOrStickyElsRef = useRef<HTMLElement[]>([]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -180,23 +175,12 @@ export default function PullToRefresh({
   }, []);
 
   function setVisualPull(distance: number, transition: string) {
-    // pullWrapRef (IKKE scrollRef!) er målet for selve transformen — se
-    // doc-kommentaren ovenfor for hvorfor det er kritisk at scrollRef, det
-    // momentum-scrollende element, aldrig selv får en inline transform.
-    const wrapEl = pullWrapRef.current;
     const spinnerEl = spinnerWrapRef.current;
-    if (!wrapEl || !spinnerEl) return;
+    if (!spinnerEl) return;
 
-    wrapEl.style.transition = `transform ${transition}`;
-    wrapEl.style.transform = `translateY(${distance}px)`;
-
-    // Modsat transform på enhver .sticky/.fixed-efterkommer — se doc-kommentar
-    // ovenfor for hvorfor dette er nødvendigt for at holde dem visuelt i ro.
-    for (const el of fixedOrStickyElsRef.current) {
-      el.style.transition = `transform ${transition}`;
-      el.style.transform = `translateY(${-distance}px)`;
-    }
-
+    // Kun spinnerens HØJDE animeres — se doc-kommentaren ovenfor for hvorfor
+    // dette (i stedet for en transform) både er nok til at skubbe indholdet
+    // nedad OG er det der løste v0.28.1's fryse-fejl for godt.
     const positiveDistance = Math.max(distance, 0);
     spinnerEl.style.transition = `height ${transition}`;
     spinnerEl.style.height = `${positiveDistance}px`;
@@ -204,9 +188,6 @@ export default function PullToRefresh({
     if (spinnerIconRef.current) {
       const progress = Math.min(positiveDistance / TRIGGER_DISTANCE, 1);
       spinnerIconRef.current.style.opacity = String(progress);
-      if (!refreshing) {
-        spinnerIconRef.current.style.transform = `rotate(${progress * 360}deg)`;
-      }
     }
   }
 
@@ -216,9 +197,6 @@ export default function PullToRefresh({
 
     function atTop() {
       return el!.scrollTop <= 0;
-    }
-    function captureFixedOrSticky() {
-      fixedOrStickyElsRef.current = Array.from(el!.querySelectorAll<HTMLElement>(".sticky, .fixed"));
     }
 
     // Det eneste vi selv styrer: et aktivt træk ned, mens indholdet allerede
@@ -230,7 +208,6 @@ export default function PullToRefresh({
         draggingRef.current = false;
         return;
       }
-      captureFixedOrSticky();
       startYRef.current = e.touches[0].clientY;
       draggingRef.current = true;
     }
@@ -305,7 +282,6 @@ export default function PullToRefresh({
       setVisualPull(0, SPRING_BACK_TRANSITION);
     }, remaining);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshing, isPending]);
 
   return (
@@ -317,27 +293,29 @@ export default function PullToRefresh({
           stedet for at have to divergerende varianter af denne klasse. */}
       <div className="relative flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col">
         {/* Header-slot: ægte DOM-søskende til scrollRef, uden for den
-            transformerede/bounce'ende boks — se PullToRefreshHeader. Tom når
-            en side ikke bruger den (fx sider uden fast top-bar). */}
+            scrollende boks — se PullToRefreshHeader. Tom når en side ikke
+            bruger den (fx sider uden fast top-bar). */}
         <div ref={headerSlotRef} className="relative z-[2] flex-shrink-0" />
-        <div className="relative flex-1 min-h-0 overflow-hidden">
+        {/* overscroll-auto (ikke -none): lader browserens egen native
+            rubber-band styre bund-elastik og momentum-ankomst i begge ender.
+            [overflow-anchor:none]: forhindrer browserens "scroll anchoring" i
+            at modarbejde spinnerWrapRef's bevidste højdevækst herunder — se
+            doc-kommentaren for hele modellen. Denne div får ALDRIG en inline
+            transform. */}
+        <div
+          ref={scrollRef}
+          className="relative flex-1 min-h-0 overflow-y-auto overscroll-auto bg-pepo-su [overflow-anchor:none]"
+        >
           <div
             ref={spinnerWrapRef}
-            className="absolute top-0 left-0 right-0 z-0 flex items-center justify-center overflow-hidden"
+            className="flex items-center justify-center overflow-hidden"
             style={{ height: 0 }}
           >
-            <div ref={spinnerIconRef} className={refreshing ? "animate-spin" : ""} style={{ opacity: 0 }}>
-              <Icon name="loader-2" size={22} className="text-pepo-p" />
+            <div ref={spinnerIconRef} style={{ opacity: 0 }}>
+              <Icon name={icon} size={22} className="text-pepo-p" />
             </div>
           </div>
-          {/* overscroll-auto (ikke -none): lader browserens egen native
-              rubber-band styre bund-elastik og momentum-ankomst i begge
-              ender — se doc-kommentaren for hele modellen. Denne div får
-              ALDRIG en inline transform (se doc-kommentaren for hvorfor) —
-              selve trækket flytter kun pullWrapRef herunder. */}
-          <div ref={scrollRef} className="relative z-[1] h-full overflow-y-auto overscroll-auto bg-pepo-su">
-            <div ref={pullWrapRef}>{children}</div>
-          </div>
+          {children}
         </div>
         {/* Bund-slot: samme idé, for en fast bund-knap/handlingsbar — se
             PullToRefreshFooter. */}

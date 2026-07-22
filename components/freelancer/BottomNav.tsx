@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "@/components/Icon";
 
-const TABS = [
+// Eksporteret så PullToRefreshWithIcon.tsx kan genbruge samme sti->ikon-
+// mapping til pull-to-refresh-spinneren (samme ikon som fanen brugeren står
+// på, se PullToRefresh.tsx's `icon`-prop).
+export const TABS = [
   { href: "/", label: "Overblik", icon: "layout-grid" },
   { href: "/vagtplan", label: "Vagtplan", icon: "calendar" },
   { href: "/beskeder", label: "Beskeder", icon: "message-circle" },
