@@ -9,6 +9,7 @@ import {
   addDays,
   utcStamp,
   VTIMEZONE,
+  type IcsAttachmentInput,
 } from "@/lib/ics";
 
 /**
@@ -44,7 +45,7 @@ export type FreelancerIcsEventInput = {
   clientEmail: string | null;
   clientPhone: string | null;
   briefing: string | null;
-  attachmentUrls: string[];
+  attachments: IcsAttachmentInput[];
   /** Freelancerens EGNE vagt(er) ved dette event — normalt præcis én. */
   myShifts: FreelancerIcsShiftRow[];
   /** Alle ANDRE (ikke-annullerede) vagter ved samme event. */
@@ -97,10 +98,12 @@ function buildDescription(event: FreelancerIcsEventInput): string {
   lines.push("BRIEFING TIL JOBBET:");
   lines.push(event.briefing?.trim() || "(Ingen briefing angivet)");
 
-  if (event.attachmentUrls.length > 0) {
+  if (event.attachments.length > 0) {
     lines.push("");
-    event.attachmentUrls.forEach((url, i) => {
-      lines.push(`Link #${i + 1}: ${url}`);
+    event.attachments.forEach((a, i) => {
+      if (i > 0) lines.push("");
+      lines.push(`Vedhæftet fil: ${a.name?.trim() || `Bilag ${i + 1}`}`);
+      lines.push(a.url);
     });
   }
   lines.push("");

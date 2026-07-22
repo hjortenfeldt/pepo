@@ -27,7 +27,7 @@ type RawVenueRef = {
 };
 type RawClientRef = { name: string | null; contact_person: string | null; contact_email: string | null; contact_phone: string | null };
 type RawWorkCategoryRef = { name: string };
-type RawAttachmentRow = { file_url: string };
+type RawAttachmentRow = { file_url: string; file_name: string | null };
 // assigned_freelancer_id er login-id'et (auth.users.id), IKKE
 // freelancer_profiles.id — den fremmednøgle peger nu på auth.users, så
 // PostgREST kan ikke længere indlejre freelancer_profiles direkte her.
@@ -113,7 +113,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       `id, title, event_date, description, updated_at,
        clients(name, contact_person, contact_email, contact_phone),
        client_venues(address, postal_code, city),
-       shift_attachments(file_url),
+       shift_attachments(file_url, file_name),
        shifts(start_time, end_time, status, assigned_freelancer_id,
          work_categories(name),
          shift_interests(status))`
@@ -171,7 +171,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       clientEmail: client?.contact_email ?? null,
       clientPhone: client?.contact_phone ?? null,
       briefing: e.description,
-      attachmentUrls: (e.shift_attachments ?? []).map((a) => a.file_url),
+      attachments: (e.shift_attachments ?? []).map((a) => ({ url: a.file_url, name: a.file_name })),
       shifts,
       updatedAtIso: e.updated_at,
     };

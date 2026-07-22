@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 type RawVenueRef = { address: string | null; postal_code: string | null; city: string | null };
 type RawClientRef = { name: string | null; contact_person: string | null; contact_email: string | null; contact_phone: string | null };
 type RawWorkCategoryRef = { name: string };
-type RawAttachmentRow = { file_url: string };
+type RawAttachmentRow = { file_url: string; file_name: string | null };
 type RawShiftRow = {
   start_time: string;
   end_time: string;
@@ -116,7 +116,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       `id, title, event_date, description, updated_at,
        clients(name, contact_person, contact_email, contact_phone),
        client_venues(address, postal_code, city),
-       shift_attachments(file_url),
+       shift_attachments(file_url, file_name),
        shifts(start_time, end_time, status, assigned_freelancer_id,
          work_categories(name))`
     )
@@ -184,7 +184,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
         clientEmail: client?.contact_email ?? null,
         clientPhone: client?.contact_phone ?? null,
         briefing: e.description,
-        attachmentUrls: (e.shift_attachments ?? []).map((a) => a.file_url),
+        attachments: (e.shift_attachments ?? []).map((a) => ({ url: a.file_url, name: a.file_name })),
         myShifts,
         colleagueShifts,
         updatedAtIso: e.updated_at,

@@ -19,6 +19,12 @@ export type IcsShiftInput = {
   statusText: string;
 };
 
+export type IcsAttachmentInput = {
+  url: string;
+  /** Filnavnet fra shift_attachments.file_name — kan i teorien være null for ældre rækker. */
+  name: string | null;
+};
+
 export type IcsEventInput = {
   id: string;
   title: string;
@@ -44,7 +50,7 @@ export type IcsEventInput = {
   clientEmail: string | null;
   clientPhone: string | null;
   briefing: string | null;
-  attachmentUrls: string[];
+  attachments: IcsAttachmentInput[];
   shifts: IcsShiftInput[];
   updatedAtIso: string; // til DTSTAMP/LAST-MODIFIED
 };
@@ -151,10 +157,12 @@ function buildDescription(event: IcsEventInput): string {
   lines.push("BRIEFING TIL JOBBET:");
   lines.push(event.briefing?.trim() || "(Ingen briefing angivet)");
 
-  if (event.attachmentUrls.length > 0) {
+  if (event.attachments.length > 0) {
     lines.push("");
-    event.attachmentUrls.forEach((url, i) => {
-      lines.push(`Link #${i + 1}: ${url}`);
+    event.attachments.forEach((a, i) => {
+      if (i > 0) lines.push("");
+      lines.push(`Vedhæftet fil: ${a.name?.trim() || `Bilag ${i + 1}`}`);
+      lines.push(a.url);
     });
   }
   lines.push("");

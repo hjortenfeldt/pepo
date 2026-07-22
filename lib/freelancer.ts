@@ -248,6 +248,104 @@ export async function getCompanyColleagueDirectory(companyId: string): Promise<C
   return (data ?? []) as CompanyColleague[];
 }
 
+function one<T>(rel: T | T[] | null | undefined): T | null {
+  if (!rel) return null;
+  return Array.isArray(rel) ? rel[0] ?? null : rel;
+}
+
+export type EditableProfile = {
+  fullName: string;
+  gender: string | null;
+  birthDate: string | null;
+  phone: string;
+  email: string | null;
+  location: string | null;
+  bio: string | null;
+  socialMediaUrl: string | null;
+  hasLicense: boolean;
+  profileImageUrl: string | null;
+  categoryIds: string[];
+};
+
+/**
+ * Alle redigérbare felter for freelancerens EGEN profil (denne virksomheds
+ * profil-id) — til "Rediger profil"-siden bag profilklodsen på "Mere".
+ * Samme feltsæt som admins "Redigér freelancer" (se
+ * feedback_freelancer_profile_fields_in_sync), blot hentet til
+ * freelancerens eget redigeringsvindue i stedet for admins.
+ *
+ * Bruger admin-klienten som resten af denne fil (service role, RLS gælder
+ * ikke) — kaldende kode (profil/page.tsx) har allerede fastslået at
+ * profileId er brugerens egen aktive profil via getActiveProfile, og selve
+ * gemmet (updateMyProfile i profil/actions.ts) verificerer desuden
+ * eksplicit auth_user_id, så et forkert/forfalsket profileId aldrig kan
+ * bruges til at læse eller skrive en andens profil.
+ */
+export async function getEditableProfile(profileId: string): Promise<EditableProfile | null> {
+  const supabase = createAdminClient();
+  const { data: row, error } = await supabase
+    .from("freelancer_profiles")
+    .select(
+      "full_name, gender, birth_date, phone, email, location, bio, social_media_url, has_license, profile_image_url, auth_user_id, company_id"
+    )
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (error || !row) {
+    console.error("getEditableProfile fejlede", error);
+    return null;
+  }
+
+  // freelancer_categories.freelancer_id peger på login-id'et (auth_user_id),
+  // fælles på tværs af personens evt. andre virksomheder — filtrér derfor
+  // til kun DENNE virksomheds jobfunktioner (samme mønster som
+  // updateFreelancer i tenant-adminens actions.ts).
+  type CatRow = {
+    category_id: string;
+    work_categories: { company_id: string } | { company_id: string }[] | null;
+  };
+  const { data: catRows } = await supabase
+    .from("freelancer_categories")
+    .select("category_id, work_categories(company_id)")
+    .eq("freelancer_id", row.auth_user_id);
+
+  const categoryIds = ((catRows ?? []) as CatRow[])
+    .filter((c) => one(c.work_categories)?.company_id === row.company_id)
+    .map((c) => c.category_id);
+
+  return {
+    fullName: row.full_name,
+    gender: row.gender,
+    birthDate: row.birth_date,
+    phone: row.phone,
+    email: row.email,
+    location: row.location,
+    bio: row.bio,
+    socialMediaUrl: row.social_media_url,
+    hasLicense: row.has_license,
+    profileImageUrl: row.profile_image_url,
+    categoryIds,
+  };
+}
+
+export type WorkCategoryOption = { id: string; name: string; icon: string | null };
+
+/** Virksomhedens jobfunktioner, til jobfunktions-vælgeren på "Rediger profil". */
+export async function getCompanyWorkCategories(companyId: string): Promise<WorkCategoryOption[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("work_categories")
+    .select("id, name, icon")
+    .eq("company_id", companyId)
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("getCompanyWorkCategories fejlede", error);
+    return [];
+  }
+  return (data ?? []) as WorkCategoryOption[];
+}
+
 /**
  * Giver en nyoprettet admin-bruger automatisk status som godkendt
  * freelancer i deres egen virksomhed, med alle nuværende jobfunktioner

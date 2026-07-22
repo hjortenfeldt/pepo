@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getAuthUser } from "@/lib/supabase/server";
 import { logout } from "../../login/actions";
 import { getActiveProfile, getApprovedProfiles, getFreelancerCalendarToken } from "@/lib/freelancer";
@@ -42,7 +43,10 @@ export default async function FreelancerMerePage() {
     <div className="px-5 pt-4 pb-6">
       <div className="text-[20px] font-bold text-pepo-t1 mb-4 pepo-rise">Mere</div>
 
-      <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-4 flex items-center gap-3 pepo-rise">
+      <Link
+        href="/profil"
+        className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-4 flex items-center gap-3 pepo-rise"
+      >
         <div className="w-12 h-12 rounded-full bg-pepo-pl text-pepo-p text-[16px] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0">
           {profile?.profile_image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -51,11 +55,12 @@ export default async function FreelancerMerePage() {
             initials(profile?.full_name ?? "?")
           )}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-[15px] font-semibold text-pepo-t1 truncate">{profile?.full_name}</div>
           <div className="text-[12.5px] text-pepo-t2 truncate">{profile?.email}</div>
         </div>
-      </div>
+        <Icon name="chevron-right" size={16} className="text-pepo-t3 flex-shrink-0" />
+      </Link>
 
       {approvedProfiles.length > 1 && activeProfile && (
         <CompanySwitcher profiles={approvedProfiles} activeProfileId={activeProfile.id} />
