@@ -1,0 +1,15 @@
+{
+  "name": "Pepo Admin",
+  "short_name": "Pepo Admin",
+  "description": "Administrér vagter, freelancere og events for din virksomhed i Pepo.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3e1f8a",
+  "lang": "da",
+  "icons": [
+    { "src": "/icons/admin-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/admin-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
