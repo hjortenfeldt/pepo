@@ -8,7 +8,7 @@ import ShiftRequestDetail, {
 
 export const dynamic = "force-dynamic";
 
-type RawCategoryRef = { name: string };
+type RawCategoryRef = { name: string; icon: string | null };
 type RawVenueRef = { name: string | null; address: string | null; postal_code: string | null; city: string | null };
 type RawEventRef = { id: string; title: string; description: string | null };
 
@@ -54,7 +54,7 @@ export default async function OpenShiftDetailPage({ params }: { params: Promise<
   const { data: shiftRow } = await supabase
     .from("shifts")
     .select(
-      "id, shift_date, start_time, end_time, status, event_id, assigned_freelancer_id, work_categories(name), client_venues(name, address, postal_code, city), events(id, title, description)"
+      "id, shift_date, start_time, end_time, status, event_id, assigned_freelancer_id, work_categories(name, icon), client_venues(name, address, postal_code, city), events(id, title, description)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -114,6 +114,7 @@ export default async function OpenShiftDetailPage({ params }: { params: Promise<
     status: shift.status,
     isMine: shift.assigned_freelancer_id === user.id,
     categoryName: one(shift.work_categories)?.name ?? "Ukendt kategori",
+    categoryIcon: one(shift.work_categories)?.icon ?? null,
     eventTitle: event?.title ?? "Vagt",
     briefing: event?.description ?? null,
     venueName: venue?.name ?? null,

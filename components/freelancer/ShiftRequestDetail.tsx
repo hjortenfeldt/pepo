@@ -34,6 +34,10 @@ export type OpenShiftDetail = {
   status: ShiftStatus;
   isMine: boolean;
   categoryName: string;
+  /** Ikon-navn fra work_categories.icon (samme kebab-case Tabler-navn som i
+   * tenant-admin-systemet, fx CategoryList.tsx/ShiftBoard.tsx) — null for
+   * kategorier uden valgt ikon. */
+  categoryIcon: string | null;
   eventTitle: string;
   briefing: string | null;
   venueName: string | null;
@@ -118,7 +122,8 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
       </div>
 
       <div className="px-5 pt-5 pb-8">
-        <span className="inline-flex bg-pepo-pl text-pepo-p rounded-full px-2.5 py-1 text-[12px] font-semibold mb-2.5">
+        <span className="inline-flex items-center gap-2 bg-pepo-pl text-pepo-p rounded-full px-5 py-2 text-[24px] font-semibold mb-3">
+          <Icon name={shift.categoryIcon || "briefcase"} size={26} />
           {shift.categoryName}
         </span>
         <div className="text-[20px] font-bold text-pepo-t1 tracking-tight">{shift.eventTitle}</div>

@@ -70,7 +70,7 @@ export default async function FreelancerOverviewPage() {
     supabase
       .from("shifts")
       .select(
-        "id, shift_date, start_time, end_time, status, events(title), client_venues(name, address, postal_code, city, latitude, longitude)"
+        "id, shift_date, start_time, end_time, status, events(title), client_venues(name, address, postal_code, city, latitude, longitude), work_categories(name)"
       )
       .eq("assigned_freelancer_id", user.id)
       .eq("status", "assigned")
@@ -129,6 +129,7 @@ export default async function FreelancerOverviewPage() {
         startTime: hhmm(s.start_time),
         endTime: hhmm(s.end_time),
         title: one(s.events)?.title ?? "Vagt",
+        categoryName: one(s.work_categories)?.name ?? "Ukendt kategori",
         venue: venue?.name ?? null,
         venueLat: venue?.latitude ?? null,
         venueLng: venue?.longitude ?? null,

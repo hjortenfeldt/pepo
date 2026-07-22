@@ -20,6 +20,7 @@ export type UpcomingShift = {
   startTime: string;
   endTime: string;
   title: string;
+  categoryName: string;
   venue: string | null;
   venueLat: number | null;
   venueLng: number | null;
@@ -346,6 +347,12 @@ export default function OverviewClient({
                   <div className="text-[15px] font-bold text-pepo-p">{badge.day}</div>
                 </div>
                 <div className="flex-1 min-w-0">
+                  {/* Samme badge-stil som kategori-pillen øverst på
+                      Vagtdetaljer (ShiftRequestDetail.tsx) — genkendeligt
+                      samme "hvilken jobfunktion"-signal begge steder. */}
+                  <span className="inline-flex bg-pepo-pl text-pepo-p rounded-full px-2.5 py-1 text-[12px] font-semibold mb-1">
+                    {shift.categoryName}
+                  </span>
                   <div className="text-[13.5px] font-semibold text-pepo-t1 truncate">{shift.title}</div>
                   <div className="text-[12px] text-pepo-t2 mt-0.5 truncate">
                     {shift.startTime}–{shift.endTime}
