@@ -25,7 +25,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#3e1f8a",
+  // Appens rigtige baggrundsfarve (--pepo-su), IKKE splash-lilla — dette er
+  // standardværdien der gælder når JS endnu ikke er kørt (fx meget tidligt i
+  // en almindelig browserfane). SplashScreen.tsx overskriver den midlertidigt
+  // til lilla mens splash er synlig, og sætter den tilbage til denne værdi,
+  // når splash forsvinder — se lib/theme-color.ts.
+  themeColor: "#f8f8fa",
   viewportFit: "cover",
   width: "device-width",
   initialScale: 1,

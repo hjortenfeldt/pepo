@@ -36,7 +36,11 @@ export const metadata: Metadata = {
 // nedenfor, som rent faktisk ÆNDRER hvad der vises/opleves på desktop, og
 // derfor skal forblive mobil-only — se lib/device-detection.ts).
 export const viewport: Viewport = {
-  themeColor: "#3e1f8a",
+  // Appens rigtige baggrundsfarve (--pepo-wh, matcher AdminTopBar), IKKE
+  // splash-lilla — se samme forklaring i app/freelancer/layout.tsx og
+  // lib/theme-color.ts. AdminSplashScreen.tsx overskriver den midlertidigt,
+  // KUN på mobil (hvor splash-skærmen overhovedet vises).
+  themeColor: "#ffffff",
   viewportFit: "cover",
   width: "device-width",
   initialScale: 1,
