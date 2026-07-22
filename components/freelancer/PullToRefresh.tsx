@@ -80,7 +80,8 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
  * wrapper omkring denne komponent — importeres bevidst på tværs af app-mapper,
  * samme etablerede mønster som fx ShareIosIcon.tsx).
  *
- * Tre dele, alle med samme rubber-band-kurve og samme spring-tilbage-kurve:
+ * Tre dele (kun i `bounceMode="custom"`, se `bounceMode`-proppen længere
+ * nede), alle med samme rubber-band-kurve og samme spring-tilbage-kurve:
  * 1. Øverst, AKTIVT TRÆK: træk ned udløser "genindlæs" hvis man trækker
  *    forbi TRIGGER_DISTANCE, ellers glider indholdet elastisk tilbage.
  * 2. Nederst, AKTIVT TRÆK: samme elastiske "bounce" ved bunden, men rent
@@ -93,6 +94,25 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
  *    konkrete klage. Kan ikke opsnappe selve WebKits interne fysik direkte
  *    (ingen offentlig API for det) — observerer i stedet native `scroll`-
  *    events og udleder fart/retning selv.
+ *
+ * v0.27.4 — HYBRID-TILSTAND (Hjorths eget forslag, efter at have testet
+ * `bounceMode="native"` på Kontakter-siden og bekræftet at bund-bouncen og
+ * momentum-ankomsten allerede føltes rigtige med browserens egen fysik —
+ * problemet var ALDRIG bund/momentum, kun at vi manglede en måde at hooke
+ * genindlæsnings-handlingen på, hvis vi slap native scrolling helt løs).
+ * `bounceMode="hybrid"` fjerner derfor del 2 og del 3 ovenfor HELT (browseren
+ * klarer bund-bounce og momentum-ankomst helt af sig selv, med
+ * `overscroll-behavior: auto`), og beholder KUN del 1 — det aktive træk i
+ * toppen — fordi det er den eneste del der reelt kræver vores eget JavaScript
+ * (der findes ingen browser-API til at hooke en handling på native
+ * overscroll). Det aktive træk-i-toppen aktiveres udelukkende når
+ * `scrollTop <= 0` OG brugeren rent faktisk trækker nedad der — præcis
+ * Hjorths krav om at genindlæsning kun må ske "hvis man trækker nedad på en
+ * side hvor indholdet allerede står helt oppe i toppen". Et hurtigt
+ * momentum-swipe der ankommer til toppen (finger allerede løftet) rammer
+ * ALDRIG denne kode — der er intet aktivt touchmove at opsnappe — så det
+ * scenarie falder automatisk tilbage til browserens egen native bounce,
+ * ligesom i bunden.
  *
  * VIGTIGT — kun selve INDHOLDET må bounce', ikke sidernes top-bar/bund-knap:
  * en CSS `transform` på et element gør det til et nyt "containing block" for
@@ -146,7 +166,7 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
 export default function PullToRefresh({
   children,
   enabled = true,
-  nativeBounce = false,
+  bounceMode = "custom",
 }: {
   children: React.ReactNode;
   /**
@@ -157,19 +177,26 @@ export default function PullToRefresh({
    */
   enabled?: boolean;
   /**
-   * MIDLERTIDIGT TEST-FLAG (bedt om af Hjorth 2026-07-22): slår HELE vores
-   * eget bounce/pull-to-refresh-flow fra for denne instans og lader
-   * browserens egen native rubber-band-scrolling styre i stedet (kræver at
-   * `overscroll-none` fjernes fra scrollRef, se className nedenfor) — bruges
-   * til at sammenligne følelsen side om side på Kontakter-siden (se
-   * PullToRefreshRouter.tsx) mod resten af appens sider, som stadig bruger
-   * vores egen genopbyggede bounce. Bemærk: selve genindlæsnings-handlingen
-   * (træk-for-at-genindlæse) virker IKKE mens dette er sat til true — der er
-   * ingen browser-API til at hooke en handling på native overscroll, kun på
-   * vores eget JS-drevne træk. Fjern dette flag + PullToRefreshRouter.tsx
-   * igen, når Hjorth har besluttet sig for hvilken model der skal bruges.
+   * MIDLERTIDIGT TEST-FLAG (bedt om af Hjorth 2026-07-22, udvidet 2026-07-23)
+   * — bruges lige nu KUN af Kontakter-siden i Freelancer Appen (se
+   * PullToRefreshRouter.tsx) til at sammenligne modeller, mens Hjorth
+   * beslutter hvad der skal rulles ud til resten af appen. Tre tilstande:
+   *
+   * - "custom" (standard): vores fulde genopbyggede flow — aktivt træk i
+   *   top OG bund, plus momentum-ankomst-bounce ved begge kanter (se de tre
+   *   dele i doc-kommentaren ovenfor). `overscroll-none`.
+   * - "native": browserens fulde egen rubber-band-scrolling, INGEN af vores
+   *   egne lyttere overhovedet — heller ikke det aktive træk i toppen, så
+   *   træk-for-at-genindlæse virker slet ikke. Ren sammenligningstilstand.
+   * - "hybrid": det Hjorth faktisk vil have i praksis. Browseren styrer bund
+   *   og momentum-ankomst begge steder (samme følelse som "native"), men det
+   *   aktive træk-i-toppen forbliver vores eget — det er den eneste del der
+   *   kan udløse en genindlæsning, og ingen browser-API kan erstatte den.
+   *   `overscroll-auto`, men touchstart/touchmove/touchend er stadig aktive
+   *   for top-trækket alene (ingen bund-drag-håndtering, ingen scroll-lytter
+   *   til momentum-bounce).
    */
-  nativeBounce?: boolean;
+  bounceMode?: "custom" | "native" | "hybrid";
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerSlotRef = useRef<HTMLDivElement>(null);
@@ -234,7 +261,11 @@ export default function PullToRefresh({
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || !enabled || nativeBounce) return;
+    if (!el || !enabled || bounceMode === "native") return;
+
+    // I hybrid-tilstand findes bund-trækket/momentum-bouncen slet ikke —
+    // browseren klarer begge dele selv (se bounceMode-doc'en ovenfor).
+    const hybrid = bounceMode === "hybrid";
 
     function atTop() {
       return el!.scrollTop <= 0;
@@ -254,7 +285,10 @@ export default function PullToRefresh({
         modeRef.current = "none";
         return;
       }
-      modeRef.current = atTop() ? "top" : atBottom() ? "bottom" : "none";
+      // I hybrid-tilstand kan modeRef ALDRIG blive "bottom" — et træk ved
+      // bunden ignoreres helt af os og falder igennem til browserens egen
+      // native bounce, præcis som Hjorth bad om (kun genindlæsning i toppen).
+      modeRef.current = atTop() ? "top" : !hybrid && atBottom() ? "bottom" : "none";
       if (modeRef.current === "none") {
         draggingRef.current = false;
         return;
@@ -335,6 +369,11 @@ export default function PullToRefresh({
 
     // --- Del 3: momentum-ankomst (finger allerede løftet) ---
     //
+    // Findes slet ikke i hybrid-tilstand (se hybrid-flaget ovenfor) —
+    // browseren viser sin egen native bounce for et momentum-swipe, siden
+    // der ikke er noget aktivt touchmove at opsnappe efter fingeren er
+    // løftet, og overscroll-behavior er "auto" i den tilstand.
+    //
     // Vi kan ikke opsnappe selve WebKits interne momentum-fysik (ingen
     // offentlig API), men almindelige `scroll`-events bliver ved med at
     // fyre løbende, mens momentum-scrollet ruller — også efter fingeren er
@@ -387,18 +426,18 @@ export default function PullToRefresh({
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
     el.addEventListener("touchcancel", onTouchEnd, { passive: true });
-    el.addEventListener("scroll", onScroll, { passive: true });
+    if (!hybrid) el.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
       el.removeEventListener("touchcancel", onTouchEnd);
-      el.removeEventListener("scroll", onScroll);
+      if (!hybrid) el.removeEventListener("scroll", onScroll);
       if (momentumBounceTimerRef.current) clearTimeout(momentumBounceTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, nativeBounce, refreshing]);
+  }, [enabled, bounceMode, refreshing]);
 
   // Så snart selve genindlæsningen (router.refresh()) er færdig — men
   // tidligst efter MIN_REFRESH_VISIBLE_MS — glider indholdet op på plads
@@ -439,7 +478,7 @@ export default function PullToRefresh({
           </div>
           <div
             ref={scrollRef}
-            className={`relative z-[1] h-full overflow-y-auto bg-pepo-su ${nativeBounce ? "overscroll-auto" : "overscroll-none"}`}
+            className={`relative z-[1] h-full overflow-y-auto bg-pepo-su ${bounceMode === "custom" ? "overscroll-none" : "overscroll-auto"}`}
           >
             {children}
           </div>
