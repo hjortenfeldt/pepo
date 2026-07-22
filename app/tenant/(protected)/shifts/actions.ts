@@ -766,6 +766,31 @@ export async function deleteVenue(venueId: string) {
   return { success: true };
 }
 
+// Supabase Storage-nøgler accepterer ikke alle tegn (bl.a. reagerer den
+// dårligt på danske bogstaver som "æ") — macOS-skærmbilleder hedder typisk
+// noget i stil med "Skærmbillede 2026-07-22 kl. 15.53.52.png", som derfor
+// fejlede stille/højlydt afhængig af hvilket flow der uploadede (se
+// [[feedback_attachment_filename_sanitization]]). Renser KUN selve
+// storage-stien — det oprindelige filnavn gemmes stadig uændret i
+// file_name-kolonnen, så visningen ("Vedhæftet fil: Skærmbillede...") ser
+// helt normal ud for brugeren.
+function sanitizeStorageFilename(name: string): string {
+  const withoutDanishLetters = name
+    .replace(/æ/g, "ae")
+    .replace(/Æ/g, "Ae")
+    .replace(/ø/g, "o")
+    .replace(/Ø/g, "O")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, ""); // fjerner accenter fra andre bogstaver (é, ü, ñ osv.)
+
+  const cleaned = withoutDanishLetters
+    .replace(/[^a-zA-Z0-9._-]+/g, "_") // mellemrum, kolon, emoji osv. bliver til underscore
+    .replace(/_+/g, "_")
+    .replace(/^[_.]+|[_.]+$/g, "");
+
+  return cleaned || "fil";
+}
+
 export async function uploadAttachment(eventId: string, file: File) {
   if (!(file instanceof File) || file.size === 0) {
     return { success: false as const, error: "Ingen fil valgt." };
@@ -775,7 +800,7 @@ export async function uploadAttachment(eventId: string, file: File) {
   if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
 
   const supabase = await createSupabaseClient();
-  const path = `${eventId}/${crypto.randomUUID()}-${file.name}`;
+  const path = `${eventId}/${crypto.randomUUID()}-${sanitizeStorageFilename(file.name)}`;
 
   const { error: uploadError } = await supabase.storage
     .from("shift-attachments")

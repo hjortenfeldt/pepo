@@ -135,10 +135,26 @@ export default function ShiftWizardPanel({
         setError(result.error ?? "Der opstod en fejl.");
         return;
       }
-      for (const file of pendingFiles) {
-        await uploadAttachment(result.eventId, file);
-      }
       router.refresh();
+
+      // Eventet er allerede oprettet på dette tidspunkt — en evt.
+      // upload-fejl skal derfor IKKE se ud som om hele gemmet fejlede
+      // (panelet blev tidligere lukket uanset, hvilket gjorde en fejlet
+      // upload usynlig for brugeren, se
+      // [[feedback_attachment_filename_sanitization]]). I stedet holder vi
+      // panelet åbent og viser en tydelig fejl, så brugeren ved at de skal
+      // prøve at vedhæfte filen igen (fx efter et redigér-event-besøg).
+      let attachmentError: string | null = null;
+      for (const file of pendingFiles) {
+        const uploadResult = await uploadAttachment(result.eventId, file);
+        if (!uploadResult.success) {
+          attachmentError = uploadResult.error ?? "Kunne ikke uploade filen.";
+        }
+      }
+      if (attachmentError) {
+        setError(`Eventet blev oprettet, men: ${attachmentError}`);
+        return;
+      }
       close();
     });
   }
@@ -179,10 +195,22 @@ export default function ShiftWizardPanel({
         setError(result.error ?? "Der opstod en fejl.");
         return;
       }
-      for (const file of pendingFiles) {
-        await uploadAttachment(result.eventId, file);
-      }
       router.refresh();
+
+      // Se kommentar i saveNewEventWithoutShifts() ovenfor — samme
+      // begrundelse for at holde panelet åbent frem for at lukke det
+      // tavst, hvis en vedhæftet fil fejler.
+      let attachmentError: string | null = null;
+      for (const file of pendingFiles) {
+        const uploadResult = await uploadAttachment(result.eventId, file);
+        if (!uploadResult.success) {
+          attachmentError = uploadResult.error ?? "Kunne ikke uploade filen.";
+        }
+      }
+      if (attachmentError) {
+        setError(`Eventet blev oprettet, men: ${attachmentError}`);
+        return;
+      }
       close();
     });
   }
