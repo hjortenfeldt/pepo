@@ -69,7 +69,7 @@ export default function CompanySwitcher({
         {isPending ? (
           <div className="w-4 h-4 rounded-full border-2 border-pepo-bd border-t-pepo-p animate-spin flex-shrink-0" />
         ) : (
-          <Icon name={expanded ? "chevron-up" : "chevron-down"} size={16} className="text-pepo-t3 flex-shrink-0" />
+          <Icon name={expanded ? "chevron-up" : "chevron-down"} size={24} className="text-pepo-t2 flex-shrink-0" />
         )}
       </button>
 
