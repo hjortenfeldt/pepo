@@ -27,12 +27,8 @@ export default function LoginForm({
       className="bg-pepo-wh rounded-[20px] w-full max-w-[380px] p-8 shadow-[0_4px_32px_rgba(62,31,138,0.10)]"
     >
       <div className="flex items-center gap-2.5 mb-7">
-        <div className="w-10 h-10 rounded-[10px] bg-pepo-p flex items-center justify-center">
-          <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
-            <circle cx="8.5" cy="11" r="5.5" fill="white" />
-            <circle cx="17" cy="11" r="3.5" fill="white" opacity="0.6" />
-          </svg>
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/pepo-admin-logo.svg" alt="Pepo Admin" className="w-10 h-10 flex-shrink-0" />
         <span className="text-xl font-medium text-pepo-t1">
           {companyName ?? "pepo"} <span className="text-pepo-t3 font-normal">admin</span>
         </span>

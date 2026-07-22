@@ -103,6 +103,15 @@ export default function AdminTopBar({
     setMobileMenuOpen((v) => !v);
   }
 
+  // Tenant-admins ser det dedikerede admin-logo (samme som "Tilføj til
+  // hjemmeskærm"-ikonet og login-siden, se [[project_tenant_admin_pwa_identity]]),
+  // mens Pepos eget super-admin-panel (admin.pepo.team, roleLabel="superadmin")
+  // bevidst beholder det almindelige Pepo-logo — Hjorth valgte eksplicit ikke
+  // at udvide admin-rebrandingen dertil.
+  const isTenantAdmin = roleLabel === "admin";
+  const logoSrc = isTenantAdmin ? "/pepo-admin-logo.svg" : "/pepo-logo.svg";
+  const logoAlt = isTenantAdmin ? "Pepo Admin" : "Pepo";
+
   // Samme logo/virksomhedsnavn/version-blok bruges to steder: altid synlig
   // (skrivebord, eller superadmin uden burger-menu), og gengivet igen
   // ovenpå i den mobile fold-ud-menu (se `mobileNav`-blokken nedenfor) —
@@ -110,7 +119,7 @@ export default function AdminTopBar({
   const brand = (
     <div className="flex items-center gap-2.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/pepo-logo.svg" alt="Pepo" className="w-8 h-8 flex-shrink-0" />
+      <img src={logoSrc} alt={logoAlt} className="w-8 h-8 flex-shrink-0" />
       <div className="flex flex-col leading-tight">
         <span className="text-base font-semibold tracking-tight text-pepo-t1">
           {companyName ?? "pepo"} <span className="text-pepo-t3 font-normal">{roleLabel}</span>
