@@ -6,9 +6,11 @@ import PullToRefresh from "@/components/freelancer/PullToRefresh";
 
 /**
  * Admin Appens tynde wrapper omkring components/freelancer/PullToRefresh.tsx
- * — genbruger den fælles komponent (inkl. dens top-træk-for-at-genindlæse OG
- * bund-elastik-bounce) i stedet for at vedligeholde en egen kopi, efter en
- * tidligere fejl hvor to parallelle kopier af samme UI-idiom (søgefeltet i
+ * — genbruger den fælles komponent (inkl. dens hybrid-model: browserens egen
+ * native bounce i bunden/ved momentum-ankomst, kun det aktive træk-i-toppen
+ * er vores eget, se PullToRefresh.tsx's doc-kommentar) i stedet for at
+ * vedligeholde en egen kopi, efter en tidligere fejl hvor to parallelle
+ * kopier af samme UI-idiom (søgefeltet i
  * MessageBoard/ShiftBoard/ClientBoard/FreelancerBoard) drev fra hinanden og
  * gav et bug der skulle rettes to gange (se ExpandingSearchButton.tsx).
  * Tværs-import fra freelancer-mappen er et etableret mønster i denne

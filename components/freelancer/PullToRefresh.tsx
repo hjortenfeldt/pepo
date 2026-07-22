@@ -7,14 +7,13 @@ import Icon from "@/components/Icon";
 
 // RUBBER_BAND_COEFFICIENT: WebKit's own historical rubber-band constant
 // (0.55) — well-documented, widely reproduced in native-scroll-feel
-// reimplementations (this session had no live web search tool available in
-// the sandbox to re-verify against a fresh source, so this is drawn from
-// established public documentation of WebKit's ScrollController rather than
-// a fresh lookup — flagged to Hjorth). The formula f(x) = (x·d·c)/(d + c·x)
-// gives a fast, near-linear response for small drags that progressively
-// stiffens and asymptotically approaches `d` — the actual "give more the
-// harder you pull, but never past a firm limit" feel, replacing our old
-// linear-then-hard-clip approximation.
+// reimplementations (no live web search tool was available in the sandbox
+// session that first wrote this to re-verify against a fresh source, so it's
+// drawn from established public documentation of WebKit's ScrollController
+// rather than a fresh lookup — flagged to Hjorth at the time). The formula
+// f(x) = (x·d·c)/(d + c·x) gives a fast, near-linear response for small
+// drags that progressively stiffens and asymptotically approaches `d` — the
+// actual "give more the harder you pull, but never past a firm limit" feel.
 const RUBBER_BAND_COEFFICIENT = 0.55;
 // The asymptote `d` in the formula above — kept at UI scale (not the full
 // scroll-panel height, which is what WebKit itself uses) so the visual
@@ -26,24 +25,9 @@ const SPINNER_HEIGHT = 52;
 // Så spinneren ikke bare blinker forbi ved et lynhurtigt genindlæs — de
 // fleste apps (Mail, Twitter/X m.fl.) holder den synlig i et minimum af tid.
 const MIN_REFRESH_VISIBLE_MS = 500;
-// Ved bunden af indholdet betragtes man som "ved bunden" selv med en anelse
-// sub-pixel-afrunding fra scrollHeight/clientHeight.
-const BOTTOM_EPSILON = 1;
 
 const SPRING_BACK_TRANSITION = "300ms cubic-bezier(0.34, 1.56, 0.64, 1)";
-const MOMENTUM_OUT_TRANSITION = "120ms cubic-bezier(0.22, 0.61, 0.36, 1)";
 const INSTANT = "0ms";
-
-// Momentum-bounce (afsnit 2 nedenfor): hvor hurtig en native-scroll skal
-// være ved ankomst til kanten, før vi overhovedet gider vise en bounce —
-// under denne er farten så lav, at et rigtigt fysisk apparat heller ikke
-// ville vise noget mærkbart.
-const MOMENTUM_VELOCITY_FLOOR = 0.05; // px/ms
-// Skalerer den observerede hastighed om til en "virtuel" trækafstand, som
-// derefter køres gennem samme rubber-band-formel som selve trækket, så et
-// hurtigt fingerslip giver en større bounce end et langsomt.
-const VELOCITY_TO_DISTANCE_SCALE = 110;
-const MOMENTUM_BOUNCE_MIN_PX = 4;
 
 function rubberBand(delta: number) {
   return (delta * MAX_DISTANCE * RUBBER_BAND_COEFFICIENT) / (MAX_DISTANCE + RUBBER_BAND_COEFFICIENT * delta);
@@ -80,78 +64,52 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
  * wrapper omkring denne komponent — importeres bevidst på tværs af app-mapper,
  * samme etablerede mønster som fx ShareIosIcon.tsx).
  *
- * Tre dele (kun i `bounceMode="custom"`, se `bounceMode`-proppen længere
- * nede), alle med samme rubber-band-kurve og samme spring-tilbage-kurve:
- * 1. Øverst, AKTIVT TRÆK: træk ned udløser "genindlæs" hvis man trækker
- *    forbi TRIGGER_DISTANCE, ellers glider indholdet elastisk tilbage.
- * 2. Nederst, AKTIVT TRÆK: samme elastiske "bounce" ved bunden, men rent
- *    kosmetisk — udløser aldrig noget, glider bare tilbage.
- * 3. MOMENTUM-ANKOMST (finger allerede løftet): hvis en almindelig,
- *    hurtig scroll-bevægelse (browserens egen momentum/inerti) ankommer til
- *    top eller bund, mens der IKKE trækkes aktivt, vises en kort, hastigheds-
- *    proportional bounce der altid bare glider tilbage — ellers stopper
- *    scrollet brat, uanset hvor hurtigt man swipede, hvilket var Hjorths
- *    konkrete klage. Kan ikke opsnappe selve WebKits interne fysik direkte
- *    (ingen offentlig API for det) — observerer i stedet native `scroll`-
- *    events og udleder fart/retning selv.
+ * HYBRID-MODEL (v0.27.4, gjort permanent og universel i v0.28.0 efter at
+ * Hjorth testede den på Kontakter-siden og godkendte følelsen ubetinget):
+ * browseren styrer ALT scroll-relateret bounce selv (bund-elastik OG et
+ * hurtigt swipe der ankommer via momentum, finger allerede løftet) via
+ * `overscroll-behavior: auto` — det var derfor Hjorths oprindelige idé om
+ * "kan vi ikke bare bruge browserens egen model" var rigtig, for netop de to
+ * dele. Den ENESTE del vi selv står for er det AKTIVE træk i toppen af
+ * indholdet, fordi det er den eneste del der reelt kræver et JS-hook: der
+ * findes ingen browser-API til at hooke en "genindlæs"-handling på native
+ * overscroll. Det aktiveres udelukkende når `scrollTop <= 0` OG brugeren
+ * rent faktisk trækker nedad der — et hurtigt momentum-swipe der ankommer
+ * til toppen (finger allerede løftet) rammer ALDRIG denne kode, da der ikke
+ * er noget aktivt touchmove at opsnappe, og falder derfor automatisk
+ * tilbage til browserens egen native bounce i toppen, ligesom i bunden.
  *
- * v0.27.4 — HYBRID-TILSTAND (Hjorths eget forslag, efter at have testet
- * `bounceMode="native"` på Kontakter-siden og bekræftet at bund-bouncen og
- * momentum-ankomsten allerede føltes rigtige med browserens egen fysik —
- * problemet var ALDRIG bund/momentum, kun at vi manglede en måde at hooke
- * genindlæsnings-handlingen på, hvis vi slap native scrolling helt løs).
- * `bounceMode="hybrid"` fjerner derfor del 2 og del 3 ovenfor HELT (browseren
- * klarer bund-bounce og momentum-ankomst helt af sig selv, med
- * `overscroll-behavior: auto`), og beholder KUN del 1 — det aktive træk i
- * toppen — fordi det er den eneste del der reelt kræver vores eget JavaScript
- * (der findes ingen browser-API til at hooke en handling på native
- * overscroll). Det aktive træk-i-toppen aktiveres udelukkende når
- * `scrollTop <= 0` OG brugeren rent faktisk trækker nedad der — præcis
- * Hjorths krav om at genindlæsning kun må ske "hvis man trækker nedad på en
- * side hvor indholdet allerede står helt oppe i toppen". Et hurtigt
- * momentum-swipe der ankommer til toppen (finger allerede løftet) rammer
- * ALDRIG denne kode — der er intet aktivt touchmove at opsnappe — så det
- * scenarie falder automatisk tilbage til browserens egen native bounce,
- * ligesom i bunden.
+ * (Ældre historik: v0.27.0–v0.27.1 byggede en fuld genimplementering af
+ * bund-bounce + momentum-bounce ovenpå `overscroll-none`, fordi den
+ * oprindelige antagelse var at ALT skulle bygges selv for at få en app-agtig
+ * følelse. v0.27.3 testede ren native scrolling på én side for at
+ * sammenligne, hvilket bekræftede at kun toppens genindlæsnings-gestus
+ * reelt havde brug for eget JS — se project-memory for den fulde forløb,
+ * hvis den historik bliver relevant igen.)
  *
  * VIGTIGT — kun selve INDHOLDET må bounce', ikke sidernes top-bar/bund-knap:
  * en CSS `transform` på et element gør det til et nyt "containing block" for
  * alle `position: fixed`-efterkommere (så de flytter sig med i stedet for at
  * blive hængende i viewporten), og enhver `position: sticky`-efterkommer
  * flytter uundgåeligt med som en del af hele den transformerede boks — også
- * selvom den KUN er "sticky" og ikke selv "fixed". Første forsøg (v0.27.1)
- * modvirkede dette med en modsat transform på alle `.sticky`/`.fixed`-
- * elementer, men det løste ikke det underliggende problem Hjorth faktisk så:
- * fordi header/bund-bar stadig lå SOM BØRN AF scrollRef (bare `sticky` i
- * stedet for løst placeret), talte de stadig med i scrollRef's egen
- * `scrollHeight`, så browserens NATIVE scrollbar i højre side dækkede både
- * indhold og header — det var synligt forkert, uanset transform-modvirkningen.
- *
- * Rigtig løsning (v0.27.2): to ægte DOM-SØSKENDE til scrollRef —
- * `headerSlotRef`/`footerSlotRef` — der slet ikke er en del af den
- * scrollende/transformerede boks. Sider der har en fast top-bar eller
- * bund-knap (OverviewClient.tsx, KontakterClient.tsx, ShiftRequestDetail.tsx,
- * ColleagueDetail.tsx, ProfileEditForm.tsx) bruger nu de eksporterede
- * `<PullToRefreshHeader>`/`<PullToRefreshFooter>` i stedet for en
- * `sticky top-0`/`sticky bottom-0`-div — de portalerer (via React's
+ * selvom den KUN er "sticky" og ikke selv "fixed". Løsning: to ægte
+ * DOM-SØSKENDE til scrollRef — `headerSlotRef`/`footerSlotRef` — der slet
+ * ikke er en del af den scrollende/transformerede boks. Sider der har en
+ * fast top-bar eller bund-knap (OverviewClient.tsx, KontakterClient.tsx,
+ * ShiftRequestDetail.tsx, ColleagueDetail.tsx, ProfileEditForm.tsx) bruger de
+ * eksporterede `<PullToRefreshHeader>`/`<PullToRefreshFooter>` i stedet for
+ * en `sticky top-0`/`sticky bottom-0`-div — de portalerer (via React's
  * `createPortal`) deres indhold ind i disse slots. Contexten
  * (`PullToRefreshSlotContext`) gør slottets DOM-node tilgængelig for enhver
  * efterkommer i React-træet, uanset hvor dybt nede i `{children}` den sider —
- * portalering flytter kun selve DOM-outputtet, ikke React-konteksten. Fordel
- * frem for v0.27.1's modvirkende transform: header/footer er nu strukturelt
- * uden for scrollRef, så de hverken kan bounce ELLER tælle med i scrollbaren.
+ * portalering flytter kun selve DOM-outputtet, ikke React-konteksten.
  *
- * `.sticky`/`.fixed`-modvirkningen fra v0.27.1 er bevaret som et defensivt
- * fallback for ægte `position: fixed`-elementer der IKKE bruger disse slots
- * (fx slide-in-panelerne i ShiftWizardPanel.tsx m.fl., som bruger
- * `fixed inset-0` direkte i sidens markup) — de har intet scrollbar-problem
- * (fixed elementer tæller aldrig med i en forfaders scrollHeight), men ville
- * stadig visuelt bounce med uden modvirkningen.
- *
- * Erstatter browserens egen overscroll-bounce (som var slået fra med
- * overscroll-none, da den så akavet ud sammen med adresselinje/PWA-chrome,
- * og fordi CSS/overscroll-behavior alene ikke giver nogen måde at hooke en
- * genindlæsnings-handling på selve bounce-bevægelsen).
+ * En modsat transform på `.sticky`/`.fixed`-efterkommere (Tailwinds egne,
+ * bogstavelige klassenavne) er bevaret som et defensivt fallback for ægte
+ * `position: fixed`-elementer der IKKE bruger disse slots (fx slide-in-
+ * panelerne i ShiftWizardPanel.tsx m.fl., som bruger `fixed inset-0` direkte
+ * i sidens markup) — kun relevant mens toppens aktive træk rent faktisk
+ * kører (den eneste del af flowet der stadig sætter en transform).
  *
  * Selve trækket manipulerer DOM'en direkte via refs (IKKE React state) for
  * at holde det flydende på 60fps — kun de "faste" tilstande (genindlæser
@@ -161,42 +119,20 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
  * touchmove-lytteren tilføjes manuelt med { passive: false } (ikke som et
  * almindeligt React onTouchMove-prop) — React's syntetiske touch-lyttere er
  * passive som standard, hvilket ville gøre e.preventDefault() til en no-op
- * og lade siden bounce/scrolle native SAMTIDIG med vores eget træk.
+ * og lade siden scrolle native SAMTIDIG med vores eget træk.
  */
 export default function PullToRefresh({
   children,
   enabled = true,
-  bounceMode = "custom",
 }: {
   children: React.ReactNode;
   /**
    * Admin Appen sætter denne til false på desktop (se AdminPullToRefresh.tsx)
    * — DOM-strukturen forbliver identisk uanset enabled, kun selve
-   * touch-/scroll-lytterne (og dermed al elastisk adfærd) slås fra, så der
-   * ikke sker noget layout-hop når enheden afgøres asynkront efter mount.
+   * touch-lytterne (og dermed træk-for-at-genindlæse) slås fra, så der ikke
+   * sker noget layout-hop når enheden afgøres asynkront efter mount.
    */
   enabled?: boolean;
-  /**
-   * MIDLERTIDIGT TEST-FLAG (bedt om af Hjorth 2026-07-22, udvidet 2026-07-23)
-   * — bruges lige nu KUN af Kontakter-siden i Freelancer Appen (se
-   * PullToRefreshRouter.tsx) til at sammenligne modeller, mens Hjorth
-   * beslutter hvad der skal rulles ud til resten af appen. Tre tilstande:
-   *
-   * - "custom" (standard): vores fulde genopbyggede flow — aktivt træk i
-   *   top OG bund, plus momentum-ankomst-bounce ved begge kanter (se de tre
-   *   dele i doc-kommentaren ovenfor). `overscroll-none`.
-   * - "native": browserens fulde egen rubber-band-scrolling, INGEN af vores
-   *   egne lyttere overhovedet — heller ikke det aktive træk i toppen, så
-   *   træk-for-at-genindlæse virker slet ikke. Ren sammenligningstilstand.
-   * - "hybrid": det Hjorth faktisk vil have i praksis. Browseren styrer bund
-   *   og momentum-ankomst begge steder (samme følelse som "native"), men det
-   *   aktive træk-i-toppen forbliver vores eget — det er den eneste del der
-   *   kan udløse en genindlæsning, og ingen browser-API kan erstatte den.
-   *   `overscroll-auto`, men touchstart/touchmove/touchend er stadig aktive
-   *   for top-trækket alene (ingen bund-drag-håndtering, ingen scroll-lytter
-   *   til momentum-bounce).
-   */
-  bounceMode?: "custom" | "native" | "hybrid";
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerSlotRef = useRef<HTMLDivElement>(null);
@@ -205,17 +141,11 @@ export default function PullToRefresh({
   const spinnerIconRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef<number | null>(null);
   const pullDistanceRef = useRef(0);
-  const modeRef = useRef<"none" | "top" | "bottom">("none");
   const draggingRef = useRef(false);
   const refreshStartedAtRef = useRef(0);
-  // Cachet ved touchstart/momentum-ankomst i stedet for at forespørge DOM'en
-  // på hver eneste touchmove-frame.
+  // Cachet ved touchstart i stedet for at forespørge DOM'en på hver eneste
+  // touchmove-frame.
   const fixedOrStickyElsRef = useRef<HTMLElement[]>([]);
-  const lastScrollTopRef = useRef(0);
-  const lastScrollTimeRef = useRef(0);
-  const wasAtTopRef = useRef(true);
-  const wasAtBottomRef = useRef(false);
-  const momentumBounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [refreshing, setRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -244,8 +174,6 @@ export default function PullToRefresh({
       el.style.transform = `translateY(${-distance}px)`;
     }
 
-    // Spinneren hører kun til den ØVERSTE træk-retning (positiv distance) —
-    // ved en negativ (nederste bounce) forbliver den skjult/0 i højden.
     const positiveDistance = Math.max(distance, 0);
     spinnerEl.style.transition = `height ${transition}`;
     spinnerEl.style.height = `${positiveDistance}px`;
@@ -261,35 +189,21 @@ export default function PullToRefresh({
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || !enabled || bounceMode === "native") return;
-
-    // I hybrid-tilstand findes bund-trækket/momentum-bouncen slet ikke —
-    // browseren klarer begge dele selv (se bounceMode-doc'en ovenfor).
-    const hybrid = bounceMode === "hybrid";
+    if (!el || !enabled) return;
 
     function atTop() {
       return el!.scrollTop <= 0;
-    }
-    function atBottom() {
-      return el!.scrollTop + el!.clientHeight >= el!.scrollHeight - BOTTOM_EPSILON;
     }
     function captureFixedOrSticky() {
       fixedOrStickyElsRef.current = Array.from(el!.querySelectorAll<HTMLElement>(".sticky, .fixed"));
     }
 
-    // --- Del 1 & 2: aktivt træk (top-genindlæs / bund-bounce) ---
-
+    // Det eneste vi selv styrer: et aktivt træk ned, mens indholdet allerede
+    // står helt i toppen. Alt andet (bund-elastik, momentum-ankomst i begge
+    // ender) er browserens eget native overscroll — se doc-kommentaren
+    // ovenfor for hvorfor.
     function onTouchStart(e: TouchEvent) {
-      if (refreshing) {
-        draggingRef.current = false;
-        modeRef.current = "none";
-        return;
-      }
-      // I hybrid-tilstand kan modeRef ALDRIG blive "bottom" — et træk ved
-      // bunden ignoreres helt af os og falder igennem til browserens egen
-      // native bounce, præcis som Hjorth bad om (kun genindlæsning i toppen).
-      modeRef.current = atTop() ? "top" : !hybrid && atBottom() ? "bottom" : "none";
-      if (modeRef.current === "none") {
+      if (refreshing || !atTop()) {
         draggingRef.current = false;
         return;
       }
@@ -302,47 +216,26 @@ export default function PullToRefresh({
       if (!draggingRef.current || startYRef.current === null) return;
       const rawDelta = e.touches[0].clientY - startYRef.current;
 
-      if (modeRef.current === "top") {
-        if (!atTop()) {
-          // Brugeren er begyndt at scrolle almindeligt i stedet for at
-          // trække — giv slip på vores eget træk og lad browserens normale
-          // scroll overtage resten af gestussen.
-          draggingRef.current = false;
-          pullDistanceRef.current = 0;
-          setVisualPull(0, SPRING_BACK_TRANSITION);
-          return;
-        }
-        if (rawDelta <= 0) {
-          pullDistanceRef.current = 0;
-          setVisualPull(0, INSTANT);
-          return;
-        }
-        // Forhindrer siden i samtidig at scrolle/native-bounce mens vi selv
-        // styrer trækket — kræver { passive: false }, se forklaring ovenfor.
-        e.preventDefault();
-        const damped = rubberBand(rawDelta);
-        pullDistanceRef.current = damped;
-        setVisualPull(damped, INSTANT);
-      } else if (modeRef.current === "bottom") {
-        if (!atBottom()) {
-          draggingRef.current = false;
-          pullDistanceRef.current = 0;
-          setVisualPull(0, SPRING_BACK_TRANSITION);
-          return;
-        }
-        if (rawDelta >= 0) {
-          // Fingeren bevæger sig nedad ved bunden — det er en almindelig
-          // scroll tilbage op i indholdet, ikke et forsøg på at trække
-          // forbi bunden.
-          pullDistanceRef.current = 0;
-          setVisualPull(0, INSTANT);
-          return;
-        }
-        e.preventDefault();
-        const damped = -rubberBand(-rawDelta);
-        pullDistanceRef.current = damped;
-        setVisualPull(damped, INSTANT);
+      if (!atTop()) {
+        // Brugeren er begyndt at scrolle almindeligt i stedet for at
+        // trække — giv slip på vores eget træk og lad browserens normale
+        // scroll overtage resten af gestussen.
+        draggingRef.current = false;
+        pullDistanceRef.current = 0;
+        setVisualPull(0, SPRING_BACK_TRANSITION);
+        return;
       }
+      if (rawDelta <= 0) {
+        pullDistanceRef.current = 0;
+        setVisualPull(0, INSTANT);
+        return;
+      }
+      // Forhindrer siden i samtidig at scrolle/native-bounce mens vi selv
+      // styrer trækket — kræver { passive: false }, se forklaring ovenfor.
+      e.preventDefault();
+      const damped = rubberBand(rawDelta);
+      pullDistanceRef.current = damped;
+      setVisualPull(damped, INSTANT);
     }
 
     function onTouchEnd() {
@@ -350,7 +243,7 @@ export default function PullToRefresh({
       draggingRef.current = false;
       startYRef.current = null;
 
-      if (modeRef.current === "top" && pullDistanceRef.current >= TRIGGER_DISTANCE) {
+      if (pullDistanceRef.current >= TRIGGER_DISTANCE) {
         setVisualPull(SPINNER_HEIGHT, SPRING_BACK_TRANSITION);
         setRefreshing(true);
         refreshStartedAtRef.current = Date.now();
@@ -358,86 +251,24 @@ export default function PullToRefresh({
           router.refresh();
         });
       } else {
-        // Gælder både et for-kort top-træk (glider ned på plads igen) og
-        // ethvert bund-bounce (glider altid bare tilbage — udløser aldrig
-        // noget).
         setVisualPull(0, SPRING_BACK_TRANSITION);
       }
       pullDistanceRef.current = 0;
-      modeRef.current = "none";
-    }
-
-    // --- Del 3: momentum-ankomst (finger allerede løftet) ---
-    //
-    // Findes slet ikke i hybrid-tilstand (se hybrid-flaget ovenfor) —
-    // browseren viser sin egen native bounce for et momentum-swipe, siden
-    // der ikke er noget aktivt touchmove at opsnappe efter fingeren er
-    // løftet, og overscroll-behavior er "auto" i den tilstand.
-    //
-    // Vi kan ikke opsnappe selve WebKits interne momentum-fysik (ingen
-    // offentlig API), men almindelige `scroll`-events bliver ved med at
-    // fyre løbende, mens momentum-scrollet ruller — også efter fingeren er
-    // løftet. Ved at tidsstemple scrollTop kan vi udlede farten, og reagere
-    // når scrollTop for første gang rammer 0 eller max MENS farten stadig
-    // var mærkbar (dvs. det var et momentum-stop, ikke bare et langsomt,
-    // helt naturligt ophør ved kanten, som ikke skal bounce synligt).
-    function onScroll() {
-      const now = performance.now();
-      const currentTop = el!.scrollTop;
-      const dt = now - lastScrollTimeRef.current;
-      const velocity = dt > 0 ? (currentTop - lastScrollTopRef.current) / dt : 0;
-
-      const isAtTop = atTop();
-      const isAtBottom = atBottom();
-
-      // Kun relevant mens vi IKKE selv styrer et aktivt træk — under et
-      // aktivt træk ændrer scrollTop sig slet ikke (vi transformerer kun
-      // visuelt), så denne funktion griber naturligt ikke forstyrrende ind
-      // i den brugerstyrede gestus.
-      if (!draggingRef.current && !refreshing) {
-        if (isAtTop && !wasAtTopRef.current && velocity < -MOMENTUM_VELOCITY_FLOOR) {
-          triggerMomentumBounce(1, -velocity);
-        } else if (isAtBottom && !wasAtBottomRef.current && velocity > MOMENTUM_VELOCITY_FLOOR) {
-          triggerMomentumBounce(-1, velocity);
-        }
-      }
-
-      wasAtTopRef.current = isAtTop;
-      wasAtBottomRef.current = isAtBottom;
-      lastScrollTopRef.current = currentTop;
-      lastScrollTimeRef.current = now;
-    }
-
-    function triggerMomentumBounce(direction: 1 | -1, velocityMagnitude: number) {
-      if (momentumBounceTimerRef.current) clearTimeout(momentumBounceTimerRef.current);
-      captureFixedOrSticky();
-      const virtualDelta = velocityMagnitude * VELOCITY_TO_DISTANCE_SCALE;
-      const peak = rubberBand(virtualDelta) * direction;
-      if (Math.abs(peak) < MOMENTUM_BOUNCE_MIN_PX) return;
-
-      setVisualPull(peak, MOMENTUM_OUT_TRANSITION);
-      momentumBounceTimerRef.current = setTimeout(() => {
-        setVisualPull(0, SPRING_BACK_TRANSITION);
-        momentumBounceTimerRef.current = null;
-      }, 120);
     }
 
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
     el.addEventListener("touchcancel", onTouchEnd, { passive: true });
-    if (!hybrid) el.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
       el.removeEventListener("touchcancel", onTouchEnd);
-      if (!hybrid) el.removeEventListener("scroll", onScroll);
-      if (momentumBounceTimerRef.current) clearTimeout(momentumBounceTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, bounceMode, refreshing]);
+  }, [enabled, refreshing]);
 
   // Så snart selve genindlæsningen (router.refresh()) er færdig — men
   // tidligst efter MIN_REFRESH_VISIBLE_MS — glider indholdet op på plads
@@ -476,10 +307,10 @@ export default function PullToRefresh({
               <Icon name="loader-2" size={22} className="text-pepo-p" />
             </div>
           </div>
-          <div
-            ref={scrollRef}
-            className={`relative z-[1] h-full overflow-y-auto bg-pepo-su ${bounceMode === "custom" ? "overscroll-none" : "overscroll-auto"}`}
-          >
+          {/* overscroll-auto (ikke -none): lader browserens egen native
+              rubber-band styre bund-elastik og momentum-ankomst i begge
+              ender — se doc-kommentaren for hele modellen. */}
+          <div ref={scrollRef} className="relative z-[1] h-full overflow-y-auto overscroll-auto bg-pepo-su">
             {children}
           </div>
         </div>

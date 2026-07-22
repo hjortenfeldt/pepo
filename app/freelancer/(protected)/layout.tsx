@@ -4,7 +4,7 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { getFreelancerMemberships, getActiveProfile, touchProfileActivity } from "@/lib/freelancer";
 import { logout } from "../login/actions";
 import BottomNav from "@/components/freelancer/BottomNav";
-import PullToRefreshRouter from "@/components/freelancer/PullToRefreshRouter";
+import PullToRefresh from "@/components/freelancer/PullToRefresh";
 import UpdateChecker from "@/components/freelancer/UpdateChecker";
 import PushGate from "@/components/freelancer/PushGate";
 import Icon from "@/components/Icon";
@@ -69,7 +69,7 @@ export default async function ProtectedFreelancerLayout({
     <div className="flex flex-col h-dvh overflow-hidden bg-pepo-su">
       <PushGate>
         <UpdateChecker />
-        <PullToRefreshRouter>{children}</PullToRefreshRouter>
+        <PullToRefresh>{children}</PullToRefresh>
         <BottomNav />
       </PushGate>
     </div>
