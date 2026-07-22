@@ -110,8 +110,13 @@ export default function AdminSplashScreen() {
     >
       <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4">
         <div className="w-40 h-40 pepo-splash-logo">
+          {/* Samme logo som Freelancer Appens splash-skærm (SplashScreen.tsx)
+              — Hjorth vurderede den admin-specifikke variant
+              (pepo-admin-logo-inverted.svg) til ikke at fungere optimalt på
+              opstartsskærmen, så begge apps' splash-skærme viser nu det
+              samme /pepo-logo-inverted.svg. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/pepo-admin-logo-inverted.svg" alt="" className="w-full h-full" draggable={false} />
+          <img src="/pepo-logo-inverted.svg" alt="" className="w-full h-full" draggable={false} />
         </div>
 
         {phase === "waiting" && (
