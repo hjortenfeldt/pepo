@@ -116,6 +116,25 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
  * eller ej) går gennem React state, da de alligevel altid animeres med en
  * CSS-transition og derfor ikke skal opdatere på hver eneste touchmove.
  *
+ * VIGTIGT (v0.28.1-fix, se project-memory for hele fejlsøgningen): selve
+ * trækkets `translateY(...)`-transform sættes på `pullWrapRef` — en
+ * indre wrapper-div INDE I scrollRef, som pakker `{children}` ind — ALDRIG
+ * direkte på `scrollRef` selv. `scrollRef` er det element der reelt har
+ * `overflow-y-auto` og dermed Safaris native momentum-scroll-lag. At sætte
+ * en CSS `transform` DIREKTE på det element der selv momentum-scroller er en
+ * kendt, veldokumenteret iOS Safari-fælde: compositoren kan miste kontakten
+ * med sit eget scroll-lag og lade siden "fryse" (ingen touch/scroll reagerer
+ * længere) — ofte forsinket og ikke ved selve trækket, men først næste gang
+ * brugeren rammer en scroll-grænse (præcis Hjorths rapporterede symptom:
+ * "scroller til bunden, swiper igen, fryser" — først en tilsyneladende
+ * urelateret handling senere udløste den fejl der reelt blev sået tidligere
+ * af transformen på scrollRef). At navigere væk og tilbage "fixede" det, fordi
+ * det genskaber DOM-noden og dermed et helt nyt, upåvirket scroll-lag.
+ * Løsningen er at holde `scrollRef` 100% fri for enhver inline `transform` —
+ * al visuel forskydning sker på `pullWrapRef` i stedet, som IKKE selv
+ * scroller (det er blot et almindeligt blok-element inde i scrollRef), så
+ * dets transform aldrig rører ved det momentum-scrollende lag.
+ *
  * touchmove-lytteren tilføjes manuelt med { passive: false } (ikke som et
  * almindeligt React onTouchMove-prop) — React's syntetiske touch-lyttere er
  * passive som standard, hvilket ville gøre e.preventDefault() til en no-op
@@ -135,6 +154,7 @@ export default function PullToRefresh({
   enabled?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pullWrapRef = useRef<HTMLDivElement>(null);
   const headerSlotRef = useRef<HTMLDivElement>(null);
   const footerSlotRef = useRef<HTMLDivElement>(null);
   const spinnerWrapRef = useRef<HTMLDivElement>(null);
@@ -160,12 +180,15 @@ export default function PullToRefresh({
   }, []);
 
   function setVisualPull(distance: number, transition: string) {
-    const scrollEl = scrollRef.current;
+    // pullWrapRef (IKKE scrollRef!) er målet for selve transformen — se
+    // doc-kommentaren ovenfor for hvorfor det er kritisk at scrollRef, det
+    // momentum-scrollende element, aldrig selv får en inline transform.
+    const wrapEl = pullWrapRef.current;
     const spinnerEl = spinnerWrapRef.current;
-    if (!scrollEl || !spinnerEl) return;
+    if (!wrapEl || !spinnerEl) return;
 
-    scrollEl.style.transition = `transform ${transition}`;
-    scrollEl.style.transform = `translateY(${distance}px)`;
+    wrapEl.style.transition = `transform ${transition}`;
+    wrapEl.style.transform = `translateY(${distance}px)`;
 
     // Modsat transform på enhver .sticky/.fixed-efterkommer — se doc-kommentar
     // ovenfor for hvorfor dette er nødvendigt for at holde dem visuelt i ro.
@@ -309,9 +332,11 @@ export default function PullToRefresh({
           </div>
           {/* overscroll-auto (ikke -none): lader browserens egen native
               rubber-band styre bund-elastik og momentum-ankomst i begge
-              ender — se doc-kommentaren for hele modellen. */}
+              ender — se doc-kommentaren for hele modellen. Denne div får
+              ALDRIG en inline transform (se doc-kommentaren for hvorfor) —
+              selve trækket flytter kun pullWrapRef herunder. */}
           <div ref={scrollRef} className="relative z-[1] h-full overflow-y-auto overscroll-auto bg-pepo-su">
-            {children}
+            <div ref={pullWrapRef}>{children}</div>
           </div>
         </div>
         {/* Bund-slot: samme idé, for en fast bund-knap/handlingsbar — se
