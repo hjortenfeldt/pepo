@@ -151,7 +151,7 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
           </Field>
 
           <div className="flex gap-3">
-            <Field label="Telefon" className="flex-1">
+            <Field label="Telefon" className="flex-1 min-w-0">
               <input
                 value={form.contactPhone}
                 onChange={(e) => setForm((f) => ({ ...f, contactPhone: e.target.value }))}
@@ -159,7 +159,7 @@ export default function CompanyProfileSettings({ initial }: { initial: CompanyPr
                 className={inputClass}
               />
             </Field>
-            <Field label="Email" className="flex-1">
+            <Field label="Email" className="flex-1 min-w-0">
               <input
                 value={form.contactEmail}
                 onChange={(e) => setForm((f) => ({ ...f, contactEmail: e.target.value }))}

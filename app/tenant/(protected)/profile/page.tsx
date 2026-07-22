@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProfileSettings from "@/components/admin/ProfileSettings";
+import AdminAppSection from "@/components/admin/AdminAppSection";
 import { updateOwnProfile } from "./actions";
 
 export const metadata: Metadata = { title: "Profil" };
@@ -28,13 +29,24 @@ export default async function ProfilePage() {
   }
 
   return (
-    <ProfileSettings
-      initial={{
-        fullName: admin.full_name,
-        email: admin.email,
-        profileImageUrl: admin.profile_image_url,
-      }}
-      onSave={updateOwnProfile}
-    />
+    <>
+      <ProfileSettings
+        initial={{
+          fullName: admin.full_name,
+          email: admin.email,
+          profileImageUrl: admin.profile_image_url,
+        }}
+        onSave={updateOwnProfile}
+      />
+
+      {/*
+        Admin Appen-sektion — kun relevant for tenant-adminnen selv, ikke for
+        Pepo-superadmins (denne page.tsx bruges ikke af super-admins profil-
+        side, se app/super-admin/(protected)/profile/page.tsx), så det er
+        trygt at lægge den her frem for i den delte ProfileSettings.tsx.
+        AdminAppSection skjuler sig selv helt (inkl. overskrift) på desktop.
+      */}
+      <AdminAppSection />
+    </>
   );
 }

@@ -311,7 +311,10 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             className={
               "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
               (searchOpen
-                ? "w-[300px] border-pepo-bds opacity-100 pointer-events-auto"
+                ? // min(300px, ...) — undgår at søgefeltet løber ud over skærmens
+                  // højrekant på smalle mobilskærme (samme rettelse i
+                  // MessageBoard/ShiftBoard/FreelancerBoard's tilsvarende søgefelt).
+                  "w-[min(300px,calc(100vw-96px))] border-pepo-bds opacity-100 pointer-events-auto"
                 : "w-0 border-transparent opacity-0 pointer-events-none")
             }
           >
@@ -359,7 +362,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                   <div className="w-9 h-9 rounded-[9px] bg-pepo-pl text-pepo-p text-sm flex items-center justify-center flex-shrink-0">
                     <Icon name={isPrivate ? "user" : "building-store"} size={18} />
                   </div>
-                  <div className="text-[13.5px] font-medium text-pepo-t1 flex-shrink-0 w-[200px] truncate">
+                  <div className="text-[13.5px] font-medium text-pepo-t1 flex-shrink-0 w-[120px] sm:w-[200px] truncate">
                     {displayName(c)}
                   </div>
                   <div className="text-[12.5px] text-pepo-t2 flex-1 min-w-0 truncate">
@@ -501,7 +504,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
           </Field>
 
           <div className="flex gap-2.5">
-            <Field label="Telefon" className="flex-1">
+            <Field label="Telefon" className="flex-1 min-w-0">
               <input
                 type="text"
                 value={form.contactPhone}
@@ -510,7 +513,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
                 className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
               />
             </Field>
-            <Field label="Email" className="flex-1">
+            <Field label="Email" className="flex-1 min-w-0">
               <input
                 type="text"
                 value={form.contactEmail}

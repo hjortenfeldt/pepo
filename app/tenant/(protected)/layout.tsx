@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AdminSidebar, { AdminNavLinks } from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
+import AdminUpdateChecker from "@/components/admin/AdminUpdateChecker";
+import AdminPullToRefresh from "@/components/admin/AdminPullToRefresh";
+import AdminPushGate from "@/components/admin/AdminPushGate";
 import { logout } from "./actions";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 
@@ -71,30 +74,41 @@ export default async function ProtectedTenantLayout({
   // den som sin egen flex-shrink-0 række OVER sidebar+indhold-rækken,
   // frem for inde i én af dem. Sidebar+indhold-rækken er ÉT samlet
   // scroll-panel for indholdet (se AdminSidebar.tsx for sidebarens eget
-  // uafhængige scroll-panel). Sideindholdet (children) må derfor IKKE selv
-  // sætte h-screen eller sit eget overflow-y-auto, ellers opstår der to
+  // uafhængige scroll-panel) — AdminPullToRefresh.tsx ER nu dette
+  // scroll-panel (mobil: med træk-for-at-genindlæse-gestus, desktop: en
+  // almindelig overflow-y-auto). Sideindholdet (children) må derfor IKKE
+  // selv sætte h-screen eller sit eget overflow-y-auto, ellers opstår der to
   // indlejrede scroll-rammer, og noget indhold kan blive skåret af midt på
   // siden.
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-pepo-su">
-      <AdminTopBar
-        name={displayName}
-        onLogout={logout}
-        companyName={company.name}
-        profileImageUrl={isOwnCompanyAdmin ? admin!.profile_image_url : null}
-        mobileNav={<AdminNavLinks className="px-1 py-0.5" />}
-      />
-      <div className="flex flex-1 min-h-0">
-        <AdminSidebar />
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          {isSupportVisit && (
-            <div className="bg-amber-400 text-amber-950 text-sm font-medium px-4 py-2 text-center">
-              Support-tilstand — du er logget ind som Pepo-superadmin i {company.name}s system.
-            </div>
-          )}
-          {children}
+    // AdminPushGate yderst (mobil-only fuldskærms-takeover, skjuler topbar
+    // OG sidebar mens den viser sin prompt — se AdminPushGate.tsx for
+    // begrundelsen) — samme placeringsprincip som freelancer-appens
+    // PushGate.tsx, blot flyttet uden for hele topbar+sidebar-strukturen i
+    // stedet for kun uden om {children}, jf. Hjorths eksplicitte valg om
+    // "fuldskærm, skjuler sidebar" for disse gates.
+    <AdminPushGate>
+      <div className="flex flex-col h-screen overflow-hidden bg-pepo-su">
+        <AdminTopBar
+          name={displayName}
+          onLogout={logout}
+          companyName={company.name}
+          profileImageUrl={isOwnCompanyAdmin ? admin!.profile_image_url : null}
+          mobileNav={<AdminNavLinks className="px-1 py-0.5" />}
+        />
+        <AdminUpdateChecker />
+        <div className="flex flex-1 min-h-0">
+          <AdminSidebar />
+          <AdminPullToRefresh>
+            {isSupportVisit && (
+              <div className="bg-amber-400 text-amber-950 text-sm font-medium px-4 py-2 text-center">
+                Support-tilstand — du er logget ind som Pepo-superadmin i {company.name}s system.
+              </div>
+            )}
+            {children}
+          </AdminPullToRefresh>
         </div>
       </div>
-    </div>
+    </AdminPushGate>
   );
 }

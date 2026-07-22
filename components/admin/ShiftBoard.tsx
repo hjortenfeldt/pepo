@@ -242,7 +242,10 @@ export default function ShiftBoard({
               className={
                 "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
                 (searchOpen
-                  ? "w-[300px] border-pepo-bds opacity-100 pointer-events-auto"
+                  ? // min(300px, ...) — undgår at søgefeltet løber ud over skærmens
+                    // højrekant på smalle mobilskærme (samme rettelse i
+                    // MessageBoard/ClientBoard/FreelancerBoard's tilsvarende søgefelt).
+                    "w-[min(300px,calc(100vw-96px))] border-pepo-bds opacity-100 pointer-events-auto"
                   : "w-0 border-transparent opacity-0 pointer-events-none")
               }
             >

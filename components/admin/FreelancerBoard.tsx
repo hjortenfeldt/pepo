@@ -449,7 +449,10 @@ export default function FreelancerBoard({
             className={
               "absolute top-0 left-0 h-[38px] overflow-hidden border rounded-[9px] bg-pepo-wh transition-[width] duration-150 ease-out z-[5] " +
               (searchOpen
-                ? "w-[300px] border-pepo-bds opacity-100 pointer-events-auto"
+                ? // min(300px, ...) — undgår at søgefeltet løber ud over skærmens
+                  // højrekant på smalle mobilskærme (samme rettelse i
+                  // MessageBoard/ShiftBoard/ClientBoard's tilsvarende søgefelt).
+                  "w-[min(300px,calc(100vw-96px))] border-pepo-bds opacity-100 pointer-events-auto"
                 : "w-0 border-transparent opacity-0 pointer-events-none")
             }
           >
@@ -639,7 +642,7 @@ export default function FreelancerBoard({
                       initials(f.fullName)
                     )}
                   </div>
-                  <div className="text-[13.5px] font-medium text-pepo-t1 flex-shrink-0 w-[170px] truncate">
+                  <div className="text-[13.5px] font-medium text-pepo-t1 flex-shrink-0 w-[110px] sm:w-[170px] truncate">
                     {f.fullName}
                     {age !== null && <span className="text-pepo-t2"> ({age})</span>}
                   </div>

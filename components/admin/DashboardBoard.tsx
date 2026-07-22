@@ -28,6 +28,11 @@ function computeBarMetrics(colWidth: number) {
   return { barW, offset, radius: Math.min(4, barW / 2) };
 }
 
+// Titlen/undertitlen ("Dashboard" / "Overblik over...") vises IKKE herinde
+// længere — de renderes nu direkte i page.tsx, uafhængigt af selve
+// metrics-dataet, så de er synlige med det samme, mens resten af siden (som
+// afhænger af den tunge events-forespørgsel) strømmer ind separat via
+// DashboardBoardStream.tsx's <Suspense>. Se [[project_admin_appen_pwa_parity]].
 export default function DashboardBoard({
   monthly,
   eventCounts,
@@ -43,13 +48,6 @@ export default function DashboardBoard({
 }) {
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px]">
-        <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Dashboard</div>
-        <div className="text-[13.5px] text-pepo-t2 mt-[3px]">
-          Overblik over omsætning, udbetaling og kommende events
-        </div>
-      </div>
-
       <div className="px-8 py-[22px] pb-10">
         <div className="flex flex-col sm:flex-row gap-4">
           <StatCard

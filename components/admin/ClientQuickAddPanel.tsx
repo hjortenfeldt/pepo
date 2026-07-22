@@ -292,7 +292,7 @@ export default function ClientQuickAddPanel({
           </Field>
 
           <div className="flex gap-2.5">
-            <Field label="Telefon" className="flex-1">
+            <Field label="Telefon" className="flex-1 min-w-0">
               <input
                 type="text"
                 value={contactPhone}
@@ -301,7 +301,7 @@ export default function ClientQuickAddPanel({
                 className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
               />
             </Field>
-            <Field label="Email" className="flex-1">
+            <Field label="Email" className="flex-1 min-w-0">
               <input
                 type="text"
                 value={contactEmail}

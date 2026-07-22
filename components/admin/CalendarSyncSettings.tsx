@@ -86,7 +86,7 @@ export default function CalendarSyncSettings({
               <input
                 readOnly
                 value={feedUrl(tenantSlug, token, "webcal")}
-                className="flex-1 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[12.5px] text-pepo-t2 bg-pepo-su outline-none"
+                className="flex-1 min-w-0 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[12.5px] text-pepo-t2 bg-pepo-su outline-none"
                 onFocus={(e) => e.currentTarget.select()}
               />
               <a
@@ -148,7 +148,7 @@ export default function CalendarSyncSettings({
                   <input
                     readOnly
                     value={feedUrl(tenantSlug, token, "https")}
-                    className="flex-1 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[12.5px] text-pepo-t2 bg-pepo-su outline-none"
+                    className="flex-1 min-w-0 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[12.5px] text-pepo-t2 bg-pepo-su outline-none"
                     onFocus={(e) => e.currentTarget.select()}
                   />
                   <button

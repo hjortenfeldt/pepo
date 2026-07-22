@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 591 591" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <!-- Inverteret variant af /pepo-admin-logo.svg, brugt på Admin Appens
+         splash-skærm (se components/admin/AdminSplashScreen.tsx): den
+         afrundede firkant er hvid i stedet for lilla, så logoet fremstår som
+         et hvidt badge på splash-skærmens lilla fuldskærms-baggrund (samme
+         mønster som pepo-logo-inverted.svg for freelancer-appen). Den orange
+         accent-bjælke er bevidst IKKE inverteret — den er læsbar på både
+         hvid og lilla baggrund som den er. -->
+    <g transform="matrix(1,0,0,1,-4466.82,-1147)">
+        <g id="Artboard2" transform="matrix(0.994078,0,0,0.994078,802.253,6.19069)">
+            <rect x="3686.4" y="1147.61" width="594.069" height="594.069" style="fill:rgb(128,128,128);fill-opacity:0;"/>
+            <clipPath id="_clip1">
+                <rect x="3686.4" y="1147.61" width="594.069" height="594.069"/>
+            </clipPath>
+            <g clip-path="url(#_clip1)">
+                <g transform="matrix(0.86481,0,0,0.86481,2203.57,53.4749)">
+                    <path d="M2401.57,1440.2L2401.57,1777.07C2401.57,1873.67 2323.14,1952.1 2226.53,1952.1L1889.66,1952.1C1793.06,1952.1 1714.63,1873.67 1714.63,1777.07L1714.63,1440.2C1714.63,1343.6 1793.06,1265.17 1889.66,1265.17L2226.53,1265.17C2323.14,1265.17 2401.57,1343.6 2401.57,1440.2Z" style="fill:white;"/>
+                    <clipPath id="_clip2">
+                        <path d="M2401.57,1440.2L2401.57,1777.07C2401.57,1873.67 2323.14,1952.1 2226.53,1952.1L1889.66,1952.1C1793.06,1952.1 1714.63,1873.67 1714.63,1777.07L1714.63,1440.2C1714.63,1343.6 1793.06,1265.17 1889.66,1265.17L2226.53,1265.17C2323.14,1265.17 2401.57,1343.6 2401.57,1440.2Z"/>
+                    </clipPath>
+                    <g clip-path="url(#_clip2)">
+                        <g transform="matrix(1.16321,0,0,1.35338,-3481.23,-399.455)">
+                            <rect x="4466.82" y="1563.61" width="590.551" height="173.939" style="fill:rgb(233,55,0);"/>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

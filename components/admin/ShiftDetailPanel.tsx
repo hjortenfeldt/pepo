@@ -363,20 +363,20 @@ export default function ShiftDetailPanel({
                 </select>
               </Field>
               <div className="flex gap-2.5">
-                <Field label="Starttid" className="flex-1">
+                <Field label="Starttid" className="flex-1 min-w-0">
                   <TimeField value={row.startTime} onChange={(v) => setRow((r) => ({ ...r, startTime: v }))} />
                 </Field>
-                <Field label="Sluttid" className="flex-1">
+                <Field label="Sluttid" className="flex-1 min-w-0">
                   <TimeField value={row.endTime} onChange={(v) => setRow((r) => ({ ...r, endTime: v }))} />
                 </Field>
               </div>
 
               {shiftHasStarted && (
                 <div className="flex gap-2.5">
-                  <Field label="Stemplet ind" className="flex-1">
+                  <Field label="Stemplet ind" className="flex-1 min-w-0">
                     <TimeField value={clockInTime} onChange={setClockInTime} placeholder="Mangler" />
                   </Field>
-                  <Field label="Stemplet ud" className="flex-1">
+                  <Field label="Stemplet ud" className="flex-1 min-w-0">
                     <TimeField
                       value={clockOutTime}
                       onChange={setClockOutTime}

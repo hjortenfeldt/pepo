@@ -1,4 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import AdminInstallGate from "@/components/admin/AdminInstallGate";
+import AdminSplashScreen from "@/components/admin/AdminSplashScreen";
 
 /**
  * Sætter PWA-identitet (manifest/hjemmeskærm-ikon/app-navn) for HELE
@@ -27,6 +29,38 @@ export const metadata: Metadata = {
   },
 };
 
+// viewportFit/maximumScale/userScalable påvirker KUN mobile browseres eget
+// pinch-to-zoom/dobbelttryk-zoom — desktopbrowseres egen zoom (ctrl+scroll)
+// styres ikke af viewport-metaen, så dette er trygt at sætte globalt uden at
+// gate'e det til mobil (i modsætning til AdminInstallGate/AdminSplashScreen
+// nedenfor, som rent faktisk ÆNDRER hvad der vises/opleves på desktop, og
+// derfor skal forblive mobil-only — se lib/device-detection.ts).
+export const viewport: Viewport = {
+  themeColor: "#3e1f8a",
+  viewportFit: "cover",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
+// AdminInstallGate/AdminSplashScreen sidder her (øverst for HELE tenant-
+// admin-sitet, dvs. også /login og /apply), ikke i (protected)/layout.tsx —
+// samme begrundelse som freelancer-appens InstallGate/SplashScreen i
+// app/freelancer/layout.tsx. Begge er internt mobil-only-gate'ede (se
+// lib/device-detection.ts) og gør derfor INGENTING på desktop — hverken
+// synligt eller mærkbart — hvilket var Hjorths eksplicitte krav, da
+// tenant-admin (i modsætning til freelancer-appen) primært bruges på
+// desktop i dagligdagen. Se [[project_admin_appen_pwa_parity]].
 export default function TenantRootLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <AdminInstallGate>{children}</AdminInstallGate>
+      {/* Uden for AdminInstallGate (samme mønster som SplashScreen/InstallGate
+          i app/freelancer/layout.tsx) — så splash-overlayet dækker BÅDE
+          AdminInstallGate's egen korte "checking"-tilstand og en evt.
+          installér-guide, ikke kun det færdige dashboard-indhold. */}
+      <AdminSplashScreen />
+    </>
+  );
 }

@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCompanyBySubdomain } from "@/lib/tenant";
-import DashboardBoard from "@/components/admin/DashboardBoard";
+import DashboardBoardStream, { type DashboardMetrics } from "@/components/admin/DashboardBoardStream";
+import DashboardMetricsSkeleton from "@/components/admin/DashboardMetricsSkeleton";
 import { todayIso } from "@/lib/format";
 import {
   monthlyFinancials,
@@ -58,34 +61,72 @@ export default async function AdminDashboardPage() {
   const company = await getCompanyBySubdomain();
   if (!company) redirect("/login?error=unknown_company");
 
-  const [eventsResult, freelancerCountResult] = await Promise.all([
-    supabase
-      .from("events")
-      .select(
-        `id, title, event_date,
-         shifts(status, start_time, end_time,
-           work_categories(name, work_category_groups(client_rate_per_hour, freelancer_rate_per_hour)))`
-      )
-      .eq("company_id", company.id)
-      .order("event_date", { ascending: true }),
-    // Godkendte freelancer-profiler for DENNE virksomhed. En freelancer kan
-    // arbejde for flere virksomheder, men hver har sin egen uafhængige
-    // freelancer_profiles-række, så optælling sker direkte her.
-    supabase
-      .from("freelancer_profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", company.id)
-      .eq("application_status", "approved"),
-  ]);
+  // Hentes hurtigt og AWAITES her (en simpel head-count, ikke en tung join)
+  // — bruges af getDashboardMetrics nedenfor, men skal under alle
+  // omstændigheder kendes før metrics-bundtet kan beregnes, så der er ingen
+  // gevinst ved at udskyde netop denne.
+  const { count: freelancerCount, error: freelancerCountError } = await supabase
+    .from("freelancer_profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", company.id)
+    .eq("application_status", "approved");
 
-  if (eventsResult.error) {
-    console.error("AdminDashboardPage: kunne ikke hente events", eventsResult.error);
-  }
-  if (freelancerCountResult.error) {
-    console.error("AdminDashboardPage: kunne ikke tælle freelancere", freelancerCountResult.error);
+  if (freelancerCountError) {
+    console.error("AdminDashboardPage: kunne ikke tælle freelancere", freelancerCountError);
   }
 
-  const events: DashboardEvent[] = ((eventsResult.data ?? []) as RawEventRow[]).map((e) => ({
+  const today = todayIso();
+  const year = new Date().getFullYear();
+
+  // Bevidst IKKE awaitet her, men sendt videre som et promise til
+  // DashboardBoardStream (som læser det med Reacts use()-hook inde i sin
+  // egen <Suspense>, se DashboardBoardStream.tsx). events-forespørgslen
+  // herunder er en dyb join (shifts + work_categories + work_category_groups
+  // på tværs af ALLE virksomhedens events nogensinde) og dermed typisk den
+  // tungeste forespørgsel på siden — ved ikke at vente på den her kan
+  // titlen/undertitlen nedenfor vises med det samme, mens resten af
+  // Dashboard strømmer ind separat lige efter. Samme mønster som
+  // app/freelancer/(protected)/page.tsx's openShiftsPromise.
+  const metricsPromise = getDashboardMetrics(supabase, company.id, freelancerCount ?? 0, today, year);
+
+  return (
+    <div className="flex flex-col">
+      <div className="px-8 pt-[22px]">
+        <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Dashboard</div>
+        <div className="text-[13.5px] text-pepo-t2 mt-[3px]">
+          Overblik over omsætning, udbetaling og kommende events
+        </div>
+      </div>
+
+      <Suspense fallback={<DashboardMetricsSkeleton />}>
+        <DashboardBoardStream promise={metricsPromise} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function getDashboardMetrics(
+  supabase: SupabaseClient,
+  companyId: string,
+  freelancerCount: number,
+  today: string,
+  year: number
+): Promise<DashboardMetrics> {
+  const { data: eventsData, error } = await supabase
+    .from("events")
+    .select(
+      `id, title, event_date,
+       shifts(status, start_time, end_time,
+         work_categories(name, work_category_groups(client_rate_per_hour, freelancer_rate_per_hour)))`
+    )
+    .eq("company_id", companyId)
+    .order("event_date", { ascending: true });
+
+  if (error) {
+    console.error("getDashboardMetrics: kunne ikke hente events", error);
+  }
+
+  const events: DashboardEvent[] = ((eventsData ?? []) as RawEventRow[]).map((e) => ({
     id: e.id,
     title: e.title,
     eventDate: e.event_date,
@@ -103,16 +144,11 @@ export default async function AdminDashboardPage() {
     }),
   }));
 
-  const today = todayIso();
-  const year = new Date().getFullYear();
-
-  return (
-    <DashboardBoard
-      monthly={monthlyFinancials(events, year)}
-      eventCounts={eventCounts(events, today)}
-      freelancerStats={freelancerHourStats(events, freelancerCountResult.count ?? 0, today)}
-      upcoming={upcomingEvents(events, today)}
-      recent={recentEvents(events, today)}
-    />
-  );
+  return {
+    monthly: monthlyFinancials(events, year),
+    eventCounts: eventCounts(events, today),
+    freelancerStats: freelancerHourStats(events, freelancerCount, today),
+    upcoming: upcomingEvents(events, today),
+    recent: recentEvents(events, today),
+  };
 }

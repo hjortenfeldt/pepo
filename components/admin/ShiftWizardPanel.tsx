@@ -355,10 +355,10 @@ export default function ShiftWizardPanel({
                     </select>
                   </div>
                   <div className="flex gap-2.5 mb-4">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <TimeField value={row.startTime} onChange={(v) => updateRow(row.key, { startTime: v })} />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <TimeField value={row.endTime} onChange={(v) => updateRow(row.key, { endTime: v })} />
                     </div>
                   </div>
