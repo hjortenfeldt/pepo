@@ -35,6 +35,21 @@ const FALLBACK_SELECTOR = "[data-pepo-splash-fallback]";
  * splash-skærmen af sig selv aldrig dukker op igen efter første visning,
  * selvom PageSkeleton-markøren dukker op og forsvinder igen ved senere
  * fane-skift (se PageSkeleton.tsx).
+ *
+ * v0.28.9 — baggrunden her er IKKE længere splash-lilla (#6500B3), men
+ * appens almindelige lyse farve. Årsag: iOS 26 droppede understøttelse af
+ * <meta name=theme-color> OG manifest.json's theme_color helt (bekræftet via
+ * research, se project_splash_screen_freelancer_pwa-memory) — Safari
+ * forsøger i stedet at "gætte" browserchromets farve ud fra siden CSS, og
+ * bruger baggrundsfarven på ethvert `position:fixed`-element den finder,
+ * hvilket er en kendt, ustabil WebKit-fejl for netop fuldskærms-overlays som
+ * denne splash (se bugs.webkit.org #300965). Da denne komponent ER et
+ * fuldskærms `fixed`-element, "låste" iOS sig fast i lilla med det samme den
+ * blev vist — permanent for resten af sessionen, selv efter komponenten
+ * korrekt afmonteredes igen. Ved i stedet aldrig at vise en anden farve end
+ * appens rigtige, lyse baggrund her, kan der ikke længere "låses" til noget
+ * forkert — prisen er at splash-skærmen ikke længere har sin egen lilla
+ * branding-farve, kun logoet og en tynd loading-bar på lys baggrund.
  */
 export default function SplashScreen() {
   const [phase, setPhase] = useState<"animating" | "waiting" | "fading" | "hidden">("animating");
@@ -88,7 +103,7 @@ export default function SplashScreen() {
         "fixed inset-0 z-[100] transition-opacity duration-300 " +
         (phase === "fading" ? "opacity-0 pointer-events-none" : "opacity-100")
       }
-      style={{ backgroundColor: "#6500B3" }}
+      style={{ backgroundColor: "#f8f8fa" }}
       aria-hidden="true"
     >
       {/* Placeret med sit lodrette midtpunkt 1/3 nede på skærmen (dvs. 1/3
@@ -97,13 +112,17 @@ export default function SplashScreen() {
           præcis for at kunne styre dette forhold uafhængigt af skærmhøjde. */}
       <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4">
         <div className="w-40 h-40 pepo-splash-logo">
+          {/* v0.28.9: skiftet fra pepo-logo-inverted.svg (hvidt badge, designet
+              til den lilla baggrund) til det almindelige logo, da baggrunden
+              ikke længere er lilla — se forklaring i komponentens doc-kommentar
+              øverst i filen. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/pepo-logo-inverted.svg" alt="" className="w-full h-full" draggable={false} />
+          <img src="/pepo-logo.svg" alt="" className="w-full h-full" draggable={false} />
         </div>
 
         {phase === "waiting" && (
-          <div className="w-24 h-[1px] bg-white/25 overflow-hidden rounded-full">
-            <div className="h-full w-1/3 bg-white pepo-splash-bar" />
+          <div className="w-24 h-[1px] bg-pepo-bd overflow-hidden rounded-full">
+            <div className="h-full w-1/3 bg-pepo-p pepo-splash-bar" />
           </div>
         )}
       </div>

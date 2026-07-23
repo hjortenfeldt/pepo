@@ -105,23 +105,22 @@ export default function AdminSplashScreen() {
         "fixed inset-0 z-[100] transition-opacity duration-300 " +
         (phase === "fading" ? "opacity-0 pointer-events-none" : "opacity-100")
       }
-      style={{ backgroundColor: "#6500B3" }}
+      style={{ backgroundColor: "#ffffff" }}
       aria-hidden="true"
     >
       <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4">
         <div className="w-40 h-40 pepo-splash-logo">
-          {/* Samme logo som Freelancer Appens splash-skærm (SplashScreen.tsx)
-              — Hjorth vurderede den admin-specifikke variant
-              (pepo-admin-logo-inverted.svg) til ikke at fungere optimalt på
-              opstartsskærmen, så begge apps' splash-skærme viser nu det
-              samme /pepo-logo-inverted.svg. */}
+          {/* v0.28.9: skiftet fra pepo-logo-inverted.svg til det almindelige
+              logo, samme årsag som Freelancer Appens SplashScreen.tsx — se
+              dens doc-kommentar for den fulde forklaring (iOS 26-fejl med
+              position:fixed-elementers baggrundsfarve). */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/pepo-logo-inverted.svg" alt="" className="w-full h-full" draggable={false} />
+          <img src="/pepo-logo.svg" alt="" className="w-full h-full" draggable={false} />
         </div>
 
         {phase === "waiting" && (
-          <div className="w-24 h-[1px] bg-white/25 overflow-hidden rounded-full">
-            <div className="h-full w-1/3 bg-white pepo-splash-bar" />
+          <div className="w-24 h-[1px] bg-pepo-bd overflow-hidden rounded-full">
+            <div className="h-full w-1/3 bg-pepo-p pepo-splash-bar" />
           </div>
         )}
       </div>
