@@ -69,13 +69,17 @@ export default function ShiftBoard({
   clients,
   categories,
   freelancers,
+  initialTab,
 }: {
   events: EventListItem[];
   clients: ClientOption[];
   categories: CategoryOption[];
   freelancers: FreelancerOption[];
+  // Sat af page.tsx ud fra ?tab=upcoming|past — se dens kommentar for
+  // hvorfor (Dashboard-siden's "Se alle"-knapper).
+  initialTab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>("upcoming");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "upcoming");
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");

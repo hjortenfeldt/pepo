@@ -76,6 +76,7 @@ export default function DashboardBoard({
             events={upcoming}
             emptyText="Ingen kommende events"
             variant="upcoming"
+            seeAllHref="/shifts?tab=upcoming"
           />
         </div>
 
@@ -85,6 +86,7 @@ export default function DashboardBoard({
             events={recent}
             emptyText="Ingen afviklede events"
             variant="recent"
+            seeAllHref="/shifts?tab=past"
           />
         </div>
 
@@ -134,30 +136,41 @@ function EventListCard({
   events,
   emptyText,
   variant,
+  seeAllHref,
 }: {
   title: string;
   events: DashboardEventItem[];
   emptyText: string;
   /**
-   * "upcoming": rækker linker til eventets side (/shifts/event/[id], samme
-   * som REDIGÉR OPLYSNINGER-linket i kalender-feedet) og highlighter ved
-   * hover. "recent": ingen link — viser i stedet et lille økonomisk
-   * overblik pr. event (se EventFinancials) i stedet for jobfunktions-
-   * badges, da et afviklet event handler om hvad det kostede, ikke hvem
-   * der stadig mangler at blive tildelt. Se [[project_dashboard_event_financials]].
+   * "upcoming": viser jobfunktions-badges (åben/til salg/tildelt).
+   * "recent": viser i stedet et lille økonomisk overblik pr. event (se
+   * EventFinancials), da et afviklet event handler om hvad det kostede,
+   * ikke hvem der stadig mangler at blive tildelt. Se
+   * [[project_dashboard_event_financials]]. Begge varianter linker nu til
+   * eventets side (/shifts/event/[id]) og highlighter ved hover.
    */
   variant: "upcoming" | "recent";
+  /** "Se alle"-knappens mål — /shifts?tab=upcoming hhv. ?tab=past. */
+  seeAllHref: string;
 }) {
   return (
     <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5">
-      <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
+      <div className="flex items-center gap-3 mb-[18px]">
+        <div className="text-[14.5px] font-semibold tracking-tight">{title}</div>
+        <Link
+          href={seeAllHref}
+          className="h-[38px] px-4 rounded-[9px] bg-pepo-p text-white text-[13.5px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+        >
+          Se alle
+        </Link>
+      </div>
       {events.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-pepo-t3">
           <Icon name="calendar-event" size={40} className="mb-2" />
           <span className="text-[13px]">{emptyText}</span>
         </div>
       ) : (
-        <div className="flex flex-col">
+        <div className="flex flex-col border-t border-pepo-bd">
           {events.map((event) => (
             <EventRow key={event.id} event={event} variant={variant} />
           ))}
@@ -168,52 +181,43 @@ function EventListCard({
 }
 
 function EventRow({ event, variant }: { event: DashboardEventItem; variant: "upcoming" | "recent" }) {
-  const dot = eventFullyStaffed(event.roles) ? "bg-[#1A7A34]" : "bg-[#C0021A]";
-  const inner = (
-    <div className="flex items-center gap-3.5 py-3">
-      <div className="w-1.5 flex-shrink-0 flex items-center justify-center">
-        <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+  // Lysere/mere mættede farver end de "dæmpede" grøn/rød der ellers bruges
+  // til badges/tekst i appen (fx STATUS_BADGE_CLASS i ShiftBoard.tsx) — som
+  // små 9px-prikker har de dæmpede toner en tendens til at drukne, så disse
+  // to er bevidst kun brugt HER, ikke rettet globalt.
+  const dot = eventFullyStaffed(event.roles) ? "bg-[#34C759]" : "bg-[#FF3B30]";
+  return (
+    <Link
+      href={`/shifts/event/${event.id}`}
+      className="block -mx-2 px-2 rounded-[8px] border-b border-pepo-bd last:border-none hover:bg-pepo-su transition-colors"
+    >
+      <div className="flex items-center gap-3.5 py-3">
+        <div className="w-[9px] flex-shrink-0 flex items-center justify-center">
+          <span className={`w-[9px] h-[9px] rounded-full ${dot}`} />
+        </div>
+        <div className="w-[86px] flex-shrink-0">
+          <div className="text-xs font-semibold text-pepo-t1">{relativeDateLabel(event.eventDate)}</div>
+          <div className="text-[11px] text-pepo-t2 mt-px">{formatDateDisplay(event.eventDate)}</div>
+        </div>
+        <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2.5">
+          <span className="text-[13.5px] font-medium text-pepo-t1">{event.title}</span>
+          {variant === "upcoming" ? (
+            <div className="flex flex-wrap gap-1.5 sm:justify-end sm:flex-shrink-0">
+              {event.roles.map((r) => (
+                <Fragment key={r.category}>
+                  {r.open > 0 && <RoleBadge count={r.open} category={r.category} tone="red" />}
+                  {r.forResale > 0 && <RoleBadge count={r.forResale} category={r.category} tone="amber" />}
+                  {r.assigned > 0 && <RoleBadge count={r.assigned} category={r.category} tone="green" />}
+                </Fragment>
+              ))}
+            </div>
+          ) : (
+            <EventFinancials revenue={event.revenue} expense={event.expense} />
+          )}
+        </div>
       </div>
-      <div className="w-[86px] flex-shrink-0">
-        <div className="text-xs font-semibold text-pepo-t1">{relativeDateLabel(event.eventDate)}</div>
-        <div className="text-[11px] text-pepo-t3 mt-px">{formatDateDisplay(event.eventDate)}</div>
-      </div>
-      <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2.5">
-        <span className="text-[13.5px] font-medium text-pepo-t1">{event.title}</span>
-        {variant === "upcoming" ? (
-          <div className="flex flex-wrap gap-1.5 sm:justify-end sm:flex-shrink-0">
-            {event.roles.map((r) => (
-              <Fragment key={r.category}>
-                {r.open > 0 && <RoleBadge count={r.open} category={r.category} tone="red" />}
-                {r.forResale > 0 && <RoleBadge count={r.forResale} category={r.category} tone="amber" />}
-                {r.assigned > 0 && <RoleBadge count={r.assigned} category={r.category} tone="green" />}
-              </Fragment>
-            ))}
-          </div>
-        ) : (
-          <EventFinancials revenue={event.revenue} expense={event.expense} />
-        )}
-      </div>
-    </div>
+    </Link>
   );
-
-  // "border-b"/"last:border-none" skal sidde på selve listeelementet (det
-  // direkte barn af EventListCard's "flex flex-col"-liste), ikke på `inner`
-  // — ellers er `inner` altid ":last-child" af sin egen Link-wrapper (som
-  // kun har ét barn), og skilletegnet ville forsvinde fra ALLE rækker, ikke
-  // kun den sidste.
-  if (variant === "upcoming") {
-    return (
-      <Link
-        href={`/shifts/event/${event.id}`}
-        className="block -mx-2 px-2 rounded-[8px] border-b border-pepo-bd last:border-none hover:bg-pepo-su transition-colors"
-      >
-        {inner}
-      </Link>
-    );
-  }
-
-  return <div className="border-b border-pepo-bd last:border-none">{inner}</div>;
 }
 
 /**
