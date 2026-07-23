@@ -99,6 +99,29 @@ export function PullToRefreshFooter({ children }: { children: React.ReactNode })
  * heller ikke længere nødvendig og er fjernet — der er intet at modvirke,
  * når ingenting flytter sig via transform.
  *
+ * v0.29.0 — scrollRef's `overscroll-behavior` ændret fra `auto` til
+ * `contain`, efter et vedvarende, svært reproducerbart fryse-problem
+ * specifikt på Kontakter-siden (fungerede altid fint på Overblik) — appen
+ * blev helt uresponsiv over for touch, hvis man scrollede helt til bunds og
+ * derefter forsøgte at scrolle længere. Roden er sandsynligvis "scroll
+ * chaining": `app/freelancer/layout.tsx`'s ydre `fixed inset-0`-wrapper har
+ * (bevidst, som sikkerhedsnet) SIN EGEN `overflow-y-auto` — dvs. der findes
+ * teknisk set to indlejrede scroll-containere. `overscroll-behavior: auto`
+ * tillader eksplicit at en scroll-gestus "kæder" videre til en forældre-
+ * scroll-container, når man rammer sin egen kant — hvis den ydre wrapper på
+ * noget tidspunkt har bare ÉN pixel reel (utilsigtet) overflow, fx pga.
+ * `100dvh`/viewport-afrundingsfejl (iOS 26 har adskillige dokumenterede,
+ * aktive fejl netop her, se project_splash_screen_freelancer_pwa-memory),
+ * kunne momentum-scrollet "lække" ind i den ydre container og efterlade
+ * WebKit's touch-tilstand i en tilstand der føles fastfrosset. `contain`
+ * bevarer den lokale native rubber-band-effekt (bounce ved DENNE boks' egne
+ * kanter er uændret), men forhindrer kædning til en forældre-container helt
+ * — uden at ændre den ydre wrappers egen `overflow-y-auto` (dens
+ * sikkerhedsnet-formål er stadig relevant, og at fjerne den er en større,
+ * mere risikabel ændring end nødvendig her). Ikke 100% bekræftet uden en
+ * enhed at teste på, men adresserer den mest sandsynlige mekanisme uden at
+ * røre position/transform-arkitekturen ovenfor.
+ *
  * Header/footer-slots: to ægte DOM-SØSKENDE til scrollRef —
  * `headerSlotRef`/`footerSlotRef` — der slet ikke er en del af den
  * scrollende boks. Sider der har en fast top-bar eller bund-knap
@@ -296,15 +319,20 @@ export default function PullToRefresh({
             scrollende boks — se PullToRefreshHeader. Tom når en side ikke
             bruger den (fx sider uden fast top-bar). */}
         <div ref={headerSlotRef} className="relative z-[2] flex-shrink-0" />
-        {/* overscroll-auto (ikke -none): lader browserens egen native
-            rubber-band styre bund-elastik og momentum-ankomst i begge ender.
+        {/* overscroll-contain (IKKE -auto, se v0.29.0-note nedenfor og
+            project_pull_to_refresh_freelancer_pwa-memory): lader browserens
+            egen native rubber-band styre bund-elastik og momentum-ankomst i
+            begge ender ved DENNE boks' egne kanter, men forhindrer at samme
+            scroll-gestus "kæder" videre til app/freelancer/layout.tsx's ydre
+            fixed-wrapper (som af historiske årsager også selv har
+            overflow-y-auto, som sikkerhedsnet — se dens egen doc-kommentar).
             [overflow-anchor:none]: forhindrer browserens "scroll anchoring" i
             at modarbejde spinnerWrapRef's bevidste højdevækst herunder — se
             doc-kommentaren for hele modellen. Denne div får ALDRIG en inline
             transform. */}
         <div
           ref={scrollRef}
-          className="relative flex-1 min-h-0 overflow-y-auto overscroll-auto bg-pepo-su [overflow-anchor:none]"
+          className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain bg-pepo-su [overflow-anchor:none]"
         >
           <div
             ref={spinnerWrapRef}
