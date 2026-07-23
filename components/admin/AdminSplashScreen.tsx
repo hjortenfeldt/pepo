@@ -2,15 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { isMobileDevice } from "@/lib/device-detection";
-import { setThemeColor } from "@/lib/theme-color";
 
 const MIN_VISIBLE_MS = 2000;
 const FADE_MS = 300;
-// Skal matche selve splash-overlayets baggrundsfarve (se style-attributten
-// nedenfor) og appens rigtige baggrund (--pepo-wh, matcher AdminTopBar, se
-// app/tenant/layout.tsx's viewport-eksport) — se lib/theme-color.ts.
-const SPLASH_THEME_COLOR = "#6500B3";
-const CONTENT_THEME_COLOR = "#ffffff";
 
 // Matcher markøren i AdminPageSkeleton.tsx — egen markør (ikke
 // data-pepo-splash-fallback, som freelancer-appens SplashScreen.tsx bruger),
@@ -58,16 +52,10 @@ export default function AdminSplashScreen() {
         setPhase("hidden");
         return;
       }
-      // Sætter browserchromet (Safaris URL-felt/status-bar, se
-      // lib/theme-color.ts) til splash-lilla med det samme — KUN i denne
-      // mobile gren, da splash slet ikke vises på desktop (og chromet
-      // dermed allerede står korrekt fra viewport-eksportens standardværdi).
-      setThemeColor(SPLASH_THEME_COLOR);
       setPhase("animating");
 
       function tryHide() {
         if (contentReadyRef.current && minTimeElapsedRef.current) {
-          setThemeColor(CONTENT_THEME_COLOR);
           setPhase("fading");
           setTimeout(() => setPhase("hidden"), FADE_MS);
         }

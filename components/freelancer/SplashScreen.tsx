@@ -1,15 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { setThemeColor } from "@/lib/theme-color";
 
 const MIN_VISIBLE_MS = 2000;
 const FADE_MS = 300;
-// Skal matche selve splash-overlayets baggrundsfarve (se style-attributten
-// nedenfor) og appens rigtige baggrund (--pepo-su, se app/freelancer/
-// layout.tsx's viewport-eksport) — se lib/theme-color.ts.
-const SPLASH_THEME_COLOR = "#6500B3";
-const CONTENT_THEME_COLOR = "#f8f8fa";
 
 // Matcher markøren i PageSkeleton.tsx. Findes den i DOM'en, viser Next.js'
 // loading.tsx-fallback (route-Suspense) sig stadig — dvs. destinationssiden
@@ -49,14 +43,8 @@ export default function SplashScreen() {
   const minTimeElapsedRef = useRef(false);
 
   useEffect(() => {
-    // Sætter browserchromet (Safaris URL-felt/status-bar, se lib/theme-color.ts)
-    // til splash-lilla med det samme — og tilbage til appens rigtige farve
-    // igen i tryHide(), så det ikke "hænger fast" i lilla efter splash er væk.
-    setThemeColor(SPLASH_THEME_COLOR);
-
     function tryHide() {
       if (contentReadyRef.current && minTimeElapsedRef.current) {
-        setThemeColor(CONTENT_THEME_COLOR);
         setPhase("fading");
         setTimeout(() => setPhase("hidden"), FADE_MS);
       }

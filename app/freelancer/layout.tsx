@@ -25,11 +25,16 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Appens rigtige baggrundsfarve (--pepo-su), IKKE splash-lilla — dette er
-  // standardværdien der gælder når JS endnu ikke er kørt (fx meget tidligt i
-  // en almindelig browserfane). SplashScreen.tsx overskriver den midlertidigt
-  // til lilla mens splash er synlig, og sætter den tilbage til denne værdi,
-  // når splash forsvinder — se lib/theme-color.ts.
+  // Appens rigtige, lyse baggrundsfarve (--pepo-su) — bevidst FAST hele tiden,
+  // også mens SplashScreen vises ovenpå. Vi forsøgte tidligere at farve OS-
+  // chromet (Safaris URL-felt/status-bar) splash-lilla og skifte det tilbage
+  // igen dynamisk via JS, men iOS Safari var upålidelig til at reagere på
+  // ændringer efter første load, og et forsøg på en "sikrere" workaround
+  // (fjerne/genskabe selve <meta>-elementet) endte med at forårsage en reel
+  // regression (se project_splash_screen_freelancer_pwa-memory, v0.28.4).
+  // Konklusion: den kortvarige (under et par sekunder) farve-mismatch mens
+  // splashen vises er en acceptabel kosmetisk detalje, ikke noget værd at
+  // jagte videre — stabilitet og enkel kode vejer tungere.
   themeColor: "#f8f8fa",
   viewportFit: "cover",
   width: "device-width",

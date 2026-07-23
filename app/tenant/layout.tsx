@@ -36,10 +36,12 @@ export const metadata: Metadata = {
 // nedenfor, som rent faktisk ÆNDRER hvad der vises/opleves på desktop, og
 // derfor skal forblive mobil-only — se lib/device-detection.ts).
 export const viewport: Viewport = {
-  // Appens rigtige baggrundsfarve (--pepo-wh, matcher AdminTopBar), IKKE
-  // splash-lilla — se samme forklaring i app/freelancer/layout.tsx og
-  // lib/theme-color.ts. AdminSplashScreen.tsx overskriver den midlertidigt,
-  // KUN på mobil (hvor splash-skærmen overhovedet vises).
+  // Appens rigtige, lyse baggrundsfarve (--pepo-wh, matcher AdminTopBar) —
+  // bevidst FAST hele tiden, også mens AdminSplashScreen vises på mobil. Se
+  // uddybende forklaring i app/freelancer/layout.tsx — samme konklusion
+  // gælder her: vi dropper det dynamiske farveskift, da det viste sig
+  // upålideligt på iOS Safari og en workaround for det forårsagede en reel
+  // stabilitetsregression (se project_splash_screen_freelancer_pwa-memory).
   themeColor: "#ffffff",
   viewportFit: "cover",
   width: "device-width",
