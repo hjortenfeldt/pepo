@@ -95,6 +95,19 @@ export function todayIso(): string {
 }
 
 /**
+ * Lægger N dage til en "YYYY-MM-DD"-dato — bruges bl.a. til at udregne
+ * "de næste 7 dage"-vinduet på /shifts/ubesatte (se
+ * lib/shifts-data.ts's filterEventsWithUnfilledShiftsWithinDays), så
+ * grænsen regnes ens i JS her og i SQL-funktionen bag selve push-tallet
+ * (get_companies_with_unfilled_shifts_next_7_days).
+ */
+export function addDaysIso(isoDate: string, days: number): string {
+  const d = new Date(isoDate + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
  * "I dag"/"I morgen"/"I overmorgen"/"Om N dage" for fremtidige datoer,
  * "I går"/"I forgårs"/"For N dage siden" for fortidige — matcher
  * prototypens relativeDateLabel() i Pepo – Admin dashboard.html.

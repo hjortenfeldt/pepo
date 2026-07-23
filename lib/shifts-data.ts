@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { venueLabel } from "@/lib/format";
+import { venueLabel, todayIso, addDaysIso } from "@/lib/format";
 import type {
   EventListItem,
   ClientOption,
@@ -321,4 +321,29 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
   }));
 
   return { events, clients, categories, freelancers };
+}
+
+/**
+ * "Ubesat(te) vagt(er) om få dage"-notifikationens filter, genbrugt af
+ * /shifts/ubesatte (UnfilledShiftsView.tsx) — samme regel som SQL-
+ * funktionen bag selve push-tallet (get_companies_with_unfilled_shifts_
+ * next_7_days), blot udtrykt i JS her: mindst én "open"/"for_resale"-vagt
+ * med shift_date inden for [i dag; i dag+dage]. Bevidst pr. VAGT (ikke pr.
+ * event) at afgøre om et event tages med — et event med både en tildelt og
+ * en ubesat vagt skal stadig vises, så admin kan se og besætte den sidste.
+ */
+export function filterEventsWithUnfilledShiftsWithinDays(
+  events: EventListItem[],
+  days: number,
+  today: string = todayIso()
+): EventListItem[] {
+  const cutoff = addDaysIso(today, days);
+  return events.filter((e) =>
+    e.shifts.some(
+      (s) =>
+        (s.status === "open" || s.status === "for_resale") &&
+        s.shiftDate >= today &&
+        s.shiftDate <= cutoff
+    )
+  );
 }

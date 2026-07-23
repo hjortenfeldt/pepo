@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { pushNewShiftRequestToAdmins } from "@/lib/shift-notifications";
 
 /**
  * Stempel-ur: starter en ny time_clock_entries-række for den indloggede
@@ -95,6 +96,12 @@ export async function requestShift(shiftId: string) {
     console.error("requestShift fejlede", error);
     return { success: false as const, error: "Kunne ikke sende anmodningen. Prøv igen." };
   }
+
+  // Fejler aldrig hårdt for selve anmodningen — se safePush i
+  // lib/shift-notifications.ts. Sendes til virksomhedens admins, ikke
+  // freelanceren selv (som jo ved det allerede). await'es ligesom de øvrige
+  // push-kald i app/tenant/(protected)/shifts/actions.ts.
+  await pushNewShiftRequestToAdmins(shiftId, user.id);
 
   revalidatePath("/");
   revalidatePath(`/vagt/${shiftId}`);

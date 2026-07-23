@@ -5,6 +5,7 @@ import { normalizePhone } from "@/lib/format";
 import type { RegistrationResult, WorkCategory } from "@/lib/types";
 import { updateTag } from "next/cache";
 import { FREELANCER_MEMBERSHIPS_TAG } from "@/lib/freelancer";
+import { sendPushToCompanyAdmins } from "@/lib/admin-push";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -153,6 +154,20 @@ export async function submitRegistrationForCompany(
     return { success: false, error: "Der opstod en fejl. Prøv venligst igen om lidt." };
   }
   updateTag(FREELANCER_MEMBERSHIPS_TAG);
+
+  // "Ny jobansøgning" — se Pepo – Notifikationstyper.xlsx, fane
+  // "Notifikationstyper (Admin)", række 3. Fejler aldrig hårdt for selve
+  // ansøgningen — push er en ekstra service, ikke en forudsætning for at
+  // ansøgningen lykkes (samme filosofi som lib/push.ts/lib/admin-push.ts).
+  try {
+    await sendPushToCompanyAdmins(companyId, {
+      title: "Ny jobansøgning",
+      body: `${fullName} har ansøgt om at blive freelancer hos jer. Se ansøgningen og godkend eller afvis.`,
+      url: "/freelancers",
+    });
+  } catch (err) {
+    console.error("submitRegistrationForCompany: push til admins fejlede", err);
+  }
 
   // 4. Kobl valgte arbejdskategorier på. freelancer_categories.freelancer_id
   // peger på login-id'et (userId), ikke på denne profils eget id —

@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToFreelancer } from "@/lib/push";
+import { sendPushToCompanyAdmins } from "@/lib/admin-push";
 import { formatDateDisplay } from "@/lib/format";
 
 /**
@@ -23,15 +24,24 @@ type ShiftDisplayFields = {
   dato: string;
   start: string;
   slut: string;
+  companyId: string;
+  eventId: string | null;
 };
 
-async function loadShiftDisplayFields(
+/**
+ * Eksporteret (oprindeligt privat) så admin-siden af notifikationerne —
+ * fx pushNewShiftRequestToAdmins nedenfor — kan genbruge samme opslag i
+ * stedet for at duplikere det. companyId/eventId var ikke nødvendige før
+ * kun freelanceren selv blev sendt push, men skal bruges til hhv.
+ * sendPushToCompanyAdmins og deep-link-URL'en til admins.
+ */
+export async function loadShiftDisplayFields(
   supabase: ReturnType<typeof createAdminClient>,
   shiftId: string
 ): Promise<ShiftDisplayFields | null> {
   const { data } = await supabase
     .from("shifts")
-    .select("shift_date, start_time, end_time, category:work_categories(name), client:clients(name)")
+    .select("shift_date, start_time, end_time, company_id, event_id, category:work_categories(name), client:clients(name)")
     .eq("id", shiftId)
     .maybeSingle();
 
@@ -48,6 +58,8 @@ async function loadShiftDisplayFields(
     dato: formatDateDisplay(data.shift_date as string),
     start: (data.start_time as string).slice(0, 5),
     slut: (data.end_time as string).slice(0, 5),
+    companyId: data.company_id as string,
+    eventId: (data.event_id as string | null) ?? null,
   };
 }
 
@@ -187,4 +199,39 @@ export async function queueOpenShiftNotifications(companyId: string, categoryId:
   } catch (err) {
     console.error("queueOpenShiftNotifications: kunne ikke sætte i kø", err);
   }
+}
+
+/**
+ * "Ny vagtanmodning" — kaldes EFTER requestShift() har indsat en
+ * shift_interests-række (se app/freelancer/(protected)/actions.ts).
+ * Sendes til ALLE admins hos virksomheden, ikke en bestemt én — hvem der
+ * reelt sidder og tildeler vagten kan variere. Linker til admin-appens
+ * event-deep-link-side (samme side som kalender-feedets "REDIGÉR
+ * OPLYSNINGER"-link peger på), hvor admin kan se og tildele vagten videre
+ * — se Pepo – Notifikationstyper.xlsx, fane "Notifikationstyper (Admin)".
+ */
+export async function pushNewShiftRequestToAdmins(shiftId: string, freelancerId: string) {
+  await safePush("pushNewShiftRequestToAdmins", async () => {
+    const supabase = createAdminClient();
+    const f = await loadShiftDisplayFields(supabase, shiftId);
+    if (!f) return;
+
+    // Navnet er pr. virksomhed (se [[project_freelancer_multi_company_feature]]),
+    // så det slås op for DENNE virksomhed specifikt, ikke bare et vilkårligt
+    // profilnavn på tværs af freelancerens øvrige virksomheder.
+    const { data: profile } = await supabase
+      .from("freelancer_profiles")
+      .select("full_name")
+      .eq("auth_user_id", freelancerId)
+      .eq("company_id", f.companyId)
+      .maybeSingle();
+
+    const navn = (profile?.full_name as string | undefined) ?? "En freelancer";
+
+    await sendPushToCompanyAdmins(f.companyId, {
+      title: "Ny vagtanmodning",
+      body: `${navn} har anmodet om vagten som ${f.jobfunktion} hos ${f.kunde} d. ${f.dato} kl. ${f.start}.`,
+      url: f.eventId ? `/shifts/event/${f.eventId}` : "/shifts",
+    });
+  });
 }
