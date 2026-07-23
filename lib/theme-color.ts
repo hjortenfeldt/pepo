@@ -9,29 +9,25 @@
  * begge chrome-områder lilla mens splash-overlayet er synligt, og sætter dem
  * tilbage til appens rigtige farve, så snart splash forsvinder.
  *
- * v0.28.4-fix: Hjorth testede v0.28.3 grundigt (frisk Safari-session, OG en
- * fuld afinstallation+geninstallation af appen) og så stadig fastfrosset
- * lilla i Freelancer Appen — men IKKE i Admin Appen. Det viste sig ikke være
- * en reel forskel i logikken (begge splash-skærme kalder denne funktion på
- * nøjagtig samme måde), men at Admin Appens test aldrig reelt afprøvede den
- * dynamiske "skift tilbage"-kode: Admin Appen er desktop-først, og
- * AdminSplashScreen viser sig slet ikke på desktop (isMobileDevice() falsk),
- * så theme-color rørte den aldrig — kun den STATISKE standardværdi (allerede
- * korrekt hvid) blev reelt testet der. Freelancer Appen er derimod altid
- * mobil, så den ramte den dynamiske kode hver gang, og AFSLØREDE dermed en
- * kendt, veldokumenteret Safari/WebKit-kvirk: at ændre en EKSISTERENDE
- * `<meta name="theme-color">`-tags `content`-attribut via `setAttribute()`
- * bliver ofte ikke opfanget pålideligt af iOS' egen chrome-farvelægning —
- * hverken i almindelig Safari eller i en installeret standalone-app. Den
- * almindeligt anbefalede løsning (brugt her) er i stedet at FJERNE hele
- * meta-elementet og indsætte et helt NYT et med den ønskede farve — det
- * tvinger Safari til at opdage ændringen, hvor en simpel attribut-mutation
- * på det samme element ikke gjorde.
+ * v0.28.5 — TILBAGERULLET fra v0.28.4's forsøg. Den version fjernede hele
+ * meta-elementet fra DOM'en og indsatte et helt nyt et (et almindeligt
+ * foreslået trick mod en formodet Safari-kvirk) — men det element hører til
+ * i <head>, som Next.js' App Router selv styrer via React (viewport/metadata-
+ * systemet). At fjerne/genskabe det UDENOM React kan efterlade Reacts interne
+ * bogføring af det stykke DOM i en tilstand der ikke matcher virkeligheden,
+ * hvilket meget sandsynligt var årsagen til at BÅDE login (Freelancer Appen)
+ * og pull-to-refresh (Admin Appen, router.refresh()-transitionen hang for
+ * evigt med spinneren stående) gik i stå bagefter — begge involverer en
+ * React-transition/routing-opdatering, som kan crashe/hænge hvis React
+ * støder på en uventet DOM-tilstand i <head> under reconciliation.
+ * Prioritet: grundlæggende funktion (login, genindlæsning) er langt
+ * vigtigere end en kosmetisk status-bar-farve — gået tilbage til den
+ * simple, React-sikre attribut-mutation (som IKKE fjerner noget DOM-element),
+ * selvom den ikke nødvendigvis løser Freelancer Appens fastfrosne lilla
+ * status-bar fuldt ud. Den kosmetiske fejl kan tages op igen separat, mere
+ * forsigtigt, uden at røre <head>-DOM'en direkte.
  */
 export function setThemeColor(color: string) {
-  document.querySelectorAll('meta[name="theme-color"]').forEach((el) => el.remove());
-  const meta = document.createElement("meta");
-  meta.setAttribute("name", "theme-color");
-  meta.setAttribute("content", color);
-  document.head.appendChild(meta);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", color);
 }
