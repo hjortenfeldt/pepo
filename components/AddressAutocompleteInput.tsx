@@ -105,7 +105,7 @@ export function AddressAutocompleteInput({
         className={className}
       />
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1.5 bg-pepo-wh border border-pepo-bd rounded-[9px] shadow-[0_6px_18px_rgba(0,0,0,0.1)] max-h-[220px] overflow-y-auto z-20">
+        <div className="absolute top-full left-0 right-0 mt-1.5 bg-pepo-wh border border-pepo-bd rounded-[9px] shadow-[0_6px_18px_rgba(0,0,0,0.1)] max-h-[220px] overflow-y-auto overscroll-contain z-20">
           {suggestions.map((s) => (
             <div
               key={s.placeId}

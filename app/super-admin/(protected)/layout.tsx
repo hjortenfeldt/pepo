@@ -50,7 +50,7 @@ export default async function ProtectedSuperAdminLayout({
         profileImageUrl={superAdmin.profile_image_url}
         profileHref="/profile"
       />
-      <main className="flex-1 min-h-0 overflow-y-auto px-8 py-8">{children}</main>
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-8 py-8">{children}</main>
     </div>
   );
 }

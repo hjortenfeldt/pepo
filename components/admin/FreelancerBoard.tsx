@@ -741,7 +741,7 @@ export default function FreelancerBoard({
 
             {panelMode === "view" && open && (
               <>
-                <div className="flex-1 overflow-y-auto px-6 pt-6">
+                <div className="flex-1 overflow-y-auto overscroll-contain px-6 pt-6">
                   {!open.lastActiveAt && (
                     <div className="mb-5 rounded-[10px] border border-pepo-bd bg-pepo-su px-3.5 py-3">
                       <div className="flex items-start gap-2 text-[12.5px] text-pepo-t2 leading-relaxed mb-2.5">
@@ -856,7 +856,7 @@ export default function FreelancerBoard({
 
             {(panelMode === "create" || panelMode === "edit") && (
               <>
-                <div className="flex-1 overflow-y-auto px-6 pt-6">
+                <div className="flex-1 overflow-y-auto overscroll-contain px-6 pt-6">
                   {panelMode === "edit" && !showPhotoUpload ? (
                     <div className="mb-4">
                       <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">

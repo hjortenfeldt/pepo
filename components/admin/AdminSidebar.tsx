@@ -175,7 +175,7 @@ export function AdminNavLinks({ className = "" }: { className?: string }) {
 export default function AdminSidebar() {
   return (
     <div className="hidden lg:flex w-56 bg-pepo-wh border-r border-pepo-bd flex-shrink-0 flex-col h-full overflow-hidden">
-      <AdminNavLinks className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3" />
+      <AdminNavLinks className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 py-3" />
     </div>
   );
 }

@@ -230,7 +230,7 @@ export default function ClientQuickAddPanel({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 pt-[22px]">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 pt-[22px]">
           <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2">
             Kunde &amp; faktureringsoplysninger
           </div>

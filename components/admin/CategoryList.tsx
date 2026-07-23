@@ -437,7 +437,7 @@ export default function CategoryList({
           // smalle skærme — den antager stadig en 400px-bred boks til selve
           // udregningen. Uden dette loft ville selve kassen løbe ud over
           // højrekanten på enhver skærm smallere end ca. 420px (alle mobiler).
-          className="fixed w-[400px] max-w-[calc(100vw-16px)] max-h-[400px] overflow-y-auto bg-pepo-wh rounded-[14px] shadow-[0_12px_40px_rgba(29,29,31,0.18)] p-3 z-50"
+          className="fixed w-[400px] max-w-[calc(100vw-16px)] max-h-[400px] overflow-y-auto overscroll-contain bg-pepo-wh rounded-[14px] shadow-[0_12px_40px_rgba(29,29,31,0.18)] p-3 z-50"
           style={{ top: iconPicker.top, left: iconPicker.left }}
         >
           <div className="grid grid-cols-7 gap-1">

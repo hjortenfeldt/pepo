@@ -177,7 +177,7 @@ export default function MessageBoard({
                 <Icon name="x" size={20} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 pt-[22px]">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-6 pt-[22px]">
               <Field label="Modtagere">
                 <div className="flex bg-pepo-su rounded-[9px] p-[3px] mb-1.5">
                   <button
@@ -267,7 +267,7 @@ export default function MessageBoard({
                 <Icon name="x" size={20} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 pt-[22px]">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-6 pt-[22px]">
               <span
                 className={
                   "text-[11px] font-medium px-[9px] py-[3px] rounded-full inline-block mb-1 " +

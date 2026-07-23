@@ -100,7 +100,7 @@ export default function ClientVenueField({
         </div>
 
         {suggestOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1.5 bg-pepo-wh border border-pepo-bd rounded-[9px] shadow-[0_6px_18px_rgba(0,0,0,0.1)] max-h-[220px] overflow-y-auto z-10">
+          <div className="absolute top-full left-0 right-0 mt-1.5 bg-pepo-wh border border-pepo-bd rounded-[9px] shadow-[0_6px_18px_rgba(0,0,0,0.1)] max-h-[220px] overflow-y-auto overscroll-contain z-10">
             {matches.length > 0 ? (
               matches.map((c) => (
                 <div

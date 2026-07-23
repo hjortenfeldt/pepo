@@ -151,7 +151,7 @@ export default function AdminTopBar({
             {mobileMenuOpen && (
               <div className="absolute left-0 top-[calc(100%+8px)] w-[280px] max-w-[85vw] bg-pepo-wh rounded-[14px] shadow-[0_12px_40px_rgba(29,29,31,0.18)] p-1.5 z-50">
                 <div className="px-2.5 py-2 mb-1 border-b border-pepo-bd">{brand}</div>
-                <div className="max-h-[65vh] overflow-y-auto">
+                <div className="max-h-[65vh] overflow-y-auto overscroll-contain">
                   <MobileNavCloseContext.Provider value={() => setMobileMenuOpen(false)}>
                     {mobileNav}
                   </MobileNavCloseContext.Provider>

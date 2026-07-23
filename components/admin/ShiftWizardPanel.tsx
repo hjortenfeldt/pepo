@@ -281,7 +281,7 @@ export default function ShiftWizardPanel({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 pt-[22px]">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 pt-[22px]">
           {step === 1 && (
             <>
               <Field label="Dato">
