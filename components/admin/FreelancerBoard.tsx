@@ -598,27 +598,50 @@ export default function FreelancerBoard({
                       initials(f.fullName)
                     )}
                   </div>
-                  <div className="text-[13.5px] font-medium text-pepo-t1 flex-shrink-0 w-[110px] sm:w-[170px] truncate">
-                    {f.fullName}
-                    {age !== null && <span className="text-pepo-t2"> ({age})</span>}
-                  </div>
-                  <div className="flex flex-wrap gap-[5px] flex-1 min-w-0">
-                    {f.categories.length ? (
-                      f.categories.map((c) => (
-                        <span key={c.id} className="bg-pepo-su text-pepo-t2 text-[11px] font-medium px-[9px] py-[3px] rounded-full">
-                          {c.name}
+                  {/* Job-labels vises IKKE i list-view (kun i kortvisningen
+                      nedenfor) — se stedet i stedet telefon+email på
+                      desktop. På mobil/app-bredde (under sm) får navnet sin
+                      egen linje, og linjen nedenunder viser kun mobilnummer
+                      (email skjules for at spare bredde) + aktivitet/invitér
+                      yderst til højre på DEN linje. */}
+                  <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                    <div className="text-[13.5px] font-medium text-pepo-t1 sm:flex-shrink-0 sm:w-[170px] truncate">
+                      {f.fullName}
+                      {age !== null && <span className="text-pepo-t2"> ({age})</span>}
+                    </div>
+                    <div className="flex items-center justify-between sm:justify-start gap-3 sm:flex-1 sm:min-w-0">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <span className="flex items-center gap-1.5 text-xs text-pepo-t2 flex-shrink-0">
+                          <Icon name="phone" size={13} className="text-pepo-t3" />
+                          {f.phone}
                         </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-pepo-t3">Ingen kategorier valgt</span>
-                    )}
+                        <span className="hidden sm:flex items-center gap-1.5 text-xs text-pepo-t2 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                          <Icon name="mail" size={13} className="text-pepo-t3" />
+                          {f.email || "—"}
+                        </span>
+                      </div>
+                      {/* Aktivitet/invitér på mobil sidder her, til højre for
+                          mobilnummeret på samme (anden) linje — skjules
+                          igen fra sm og op, hvor den i stedet vises yderst
+                          til højre i selve rækken (se nedenfor). */}
+                      <div className="sm:hidden flex-shrink-0">
+                        <ActivityStatus
+                          freelancer={f}
+                          invited={invitedIds.has(f.id)}
+                          sending={sendingId === f.id && isSendingInvite}
+                          onInvite={() => sendInvitationFor(f.id)}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <ActivityStatus
-                    freelancer={f}
-                    invited={invitedIds.has(f.id)}
-                    sending={sendingId === f.id && isSendingInvite}
-                    onInvite={() => sendInvitationFor(f.id)}
-                  />
+                  <div className="hidden sm:block flex-shrink-0">
+                    <ActivityStatus
+                      freelancer={f}
+                      invited={invitedIds.has(f.id)}
+                      sending={sendingId === f.id && isSendingInvite}
+                      onInvite={() => sendInvitationFor(f.id)}
+                    />
+                  </div>
                 </div>
               );
             })}
