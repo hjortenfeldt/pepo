@@ -60,20 +60,15 @@ export default function DashboardBoard({
               { icon: "message", value: actionRequired.ulaesteBeskeder, label: "Ulæste beskeder", href: "/messages" },
             ]}
           />
-          <StatCard
-            title="Events i alt"
-            accent="purple"
-            stats={[
-              { icon: "heart-handshake", value: eventCounts.booket, label: "Booket" },
-              { icon: "check", value: eventCounts.afviklet, label: "Afviklet" },
-              { icon: "calendar", value: eventCounts.kommende, label: "Kommende" },
+          <StatisticsCard
+            title="Statistik"
+            left={[
+              { icon: "heart-handshake", value: eventCounts.booket, label: "Bookede events" },
+              { icon: "check", value: eventCounts.afviklet, label: "Afviklede events" },
+              { icon: "calendar", value: eventCounts.kommende, label: "Kommende events" },
             ]}
-          />
-          <StatCard
-            title="Freelancere i alt"
-            accent="blue"
-            stats={[
-              { icon: "users", value: freelancerStats.ansatte, label: "Ansatte" },
+            right={[
+              { icon: "users", value: freelancerStats.ansatte, label: "Freelancere i alt" },
               { icon: "thumb-up", value: freelancerStats.timerArbejdet, label: "Timer arbejdet", isHours: true },
               { icon: "clock", value: freelancerStats.timerPlanlagt, label: "Timer planlagt", isHours: true },
             ]}
@@ -108,32 +103,56 @@ export default function DashboardBoard({
   );
 }
 
-function StatCard({
+/**
+ * "Statistik"-kortet — erstatter de to tidligere separate kort ("Events i
+ * alt"/"Freelancere i alt") med ét kort med to spalter, adskilt af en lodret
+ * 1px-streg: begivenheds-tallene til venstre, freelancer/timer-tallene til
+ * højre. Indholdets venstre/højre-margin følger nu KORTETS EGEN p-5 (samme
+ * indrykning som titlen) — ingen negativ margin som i den tidligere
+ * to-korts-udgave, da titel og indhold bevidst skal flugte her.
+ */
+function StatisticsCard({
   title,
-  accent,
-  stats,
+  left,
+  right,
 }: {
   title: string;
-  accent: "purple" | "blue";
+  left: { icon: string; value: number; label: string; isHours?: boolean }[];
+  right: { icon: string; value: number; label: string; isHours?: boolean }[];
+}) {
+  return (
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1 h-[230px]">
+      <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
+      <div className="flex gap-5">
+        <StatColumn stats={left} accent="purple" />
+        <div className="w-px bg-pepo-bd" />
+        <StatColumn stats={right} accent="blue" />
+      </div>
+    </div>
+  );
+}
+
+function StatColumn({
+  stats,
+  accent,
+}: {
   stats: { icon: string; value: number; label: string; isHours?: boolean }[];
+  accent: "purple" | "blue";
 }) {
   const valueColor = accent === "purple" ? "text-pepo-pm" : "text-[#3B82F6]";
   const labelColor = accent === "purple" ? "text-pepo-p" : "text-[#1D4ED8]";
 
   return (
-    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1 h-[230px]">
-      <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
-      <div className="flex flex-col gap-2 mx-[-12px]">
-        {stats.map((s) => (
-          <div key={s.label} className="flex items-center gap-2.5">
-            <Icon name={s.icon} size={24} className={`${valueColor} flex-shrink-0`} />
-            <div className={`text-[22px] font-semibold tracking-tight leading-none ${valueColor}`}>
-              {s.isHours ? hourFmt.format(s.value) : numberFmt.format(s.value)}
-            </div>
-            <div className={`text-[11px] break-words ${labelColor}`}>{s.label}</div>
+    <div className="flex-1 min-w-0 flex flex-col gap-2">
+      {stats.map((s) => (
+        <div key={s.label} className="flex items-center gap-2.5">
+          <Icon name={s.icon} size={24} className={`${valueColor} flex-shrink-0`} />
+          <div className={`text-[22px] font-semibold tracking-tight leading-none ${valueColor}`}>
+            {s.isHours ? hourFmt.format(s.value) : numberFmt.format(s.value)}
           </div>
-        ))}
-      </div>
+          <div className={`text-[11px] break-words ${labelColor}`}>{s.label}</div>
+        </div>
+      ))}
     </div>
   );
 }
