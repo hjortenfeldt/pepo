@@ -7,6 +7,14 @@ import { getCompanyBySubdomain } from "@/lib/tenant";
 import { normalizePhone } from "@/lib/format";
 import { revalidatePath, updateTag } from "next/cache";
 import { FREELANCER_MEMBERSHIPS_TAG } from "@/lib/freelancer";
+import { sendEmail } from "@/lib/resend";
+import {
+  buildInvitationEmailHtml,
+  buildInvitationEmailText,
+  renderInvitationTokens,
+  DEFAULT_FREELANCER_INVITATION_SUBJECT,
+  DEFAULT_FREELANCER_INVITATION_BODY,
+} from "@/lib/email-templates";
 
 export async function setApplicationStatus(
   freelancerId: string,
@@ -243,23 +251,19 @@ export async function createFreelancer(input: FreelancerFormInput) {
 }
 
 /**
- * Sender en login-kode til freelanceren, så de kan komme i gang uden selv
- * at skulle vide at de skal bede om en kode på login-siden — nøjagtig
- * samme mekanisme som freelancer-appens egen "send login-kode"
- * (signInWithOtp), blot udløst af admin. Kaldbar både lige efter oprettelse
- * og senere fra freelancerens profil, indtil første login (se
- * hasFreelancerLoggedIn nedenfor).
+ * Sender virksomhedens branded velkomst-/invitationsmail direkte via Resend
+ * (lib/resend.ts) — IKKE via Supabase Auth/signInWithOtp. Bevidst adskilt
+ * fra selve login-kode-flowet: dette er virksomhedens FØRSTE invitation til
+ * freelanceren ("kom med på holdet, sådan kommer du i gang"), en helt
+ * anden ting end den kode, freelanceren senere selv beder om ved at
+ * indtaste sin email på login-siden (sendLoginCode i
+ * app/freelancer/login/actions.ts, som udløser Supabase's OTP + Send
+ * Email-hooket, se app/api/auth/send-email/route.ts). Denne mail
+ * indeholder derfor ingen kode — kun ordlyd + link til app.pepo.team.
  *
- * user_metadata sættes med virksomhedens id lige før afsendelse, så
- * Send Email-hooket (app/api/auth/send-email/route.ts) kan se at DETTE er
- * en reel invitation (ikke bare en tilbagevendende login-kode) og slå
- * firma/profil op for at bygge den fulde, tenant-tilpassede invitationsmail
- * (se lib/email-templates.ts). Sat pr. kald, ikke ryddet bagefter — er i
- * praksis harmløst, da UI'et (ActivityStatus i FreelancerBoard.tsx) alligevel
- * skjuler "Send invitation"-knappen, så snart last_active_at er sat, så
- * denne handling reelt kun sker før freelancerens allerførste login.
- * freelancerId er DENNE virksomheds profil-id — vi slår login-id'et
- * (auth_user_id) op ud fra den, da det er login-id'et OTP-koden sendes til.
+ * Kaldbar både lige efter oprettelse og senere fra freelancerens profil,
+ * indtil første login (se ActivityStatus i FreelancerBoard.tsx, som skjuler
+ * "Send invitation"-knappen, så snart last_active_at er sat).
  */
 export async function sendFreelancerInvitation(freelancerId: string) {
   const company = await getCompanyBySubdomain();
@@ -269,7 +273,7 @@ export async function sendFreelancerInvitation(freelancerId: string) {
 
   const { data: profile } = await adminClient
     .from("freelancer_profiles")
-    .select("auth_user_id, email")
+    .select("full_name, email")
     .eq("id", freelancerId)
     .eq("company_id", company.id)
     .maybeSingle();
@@ -282,21 +286,41 @@ export async function sendFreelancerInvitation(freelancerId: string) {
     return { success: false as const, error: "Freelanceren har ingen emailadresse registreret." };
   }
 
-  await adminClient.auth.admin.updateUserById(profile.auth_user_id, {
-    user_metadata: { invited_company_id: company.id },
-  });
+  const { data: companyRow } = await adminClient
+    .from("companies")
+    .select(
+      "name, contact_phone, contact_email, logo_url, freelancer_invitation_email_subject, freelancer_invitation_email_body"
+    )
+    .eq("id", company.id)
+    .maybeSingle();
 
-  // Samme klient/kald som freelancerens egen login-side (sendLoginCode i
-  // app/freelancer/login/actions.ts), ikke admin-klienten — for at bruge
-  // nøjagtig samme, allerede afprøvede afsendelsesvej.
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: profile.email,
-    options: { shouldCreateUser: false },
-  });
+  if (!companyRow) {
+    return { success: false as const, error: "Kunne ikke hente virksomhedens oplysninger. Prøv igen." };
+  }
 
-  if (error) {
-    console.error("sendFreelancerInvitation fejlede", error);
+  const values = {
+    companyName: companyRow.name ?? "",
+    companyPhone: companyRow.contact_phone ?? "",
+    companyEmail: companyRow.contact_email ?? "",
+    freelancerFirstName: (profile.full_name ?? "").trim().split(/\s+/)[0] || "",
+    freelancerFullName: profile.full_name ?? "",
+    freelancerEmail: profile.email,
+  };
+
+  const subjectTemplate = companyRow.freelancer_invitation_email_subject || DEFAULT_FREELANCER_INVITATION_SUBJECT;
+  const bodyTemplate = companyRow.freelancer_invitation_email_body || DEFAULT_FREELANCER_INVITATION_BODY;
+  const subject = renderInvitationTokens(subjectTemplate, values);
+  const bodyText = renderInvitationTokens(bodyTemplate, values);
+
+  try {
+    await sendEmail({
+      to: profile.email,
+      subject,
+      html: buildInvitationEmailHtml({ bodyText, companyLogoUrl: companyRow.logo_url ?? null }),
+      text: buildInvitationEmailText(bodyText),
+    });
+  } catch (err) {
+    console.error("sendFreelancerInvitation fejlede", err);
     return { success: false as const, error: "Kunne ikke sende invitationen. Prøv igen." };
   }
 

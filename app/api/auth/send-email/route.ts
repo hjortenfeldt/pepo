@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server";
 import { Webhook } from "standardwebhooks";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/resend";
-import {
-  buildInvitationEmailHtml,
-  buildInvitationEmailText,
-  buildSimpleAuthEmailHtml,
-  buildSimpleAuthEmailText,
-  renderInvitationTokens,
-  DEFAULT_FREELANCER_INVITATION_SUBJECT,
-  DEFAULT_FREELANCER_INVITATION_BODY,
-} from "@/lib/email-templates";
+import { buildSimpleAuthEmailHtml, buildSimpleAuthEmailText } from "@/lib/email-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -30,14 +21,16 @@ export const dynamic = "force-dynamic";
  * `webhook-signature`.
  *
  * Kun TO reelle afsendelsesveje findes i kodebasen i dag (se undersøgelsen
- * der lå til grund for denne fil): "magiclink" (freelancerens login-kode —
- * enten selvbetjent fra /login, eller udløst af en admins "Send
- * invitation", se lib/tenant-admin-freelancers-actions) og "recovery"
- * (ny tenant-admins "sæt din adgangskode"-link, udløst af inviteAdmin/
- * inviteCompanyAdmin). Tenant-admin/super-admin ROUTINE-login er
- * password-baseret og rammer aldrig denne hook. En eventuel fremtidig,
- * uventet email_action_type falder tilbage til en simpel, ubrandet
- * kode-email frem for slet ingen email.
+ * der lå til grund for denne fil): "magiclink" (freelancerens login-kode,
+ * UDELUKKENDE den selvbetjente "Send kode" på /login — en admins "Send
+ * invitation" sender IKKE længere en kode, se doc-kommentaren på
+ * sendFreelancerInvitation i app/tenant/(protected)/freelancers/actions.ts
+ * for hvorfor de to er adskilt) og "recovery" (ny tenant-admins "sæt din
+ * adgangskode"-link, udløst af inviteAdmin/inviteCompanyAdmin).
+ * Tenant-admin/super-admin ROUTINE-login er password-baseret og rammer
+ * aldrig denne hook. Ingen af de to grene her er pr. virksomhed
+ * tilpasselige — det er kun selve invitationsmailen (sendt direkte, uden om
+ * denne hook, se lib/email-templates.ts).
  */
 export async function POST(request: Request) {
   const secret = process.env.SEND_EMAIL_HOOK_SECRET;
@@ -84,7 +77,6 @@ export async function POST(request: Request) {
 type HookUser = {
   id: string;
   email?: string;
-  user_metadata?: Record<string, unknown>;
 };
 
 type HookEmailData = {
@@ -95,19 +87,10 @@ type HookEmailData = {
   email_action_type: string;
 };
 
+/** Altid den simple, ubrandede login-kode-email — den eneste "magiclink"
+ * afsendelsesvej tilbage er freelancerens egen selvbetjente "Send kode" på
+ * /login (se doc-kommentaren ovenfor). */
 async function sendOtpEmail(user: HookUser, emailData: HookEmailData) {
-  const companyId = typeof user.user_metadata?.invited_company_id === "string" ? user.user_metadata.invited_company_id : null;
-
-  if (companyId) {
-    const sent = await trySendFreelancerInvitation(user, emailData, companyId);
-    if (sent) return;
-    // Firma/profil kunne ikke slås op — falder igennem til den simple
-    // kode-email herunder frem for at fejle helt.
-  }
-
-  // Almindelig, tilbagevendende login-kode — freelancerens egen "Send
-  // kode" på /login. Ingen invitations-kontekst, derfor ingen
-  // firma-branding, bare selve koden.
   await sendEmail({
     to: user.email!,
     subject: "Din login-kode til Pepo",
@@ -122,55 +105,6 @@ async function sendOtpEmail(user: HookUser, emailData: HookEmailData) {
       otpCode: emailData.token,
     }),
   });
-}
-
-/** Returnerer true, hvis den fulde branded invitationsmail blev sendt.
- * Returnerer false (uden at kaste), hvis firma eller freelancerprofil ikke
- * kunne findes — kalderen falder da tilbage til den simple kode-email. */
-async function trySendFreelancerInvitation(user: HookUser, emailData: HookEmailData, companyId: string): Promise<boolean> {
-  const supabase = createAdminClient();
-
-  const [{ data: company }, { data: profile }] = await Promise.all([
-    supabase
-      .from("companies")
-      .select("name, contact_phone, contact_email, logo_url, freelancer_invitation_email_subject, freelancer_invitation_email_body")
-      .eq("id", companyId)
-      .maybeSingle(),
-    supabase
-      .from("freelancer_profiles")
-      .select("full_name, phone, email")
-      .eq("auth_user_id", user.id)
-      .eq("company_id", companyId)
-      .maybeSingle(),
-  ]);
-
-  if (!company || !profile) {
-    console.error("send-email hook: kunne ikke slå firma/profil op til invitation", companyId, user.id);
-    return false;
-  }
-
-  const values = {
-    companyName: company.name ?? "",
-    companyPhone: company.contact_phone ?? "",
-    companyEmail: company.contact_email ?? "",
-    freelancerFirstName: (profile.full_name ?? "").trim().split(/\s+/)[0] || "",
-    freelancerFullName: profile.full_name ?? "",
-    freelancerEmail: profile.email || user.email!,
-  };
-
-  const subjectTemplate = company.freelancer_invitation_email_subject || DEFAULT_FREELANCER_INVITATION_SUBJECT;
-  const bodyTemplate = company.freelancer_invitation_email_body || DEFAULT_FREELANCER_INVITATION_BODY;
-
-  const subject = renderInvitationTokens(subjectTemplate, values);
-  const bodyText = renderInvitationTokens(bodyTemplate, values);
-
-  await sendEmail({
-    to: user.email!,
-    subject,
-    html: buildInvitationEmailHtml({ bodyText, companyLogoUrl: company.logo_url ?? null, otpCode: emailData.token }),
-    text: buildInvitationEmailText(bodyText, emailData.token),
-  });
-  return true;
 }
 
 async function sendRecoveryEmail(user: HookUser, emailData: HookEmailData) {

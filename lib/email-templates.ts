@@ -179,19 +179,18 @@ function renderBodyHtml(bodyText: string): string {
  * har uploadet et logo (se companies.logo_url) — headeren udelades da helt
  * (intet firmanavn som erstatning, som besluttet i mockup-godkendelsen).
  *
- * `otpCode`: selve Supabase-koden freelanceren skal skrive ind (trin 3 i
- * standardteksten). Vises som en fast, tydelig kode-boks — IKKE via en
- * kort-kode i brødteksten, netop så en admin, der omskriver teksten, ikke
- * ved en fejl kan fjerne koden og gøre invitationen ubrugelig.
+ * Ingen kode i denne mail — invitationen er bevidst adskilt fra selve
+ * login-kode-flowet (se doc-kommentaren på sendFreelancerInvitation i
+ * app/tenant/(protected)/freelancers/actions.ts for hvorfor): freelanceren
+ * modtager sin faktiske kode først, når de selv indtaster deres email på
+ * login-siden.
  */
 export function buildInvitationEmailHtml({
   bodyText,
   companyLogoUrl,
-  otpCode,
 }: {
   bodyText: string;
   companyLogoUrl: string | null;
-  otpCode: string;
 }): string {
   const header = companyLogoUrl
     ? `<div style="padding:36px 48px 0;display:flex;align-items:center;justify-content:flex-end;">
@@ -200,7 +199,6 @@ export function buildInvitationEmailHtml({
     : "";
 
   const body = `${renderBodyHtml(bodyText)}
-    ${renderCodeBoxHtml(otpCode)}
     ${ctaButtonHtml("Åbn app.pepo.team", "https://app.pepo.team")}`;
 
   return renderEmailShell({ headerHtml: header, bodyHtml: body, topPadding: companyLogoUrl ? "28px" : "44px" });
@@ -209,8 +207,8 @@ export function buildInvitationEmailHtml({
 /** Almindelig tekst-udgave (samme brødtekst, uden HTML) — sendes som
  * text/plain-alternativ ved siden af HTML-udgaven, god praksis for
  * leverbarhed og tilgængelighed. */
-export function buildInvitationEmailText(bodyText: string, otpCode: string): string {
-  return `${bodyText.trim()}\n\nDin kode: ${otpCode}\n\nÅbn app.pepo.team: https://app.pepo.team`;
+export function buildInvitationEmailText(bodyText: string): string {
+  return `${bodyText.trim()}\n\nÅbn app.pepo.team: https://app.pepo.team`;
 }
 
 /**
