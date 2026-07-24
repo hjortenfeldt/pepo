@@ -121,9 +121,9 @@ function StatCard({
   const labelColor = accent === "purple" ? "text-pepo-p" : "text-[#1D4ED8]";
 
   return (
-    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-2 sm:flex-1 h-[230px]">
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1 h-[230px]">
       <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
-      <div className="flex gap-2.5">
+      <div className="flex gap-2.5 mx-[-12px]">
         {stats.map((s, i) => (
           <Fragment key={s.label}>
             {i > 0 && <div className="w-px bg-pepo-bd" />}
@@ -158,9 +158,9 @@ function ActionRequiredCard({
   items: { icon: string; value: number; label: string; href: string }[];
 }) {
   return (
-    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-2 sm:flex-1 h-[230px]">
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1 h-[230px]">
       <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
-      <div className="flex gap-2.5">
+      <div className="flex gap-2.5 mx-[-12px]">
         {items.map((it, i) => {
           const ok = it.value === 0;
           const color = ok ? "text-[#1A7A34]" : "text-[#C0021A]";
