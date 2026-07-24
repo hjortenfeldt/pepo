@@ -842,19 +842,23 @@ export default function FreelancerBoard({
                     value={open.phone}
                     href={open.phone ? `tel:${open.phone.replace(/\s+/g, "")}` : undefined}
                   />
-                  {open.socialMediaUrl && (
-                    <Row icon="brand-instagram" label="SoMe" value={open.socialMediaUrl} />
-                  )}
                   {open.birthDate && (
                     <Row icon="cake" label="Fødselsdag" value={formatDate(open.birthDate)} />
                   )}
+                  <RowPair
+                    left={{ icon: "activity", label: "Aktivitet", value: lastActiveLabel(open.lastActiveAt) }}
+                    right={{ icon: "calendar", label: "Ansøgt", value: formatDate(open.appliedAt) }}
+                  />
+                  <RowPair
+                    left={{ icon: "car", label: "Kørekort", value: open.hasLicense ? "Ja" : "Nej" }}
+                    right={open.gender ? { icon: "gender-bigender", label: "Køn", value: open.gender } : undefined}
+                  />
                   {open.bio && (
                     <Row icon="notes" label={`Om ${open.fullName}`} value={open.bio} multiline />
                   )}
-                  <Row icon="calendar" label="Ansøgt" value={formatDate(open.appliedAt)} />
-                  <Row icon="activity" label="Aktivitet" value={lastActiveLabel(open.lastActiveAt)} />
-                  {open.gender && <Row icon="gender-bigender" label="Køn" value={open.gender} />}
-                  <Row icon="car" label="Kørekort" value={open.hasLicense ? "Ja" : "Nej"} />
+                  {open.socialMediaUrl && (
+                    <Row icon="brand-instagram" label="SoMe" value={open.socialMediaUrl} />
+                  )}
 
                   <div className="h-4" />
                 </div>
@@ -1268,6 +1272,45 @@ function Row({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * To Row'er side om side i én linje, adskilt af en lodret 1px-streg (samme
+ * pepo-bd-farve som de vandrette dividers) — bruges til at slå "Aktivitet"
+ * + "Ansøgt" og "Kørekort" + "Køn" sammen, så profilpanelet fylder mindre i
+ * højden. `right` er valgfri (fx Køn, som ikke altid er udfyldt) — mangler
+ * den, fylder venstre halvdel bare hele bredden uden en streg.
+ */
+function RowPair({
+  left,
+  right,
+}: {
+  left: { icon: string; label: string; value: string };
+  right?: { icon: string; label: string; value: string };
+}) {
+  return (
+    <div className="flex items-start py-2.5 border-b border-pepo-bd last:border-none">
+      <div className="flex-1 min-w-0 flex items-start gap-2.5">
+        <Icon name={left.icon} size={16} className="text-pepo-t3 mt-px w-4 flex-shrink-0" />
+        <div className="min-w-0">
+          <div className="text-[11px] text-pepo-t3 uppercase tracking-wide">{left.label}</div>
+          <div className="text-[13.5px] text-pepo-t1 mt-px leading-relaxed truncate">{left.value}</div>
+        </div>
+      </div>
+      {right && (
+        <>
+          <div className="w-px self-stretch bg-pepo-bd mx-3.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0 flex items-start gap-2.5">
+            <Icon name={right.icon} size={16} className="text-pepo-t3 mt-px w-4 flex-shrink-0" />
+            <div className="min-w-0">
+              <div className="text-[11px] text-pepo-t3 uppercase tracking-wide">{right.label}</div>
+              <div className="text-[13.5px] text-pepo-t1 mt-px leading-relaxed truncate">{right.value}</div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
