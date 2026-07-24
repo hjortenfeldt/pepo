@@ -1,5 +1,5 @@
 import { hoursBetween } from "@/lib/format";
-import type { DashboardEventItem, DashboardEventRole, MonthlyFinancials, ShiftStatus } from "@/lib/admin-types";
+import type { DashboardEventItem, DashboardEventRole, MonthlyFinancials, ShiftStatus, InterestStatus } from "@/lib/admin-types";
 
 export type DashboardShift = {
   category: string;
@@ -8,6 +8,10 @@ export type DashboardShift = {
   endTime: string;
   clientRatePerHour: number;
   freelancerRatePerHour: number;
+  // Kun brugt af pendingShiftRequestCount (Dashboard-sidens "Afventer
+  // handling"-kort) — ikke af nogen af de andre beregninger i denne fil.
+  assignedFreelancerId: string | null;
+  interests: { status: InterestStatus }[];
 };
 
 export type DashboardEvent = {

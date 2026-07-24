@@ -15,6 +15,8 @@ import {
   recentEvents,
   type DashboardEvent,
 } from "@/lib/dashboard";
+import { countPendingShiftRequests } from "@/lib/shift-request-utils";
+import type { InterestStatus } from "@/lib/admin-types";
 
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -29,11 +31,14 @@ type RawWorkCategoryRef = {
   name: string;
   work_category_groups: RawGroupRef | RawGroupRef[] | null;
 };
+type RawInterestRow = { status: InterestStatus };
 type RawShiftRow = {
   status: "open" | "for_resale" | "assigned" | "cancelled";
   start_time: string;
   end_time: string;
   work_categories: RawWorkCategoryRef | RawWorkCategoryRef[] | null;
+  assigned_freelancer_id: string | null;
+  shift_interests: RawInterestRow[] | null;
 };
 type RawEventRow = {
   id: string;
@@ -61,18 +66,32 @@ export default async function AdminDashboardPage() {
   const company = await getCompanyBySubdomain();
   if (!company) redirect("/login?error=unknown_company");
 
-  // Hentes hurtigt og AWAITES her (en simpel head-count, ikke en tung join)
-  // — bruges af getDashboardMetrics nedenfor, men skal under alle
+  // Hentes hurtigt og AWAITES her (simple head-counts, ikke en tung join) —
+  // bruges af getDashboardMetrics nedenfor, men skal under alle
   // omstændigheder kendes før metrics-bundtet kan beregnes, så der er ingen
-  // gevinst ved at udskyde netop denne.
-  const { count: freelancerCount, error: freelancerCountError } = await supabase
-    .from("freelancer_profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", company.id)
-    .eq("application_status", "approved");
+  // gevinst ved at udskyde netop disse. Kørt parallelt via Promise.all, da de
+  // er uafhængige af hinanden.
+  const [
+    { count: freelancerCount, error: freelancerCountError },
+    { count: pendingApplicationsCount, error: pendingApplicationsError },
+  ] = await Promise.all([
+    supabase
+      .from("freelancer_profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", company.id)
+      .eq("application_status", "approved"),
+    supabase
+      .from("freelancer_profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", company.id)
+      .eq("application_status", "pending"),
+  ]);
 
   if (freelancerCountError) {
     console.error("AdminDashboardPage: kunne ikke tælle freelancere", freelancerCountError);
+  }
+  if (pendingApplicationsError) {
+    console.error("AdminDashboardPage: kunne ikke tælle ventende ansøgninger", pendingApplicationsError);
   }
 
   const today = todayIso();
@@ -87,7 +106,14 @@ export default async function AdminDashboardPage() {
   // titlen/undertitlen nedenfor vises med det samme, mens resten af
   // Dashboard strømmer ind separat lige efter. Samme mønster som
   // app/freelancer/(protected)/page.tsx's openShiftsPromise.
-  const metricsPromise = getDashboardMetrics(supabase, company.id, freelancerCount ?? 0, today, year);
+  const metricsPromise = getDashboardMetrics(
+    supabase,
+    company.id,
+    freelancerCount ?? 0,
+    pendingApplicationsCount ?? 0,
+    today,
+    year
+  );
 
   return (
     <div className="flex flex-col">
@@ -109,6 +135,7 @@ async function getDashboardMetrics(
   supabase: SupabaseClient,
   companyId: string,
   freelancerCount: number,
+  pendingApplicationsCount: number,
   today: string,
   year: number
 ): Promise<DashboardMetrics> {
@@ -116,8 +143,9 @@ async function getDashboardMetrics(
     .from("events")
     .select(
       `id, title, event_date,
-       shifts(status, start_time, end_time,
-         work_categories(name, work_category_groups(client_rate_per_hour, freelancer_rate_per_hour)))`
+       shifts(status, start_time, end_time, assigned_freelancer_id,
+         work_categories(name, work_category_groups(client_rate_per_hour, freelancer_rate_per_hour)),
+         shift_interests(status))`
     )
     .eq("company_id", companyId)
     .order("event_date", { ascending: true });
@@ -140,6 +168,8 @@ async function getDashboardMetrics(
         endTime: s.end_time.slice(0, 5),
         clientRatePerHour: Number(group?.client_rate_per_hour ?? 0),
         freelancerRatePerHour: Number(group?.freelancer_rate_per_hour ?? 0),
+        assignedFreelancerId: s.assigned_freelancer_id,
+        interests: (s.shift_interests ?? []).map((i) => ({ status: i.status })),
       };
     }),
   }));
@@ -150,5 +180,13 @@ async function getDashboardMetrics(
     freelancerStats: freelancerHourStats(events, freelancerCount, today),
     upcoming: upcomingEvents(events, today),
     recent: recentEvents(events, today),
+    // "Afventer handling"-kortet på Dashboard (DashboardBoard.tsx) —
+    // ulæste beskeder er hardcodet til 0, da freelancere endnu ikke kan
+    // sende beskeder TIL admins (kun omvendt), se /messages.
+    actionRequired: {
+      vagtanmodninger: countPendingShiftRequests(events, today),
+      ansoegninger: pendingApplicationsCount,
+      ulaesteBeskeder: 0,
+    },
   };
 }

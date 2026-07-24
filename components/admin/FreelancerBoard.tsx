@@ -81,11 +81,15 @@ function emptyForm(): FreelancerFormInput {
 export default function FreelancerBoard({
   freelancers,
   allCategories,
+  initialTab,
 }: {
   freelancers: FreelancerListItem[];
   allCategories: CategoryOption[];
+  // Sat af page.tsx ud fra ?tab=applications — se dens kommentar for hvorfor
+  // (Dashboard-sidens "Afventer handling"-kort).
+  initialTab?: MainTab;
 }) {
-  const [mainTab, setMainTab] = useState<MainTab>("approved");
+  const [mainTab, setMainTab] = useState<MainTab>(initialTab ?? "approved");
   const [subTab, setSubTab] = useState<SubTab>("pending");
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [search, setSearch] = useState("");

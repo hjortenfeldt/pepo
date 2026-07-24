@@ -26,16 +26,20 @@ export default async function AdminShiftsPage({
   const { tab } = await searchParams;
   const { events, clients, categories, freelancers } = await getShiftsBoardData(company.id);
 
-  // Uden et eksplicit ?tab= (dvs. man klikkede "Events & vagter" i selve
-  // hovedmenuen, ikke et af Dashboard-sidens "Se alle"-links, som ALTID
-  // sætter ?tab=upcoming/past eksplicit) lander man direkte på
-  // "Vagtanmodninger", hvis der er ventende anmodninger admin mangler at
-  // tage stilling til — ellers "Kommende" som hidtil.
+  // ?tab=requests — brugt af Dashboard-sidens "Afventer handling"-kort
+  // (DashboardBoard.tsx), som altid sætter den eksplicit uanset om der reelt
+  // er ventende anmodninger (klikker man tallet, vil man se fanen — heller
+  // ikke hvis der siden er blevet 0). Uden noget eksplicit ?tab= (dvs. man
+  // klikkede "Events & vagter" i selve hovedmenuen) lander man i stedet
+  // automatisk på "Vagtanmodninger", HVIS der er ventende anmodninger admin
+  // mangler at tage stilling til — ellers "Kommende" som hidtil.
   const initialTab =
     tab === "past"
       ? "past"
       : tab === "upcoming"
       ? "upcoming"
+      : tab === "requests"
+      ? "requests"
       : countPendingShiftRequests(events) > 0
       ? "requests"
       : "upcoming";

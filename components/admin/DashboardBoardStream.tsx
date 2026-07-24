@@ -10,6 +10,8 @@ export type DashboardMetrics = {
   freelancerStats: { ansatte: number; timerArbejdet: number; timerPlanlagt: number };
   upcoming: DashboardEventItem[];
   recent: DashboardEventItem[];
+  // "Afventer handling"-kortet — rødt/grønt pr. tal afhænger af om det er >0.
+  actionRequired: { vagtanmodninger: number; ansoegninger: number; ulaesteBeskeder: number };
 };
 
 /**
@@ -32,6 +34,7 @@ export default function DashboardBoardStream({ promise }: { promise: Promise<Das
       freelancerStats={data.freelancerStats}
       upcoming={data.upcoming}
       recent={data.recent}
+      actionRequired={data.actionRequired}
     />
   );
 }

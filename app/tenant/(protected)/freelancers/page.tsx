@@ -45,7 +45,15 @@ function one<T>(rel: T | T[] | null | undefined): T | null {
   return Array.isArray(rel) ? rel[0] ?? null : rel;
 }
 
-export default async function AdminFreelancersPage() {
+export default async function AdminFreelancersPage({
+  searchParams,
+}: {
+  // ?tab=applications — bruges af Dashboard-sidens "Afventer
+  // handling"-kort ("Ansøgninger"-tallet), så man lander direkte på
+  // ansøgnings-fanen i stedet for standard-fanen ("Godkendte"). Samme
+  // mønster som ?tab= på /shifts (se dens page.tsx).
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const supabase = await createClient();
 
   // Se dashboard-page.tsx for hvorfor company.id skal filtreres eksplicit
@@ -135,5 +143,8 @@ export default async function AdminFreelancersPage() {
     hasLicense: p.has_license,
   }));
 
-  return <FreelancerBoard freelancers={items} allCategories={allCategories} />;
+  const { tab } = await searchParams;
+  const initialTab = tab === "applications" ? "applications" : "approved";
+
+  return <FreelancerBoard freelancers={items} allCategories={allCategories} initialTab={initialTab} />;
 }

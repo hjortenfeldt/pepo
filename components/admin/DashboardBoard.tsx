@@ -39,17 +39,27 @@ export default function DashboardBoard({
   freelancerStats,
   upcoming,
   recent,
+  actionRequired,
 }: {
   monthly: MonthlyFinancials[];
   eventCounts: { booket: number; afviklet: number; kommende: number };
   freelancerStats: { ansatte: number; timerArbejdet: number; timerPlanlagt: number };
   upcoming: DashboardEventItem[];
   recent: DashboardEventItem[];
+  actionRequired: { vagtanmodninger: number; ansoegninger: number; ulaesteBeskeder: number };
 }) {
   return (
     <div className="flex flex-col">
       <div className="px-[var(--page-px)] py-[22px] pb-10">
         <div className="flex flex-col sm:flex-row gap-4">
+          <ActionRequiredCard
+            title="Afventer handling"
+            items={[
+              { icon: "calendar-event", value: actionRequired.vagtanmodninger, label: "Vagtanmodninger", href: "/shifts?tab=requests" },
+              { icon: "user-plus", value: actionRequired.ansoegninger, label: "Ansøgninger", href: "/freelancers?tab=applications" },
+              { icon: "message", value: actionRequired.ulaesteBeskeder, label: "Ulæste beskeder", href: "/messages" },
+            ]}
+          />
           <StatCard
             title="Events i alt"
             accent="purple"
@@ -126,6 +136,48 @@ function StatCard({
             </div>
           </Fragment>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Afventer handling"-kortet — samme visuelle skal som StatCard (ikon +
+ * stort tal + label, adskilt af lodrette streger), men to bevidste
+ * forskelle: (1) hvert tal er sin egen klikbare Link i stedet for statisk
+ * tekst, så admin kan hoppe direkte til den relevante side, og (2) farven
+ * afgøres PR. TAL (rød hvis >0, grøn hvis 0), ikke ét fast accent-tema for
+ * hele kortet som i StatCard — de tre tal kan jo sagtens have forskellig
+ * status samtidig.
+ */
+function ActionRequiredCard({
+  title,
+  items,
+}: {
+  title: string;
+  items: { icon: string; value: number; label: string; href: string }[];
+}) {
+  return (
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1 h-[230px]">
+      <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
+      <div className="flex gap-6">
+        {items.map((it, i) => {
+          const ok = it.value === 0;
+          const color = ok ? "text-[#1A7A34]" : "text-[#C0021A]";
+          return (
+            <Fragment key={it.label}>
+              {i > 0 && <div className="w-px bg-pepo-bd" />}
+              <Link
+                href={it.href}
+                className="flex-1 text-center block rounded-[8px] hover:bg-pepo-su transition-colors -mx-1 px-1 py-1"
+              >
+                <Icon name={it.icon} size={30} className={`${color} block mx-auto mb-1.5`} />
+                <div className={`text-[32px] font-semibold tracking-tight ${color}`}>{numberFmt.format(it.value)}</div>
+                <div className={`text-[13px] mt-1 ${color}`}>{it.label}</div>
+              </Link>
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );
