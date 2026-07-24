@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon from "@/components/Icon";
@@ -16,17 +16,11 @@ import Icon from "@/components/Icon";
 // den forbindelse er ren client-side, så grænsen aldrig krydses af en funktion.
 export const MobileNavCloseContext = createContext<(() => void) | undefined>(undefined);
 
-type NavChild = {
-  href: string;
-  label: string;
-};
-
 type NavItem = {
   href: string;
   label: string;
   icon: string; // Tabler icon suffix, fx "layout-dashboard"
   active: boolean; // om ruten er bygget endnu
-  children?: NavChild[];
 };
 
 // Ruterne er relative til virksomhedens eget subdomæne (fx
@@ -35,6 +29,12 @@ type NavItem = {
 // Eksporteret så AdminPullToRefresh.tsx kan genbruge samme sti->ikon-mapping
 // til pull-to-refresh-spinneren (samme ikon som menupunktet brugeren står på,
 // se PullToRefresh.tsx's `icon`-prop).
+//
+// "Indstillinger" foldede tidligere sine undersider ud direkte i menuen
+// (se ældre versioner af denne fil) — nu et almindeligt link som alle andre
+// punkter, ind til /settings' egen "kort-menu"-landingsside (se
+// app/tenant/(protected)/settings/page.tsx), der selv linker videre til
+// Firmaoplysninger/Variabler/Admin brugere/Sync admin-kalender/URL'er.
 export const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "layout-dashboard", active: true },
   { href: "/shifts", label: "Events & vagter", icon: "calendar-event", active: true },
@@ -42,47 +42,26 @@ export const NAV: NavItem[] = [
   { href: "/clients", label: "Kunder", icon: "building-store", active: true },
   { href: "/categories", label: "Jobfunktioner", icon: "briefcase", active: true },
   { href: "/messages", label: "Beskeder", icon: "message-2", active: true },
-  {
-    href: "/settings",
-    label: "Indstillinger",
-    icon: "settings",
-    active: true,
-    children: [
-      { href: "/settings/company", label: "Firmaoplysninger" },
-      { href: "/settings/variables", label: "Variabler" },
-      { href: "/settings/admins", label: "Admin brugere" },
-      { href: "/settings/calendar", label: "Sync admin-kalender" },
-      { href: "/settings/urls", label: "Vigtige URL'er" },
-    ],
-  },
+  { href: "/settings", label: "Indstillinger", icon: "settings", active: true },
 ];
 
 /**
  * Selve navigationslisten — udtrukket fra AdminSidebar, så AdminTopBar.tsx
- * kan genbruge nøjagtig samme liste (samme NAV-data, samme åbn/luk-logik
- * for "Indstillinger") i den mobile fold-ud-menu, uden at duplikere den.
- * Lukker den mobile fold-ud-menu ved navigation via MobileNavCloseContext
- * (sat af AdminTopBar) — i skrivebords-sidebaren er der ingen provider
- * over AdminNavLinks, så context-værdien er `undefined`, og der sker intet
- * ekstra ved klik, som forventet.
+ * kan genbruge nøjagtig samme liste i den mobile fold-ud-menu, uden at
+ * duplikere den. Lukker den mobile fold-ud-menu ved navigation via
+ * MobileNavCloseContext (sat af AdminTopBar) — i skrivebords-sidebaren er
+ * der ingen provider over AdminNavLinks, så context-værdien er `undefined`,
+ * og der sker intet ekstra ved klik, som forventet.
  */
 export function AdminNavLinks({ className = "" }: { className?: string }) {
   const pathname = usePathname();
   const closeMobileNav = useContext(MobileNavCloseContext);
-  // null = "brug automatisk åbn/luk ud fra den aktuelle side"; ellers
-  // overstyrer et manuelt klik den automatiske opførsel resten af sessionen.
-  const [manualOpenSection, setManualOpenSection] = useState<string | null | undefined>(undefined);
 
   return (
     <nav className={"flex flex-col gap-0.5 " + className}>
       {NAV.map((item) => {
-        const hasChildren = Boolean(item.children && item.children.length > 0);
         const isCurrent =
-          !hasChildren &&
-          item.active &&
-          (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href));
-        const isWithinSection = hasChildren && pathname.startsWith(item.href);
-        const isOpen = manualOpenSection === item.href || (manualOpenSection === undefined && isWithinSection);
+          item.active && (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href));
 
         const body = (
           <span
@@ -107,49 +86,8 @@ export function AdminNavLinks({ className = "" }: { className?: string }) {
             {!item.active && (
               <span className="ml-auto text-[10px] text-pepo-t3">snart</span>
             )}
-            {hasChildren && (
-              <Icon
-                name={isOpen ? "chevron-down" : "chevron-right"}
-                size={24}
-                className="ml-auto flex-shrink-0 text-pepo-t2"
-              />
-            )}
           </span>
         );
-
-        if (hasChildren) {
-          return (
-            <div key={item.href}>
-              <button
-                type="button"
-                className="w-full text-left"
-                onClick={() => setManualOpenSection(isOpen ? null : item.href)}
-              >
-                {body}
-              </button>
-              {isOpen && (
-                <div className="flex flex-col gap-0.5 mt-0.5 mb-0.5">
-                  {item.children!.map((child) => {
-                    const isChildCurrent = pathname === child.href || pathname.startsWith(child.href + "/");
-                    return (
-                      <Link
-                        key={child.href}
-                        href={child.href}
-                        onClick={closeMobileNav}
-                        className={
-                          "pl-[46px] pr-2.5 py-[8px] rounded-lg text-[13px] font-medium " +
-                          (isChildCurrent ? "bg-pepo-pl text-pepo-p" : "text-pepo-t2 hover:bg-pepo-su")
-                        }
-                      >
-                        {child.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        }
 
         return item.active ? (
           <Link key={item.href} href={item.href} onClick={closeMobileNav}>

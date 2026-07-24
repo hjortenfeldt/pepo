@@ -851,7 +851,7 @@ export default function FreelancerBoard({
                   />
                   <RowPair
                     left={{ icon: "car", label: "Kørekort", value: open.hasLicense ? "Ja" : "Nej" }}
-                    right={open.gender ? { icon: "gender-bigender", label: "Køn", value: open.gender } : undefined}
+                    right={{ icon: "gender-bigender", label: "Køn", value: open.gender || "n/a" }}
                   />
                   {open.bio && (
                     <Row icon="notes" label={`Om ${open.fullName}`} value={open.bio} multiline />
