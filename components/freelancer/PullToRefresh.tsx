@@ -49,11 +49,17 @@ type PullToRefreshContextValue = PullToRefreshSlots & {
   // direkte i usePageScrollLock — refs er den anerkendte undtagelse for
   // imperativ DOM-manipulation, almindelig React-state/context er det ikke.
   scrollElRef: React.RefObject<HTMLDivElement | null>;
+  // v0.31.1 — se usePageScrollLock's doc-kommentar for den fulde
+  // fejlsøgningshistorik. En ren boolean-ref (ikke state): touchstart/
+  // touchmove-lytterne nedenfor læser den synkront på hver gestus uden at
+  // selve effekten (som registrerer lytterne) behøver at gen-køre.
+  pullLockedRef: React.RefObject<boolean>;
 };
 const PullToRefreshSlotContext = createContext<PullToRefreshContextValue>({
   header: null,
   footer: null,
   scrollElRef: { current: null },
+  pullLockedRef: { current: false },
 });
 
 /**
@@ -68,14 +74,51 @@ const PullToRefreshSlotContext = createContext<PullToRefreshContextValue>({
  * overscroll-behavior forhindrer i teorien kædning fra panelets EGEN
  * scroll-boks til scrollRef, men Hjorth oplevede fortsat den samme
  * "frossen ved bunden"-opførsel på flere paneler efter den rettelse.
- * `overflow: hidden` + `touch-action: none` på selve scrollRef er en mere
- * håndfast spærring: uanset hvilken specifik WebKit-mekanisme der ellers
- * lader en touch-gestus "lække" ned i scrollRef, kan den slet ikke scrolle
- * eller reagere på touch, mens et panel er åbent. Genoprettes til den
- * oprindelige stil, når panelet lukkes/afmonteres.
+ *
+ * v0.31.1 — FUNDET DEN RIGTIGE ÅRSAG (den forrige CSS-baserede spærring
+ * herunder var ikke tilstrækkelig, se hvorfor nedenfor): Hjorths præcise
+ * reproduktion (fryser kun på de 3 vagter under DET FØRSTE event i en
+ * uscrollet liste, aldrig på en vagt man selv har scrollet ned til; retter
+ * sig selv efter at have klikket rundt; vender tilbage efter en frisk
+ * app-genstart; kan swipe NED/scrolle ned, men ikke swipe OP/scrolle
+ * tilbage op) pegede direkte på selve PullToRefresh-gestussen herunder:
+ * `onTouchStart`/`onTouchMove` sidder på scrollRef (den bagvedliggende
+ * SIDE, fx "Events & vagter"-listen) og fanger enhver touch, der bobler op
+ * fra et efterkommer-element i DOM'et — herunder et `position: fixed`-panel
+ * ovenpå, selvom panelet visuelt intet har med siden bagved at gøre.
+ * `onTouchStart` starter kun et træk, hvis sidens EGEN `scrollTop <= 0`
+ * (`atTop()`) — hvilket er nøjagtig tilstanden når man IKKE selv har
+ * scrollet listen (fx det første events vagter, eller en frisk app-start).
+ * Når man derefter swiper NEDAD inde i panelet (= scroller panelets
+ * indhold TILBAGE OP), tolker den bagvedliggende sides træk-logik det som
+ * et pull-to-refresh-forsøg og kalder `e.preventDefault()` på den
+ * boblede touch — hvilket forhindrer panelets EGEN native scroll i
+ * nogensinde at modtage gestussen. Swipe OPAD (= scroller panelets
+ * indhold NED) rammer derimod tidligt `rawDelta <= 0`-grenen, som ALDRIG
+ * kalder preventDefault — deraf den asymmetriske "kan scrolle ned, men
+ * ikke tilbage op"-symptom. Dette forklarer også hvorfor v0.31.0's
+ * CSS-baserede lås (touch-action/overflow) ikke hjalp: `touch-action`
+ * styrer kun browserens EGEN native panorering af det element, den sidder
+ * på — den stopper ikke JS-lyttere, som allerede selv kalder
+ * preventDefault() baseret på scrollTop og bobled touch-koordinater.
+ * Den egentlige rettelse er derfor `pullLockedRef` ovenfor: sat direkte af
+ * denne hook, tjekket synkront først i `onTouchStart` i selve
+ * PullToRefresh-komponenten, så den bagvedliggende sides træk-gestus slet
+ * ikke kan starte, mens et panel er åbent — uanset hvor i DOM'et touchen
+ * bobler fra. De oprindelige CSS-egenskaber beholdes som et harmløst
+ * ekstra lag (forhindrer stadig browserens egen native scroll/bounce på
+ * selve scrollRef, hvis noget skulle nå dertil), men er ikke længere den
+ * afgørende mekanisme.
  */
 export function usePageScrollLock(locked: boolean) {
-  const { scrollElRef } = useContext(PullToRefreshSlotContext);
+  const { scrollElRef, pullLockedRef } = useContext(PullToRefreshSlotContext);
+
+  useEffect(() => {
+    pullLockedRef.current = locked;
+    return () => {
+      pullLockedRef.current = false;
+    };
+  }, [locked, pullLockedRef]);
 
   useEffect(() => {
     const scrollEl = scrollElRef.current;
@@ -240,6 +283,10 @@ export default function PullToRefresh({
   const pullDistanceRef = useRef(0);
   const draggingRef = useRef(false);
   const refreshStartedAtRef = useRef(0);
+  // Sat af usePageScrollLock (via context) mens et højreside-panel er åbent
+  // — se usePageScrollLock's doc-kommentar (v0.31.1) for hvorfor denne
+  // ekstra spærring var nødvendig ovenpå CSS-lagene herunder.
+  const pullLockedRef = useRef(false);
 
   const [refreshing, setRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -283,7 +330,7 @@ export default function PullToRefresh({
     // ender) er browserens eget native overscroll — se doc-kommentaren
     // ovenfor for hvorfor.
     function onTouchStart(e: TouchEvent) {
-      if (refreshing || !atTop()) {
+      if (refreshing || pullLockedRef.current || !atTop()) {
         draggingRef.current = false;
         return;
       }
@@ -363,10 +410,10 @@ export default function PullToRefresh({
     return () => clearTimeout(timer);
   }, [refreshing, isPending]);
 
-  // scrollElRef er scrollRef selv (stabilt objekt) — kun slots (header/
+  // scrollElRef/pullLockedRef er stabile objekter — kun slots (header/
   // footer) skal trigge et nyt context-objekt, når de faktisk ændres.
   const contextValue = useMemo(
-    () => ({ ...slots, scrollElRef: scrollRef }),
+    () => ({ ...slots, scrollElRef: scrollRef, pullLockedRef }),
     [slots]
   );
 
