@@ -55,9 +55,9 @@ export default function DashboardBoard({
           <ActionRequiredCard
             title="Afventer handling"
             items={[
-              { icon: "calendar-event", value: actionRequired.vagtanmodninger, label: "Vagt­anmodninger", href: "/shifts?tab=requests" },
-              { icon: "user-plus", value: actionRequired.ansoegninger, label: "Ansøg­ninger", href: "/freelancers?tab=applications" },
-              { icon: "message", value: actionRequired.ulaesteBeskeder, label: "Ulæste beskeder", href: "/messages" },
+              { icon: "calendar-event", value: actionRequired.vagtanmodninger, label: "Vagt\nanmodninger", href: "/shifts?tab=requests" },
+              { icon: "user-plus", value: actionRequired.ansoegninger, label: "Nye\nansøgninger", href: "/freelancers?tab=applications" },
+              { icon: "message", value: actionRequired.ulaesteBeskeder, label: "Ulæste\nbeskeder", href: "/messages" },
             ]}
           />
           <StatisticsCard
@@ -194,11 +194,15 @@ function ActionRequiredCard({
               {i > 0 && <div className="w-px bg-pepo-bd" />}
               <Link
                 href={it.href}
-                className="flex-1 min-w-0 text-center block rounded-[8px] hover:bg-pepo-su transition-colors -mx-1 px-1 py-1"
+                className="flex-1 min-w-0 flex flex-col items-center rounded-[8px] hover:bg-pepo-su transition-colors -mx-1 px-1 py-1"
               >
-                <Icon name={it.icon} size={30} className={`${color} block mx-auto mb-1.5`} />
-                <div className={`text-[32px] font-semibold tracking-tight ${color}`}>{numberFmt.format(it.value)}</div>
-                <div className={`text-[11px] mt-1 break-words ${color}`}>{it.label}</div>
+                <div className="flex items-center gap-2">
+                  <Icon name={it.icon} size={30} className={color} />
+                  <div className={`text-[32px] font-semibold tracking-tight leading-none ${color}`}>
+                    {numberFmt.format(it.value)}
+                  </div>
+                </div>
+                <div className={`text-[11px] mt-1.5 text-center whitespace-pre-line ${color}`}>{it.label}</div>
               </Link>
             </Fragment>
           );
