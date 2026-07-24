@@ -124,7 +124,7 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
         </div>
       </PullToRefreshHeader>
 
-      <div className="px-5 pt-5 pb-8">
+      <div className="px-[var(--page-px)] pt-5 pb-8">
         <span className="inline-flex items-center gap-2 bg-pepo-pl text-pepo-p rounded-full px-5 py-2 text-[24px] font-semibold mb-3">
           <Icon name={shift.categoryIcon || "briefcase"} size={26} />
           {shift.categoryName}
@@ -215,7 +215,7 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
       </div>
 
       <PullToRefreshFooter>
-        <div className="bg-pepo-wh border-t border-pepo-bd px-5 py-3.5">
+        <div className="bg-pepo-wh border-t border-pepo-bd px-[var(--page-px)] py-3.5">
           {!requestable ? (
             <div className="text-center text-[12.5px] text-pepo-t3 py-2.5">
               {shift.status === "assigned" && shift.isMine

@@ -51,7 +51,7 @@ export default function VagtplanClient({ shifts }: { shifts: ScheduledShift[] })
 
   if (shifts.length === 0) {
     return (
-      <div className="px-5 pt-4 pb-6">
+      <div className="px-[var(--page-px)] pt-4 pb-6">
         <div className="text-[20px] font-bold text-pepo-t1 mb-4">Vagtplan</div>
         <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-4 text-center text-[13px] text-pepo-t3">
           Du har ingen kommende vagter.
@@ -61,7 +61,7 @@ export default function VagtplanClient({ shifts }: { shifts: ScheduledShift[] })
   }
 
   return (
-    <div className="px-5 pt-4 pb-6">
+    <div className="px-[var(--page-px)] pt-4 pb-6">
       <div className="text-[20px] font-bold text-pepo-t1 mb-4 pepo-rise">Vagtplan</div>
 
       <div className="flex flex-col gap-2">

@@ -175,7 +175,7 @@ export default function ShiftBoard({
 
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px]">
+      <div className="px-[var(--page-px)] pt-[22px]">
         <div className="flex items-start justify-between mb-[18px]">
           <div>
             <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Events & vagter</div>
@@ -193,7 +193,7 @@ export default function ShiftBoard({
       </div>
 
       <div className="border-t border-pepo-bd" />
-      <div className="flex items-center gap-2 px-8 py-4">
+      <div className="flex items-center gap-2 px-[var(--page-px)] py-4">
         {/* Flyttet op over fanebladene, så toggle-knapperne sidder samme sted
             uanset liste- eller kalendervisning — før lå denne række UNDER
             fanebladene, som kun fandtes i listevisning, så hele rækken
@@ -235,7 +235,7 @@ export default function ShiftBoard({
           så fanebladene giver ikke mening at vise samtidig. De kommer tilbage,
           når søgefeltet foldes ind igen (krydset nulstiller searchOpen). */}
       {viewMode === "list" && !searchOpen && (
-        <div className="flex gap-1.5 border-b border-pepo-bd px-8">
+        <div className="flex gap-1.5 border-b border-pepo-bd px-[var(--page-px)]">
           {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
             <button
               key={t}
@@ -251,7 +251,7 @@ export default function ShiftBoard({
         </div>
       )}
 
-      <div className="px-8 py-[22px] pb-10 max-w-[760px]">
+      <div className="px-[var(--page-px)] py-[22px] pb-10 max-w-[760px]">
         {viewMode === "list" ? (
           searchOpen && !search.trim() ? null : groupedByDate.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-[60px] text-pepo-t3">

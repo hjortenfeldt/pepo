@@ -13,7 +13,7 @@
  */
 export default function PageSkeleton() {
   return (
-    <div data-pepo-splash-fallback className="px-5 pt-4 pb-6">
+    <div data-pepo-splash-fallback className="px-[var(--page-px)] pt-4 pb-6">
       <div className="h-6 w-32 rounded-md bg-pepo-bd animate-pulse" />
       <div className="h-4 w-24 rounded-md bg-pepo-bd animate-pulse mt-2" />
 

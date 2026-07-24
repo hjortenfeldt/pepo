@@ -9,7 +9,7 @@
  */
 export default function DashboardMetricsSkeleton() {
   return (
-    <div className="px-8 py-[22px] pb-10">
+    <div className="px-[var(--page-px)] py-[22px] pb-10">
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="h-[230px] rounded-[14px] bg-pepo-bd animate-pulse sm:flex-1" />
         <div className="h-[230px] rounded-[14px] bg-pepo-bd animate-pulse sm:flex-1" />

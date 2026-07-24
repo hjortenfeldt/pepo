@@ -8,7 +8,7 @@
  * [[feedback_admin_layout_single_scroll_panel]]) — denne skeleton sætter
  * derfor bevidst hverken h-screen eller sin egen overflow-y-auto, kun
  * indre padding der matcher de rigtige sider (fx DashboardBoard.tsx's
- * px-8 py-[22px]).
+ * px-[var(--page-px)] py-[22px]).
  *
  * data-pepo-admin-splash-fallback: markør som AdminSplashScreen.tsx bruger
  * (via document.querySelector + MutationObserver) til at afgøre om
@@ -19,7 +19,7 @@
  */
 export default function AdminPageSkeleton() {
   return (
-    <div data-pepo-admin-splash-fallback className="px-8 py-[22px]">
+    <div data-pepo-admin-splash-fallback className="px-[var(--page-px)] py-[22px]">
       <div className="h-7 w-48 rounded-md bg-pepo-bd animate-pulse" />
       <div className="h-4 w-64 rounded-md bg-pepo-bd animate-pulse mt-2" />
 

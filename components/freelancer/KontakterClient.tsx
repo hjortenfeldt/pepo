@@ -48,7 +48,7 @@ export default function KontakterClient({
           Overblik-sidens header (se OverviewClient.tsx og
           PullToRefresh.tsx's doc-kommentar). */}
       <PullToRefreshHeader>
-        <div className="z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise">
+        <div className="z-10 bg-pepo-su px-[var(--page-px)] pt-4 pb-3 border-b border-pepo-bd pepo-rise">
           <div className="text-[20px] font-bold text-pepo-t1 mb-3">Kontakter</div>
           <div className="flex items-center gap-2 bg-pepo-wh border border-pepo-bd rounded-[10px] px-3 py-2.5">
             <Icon name="search" size={16} className="text-pepo-t3 flex-shrink-0" />
@@ -63,7 +63,7 @@ export default function KontakterClient({
         </div>
       </PullToRefreshHeader>
 
-      <div className="px-5">
+      <div className="px-[var(--page-px)]">
         {colleagues.length === 0 ? (
           <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-4 text-center text-[13px] text-pepo-t3 mt-4">
             Ingen kolleger fundet endnu.

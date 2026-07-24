@@ -29,7 +29,7 @@ export default function ColleagueDetail({
         </div>
       </PullToRefreshHeader>
 
-      <div className="px-5 pt-6 pb-8 flex flex-col items-center">
+      <div className="px-[var(--page-px)] pt-6 pb-8 flex flex-col items-center">
         <div className="w-20 h-20 rounded-full bg-pepo-pl text-pepo-p text-[24px] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0">
           {colleague.profile_image_url ? (
             // eslint-disable-next-line @next/next/no-img-element

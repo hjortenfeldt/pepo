@@ -48,14 +48,14 @@ export default function ImportantUrlsSettings({ tenantSlug }: { tenantSlug: stri
 
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px]">
+      <div className="px-[var(--page-px)] pt-[22px]">
         <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Vigtige URL&apos;er</div>
         <div className="text-[13.5px] text-pepo-t2 mt-[3px]">
           Links I kan dele med jeres freelancere og på jeres egen hjemmeside
         </div>
       </div>
 
-      <div className="px-8 py-[22px] pb-10 max-w-2xl flex flex-col gap-5">
+      <div className="px-[var(--page-px)] py-[22px] pb-10 max-w-2xl flex flex-col gap-5">
         {error && (
           <p className="text-[12.5px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
         )}

@@ -48,7 +48,7 @@ export default function DashboardBoard({
 }) {
   return (
     <div className="flex flex-col">
-      <div className="px-8 py-[22px] pb-10">
+      <div className="px-[var(--page-px)] py-[22px] pb-10">
         <div className="flex flex-col sm:flex-row gap-4">
           <StatCard
             title="Events i alt"

@@ -91,7 +91,7 @@ export default function MessageBoard({
 
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px]">
+      <div className="px-[var(--page-px)] pt-[22px]">
         <div className="flex items-start justify-between mb-[18px]">
           <div>
             <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Beskeder</div>
@@ -110,12 +110,12 @@ export default function MessageBoard({
       </div>
 
       <div className="border-t border-pepo-bd" />
-      <div className="flex items-center px-8 py-4">
+      <div className="flex items-center px-[var(--page-px)] py-4">
         <ExpandingSearchButton open={searchOpen} onOpenChange={setSearchOpen} value={search} onValueChange={setSearch} />
       </div>
       <div className="border-t border-pepo-bd" />
 
-      <div className="px-8 py-[22px] pb-10">
+      <div className="px-[var(--page-px)] py-[22px] pb-10">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-pepo-t3">
             <Icon name="message-2" size={40} className="mb-2.5" />

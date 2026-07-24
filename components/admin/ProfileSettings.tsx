@@ -72,12 +72,12 @@ export default function ProfileSettings({
 
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px]">
+      <div className="px-[var(--page-px)] pt-[22px]">
         <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Profiloplysninger</div>
         <div className="text-[13.5px] text-pepo-t2 mt-[3px]">Dine egne login- og kontaktoplysninger</div>
       </div>
 
-      <div className="px-8 py-[22px] pb-10 max-w-2xl">
+      <div className="px-[var(--page-px)] py-[22px] pb-10 max-w-2xl">
         <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
           <div className="mb-4">
             <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">

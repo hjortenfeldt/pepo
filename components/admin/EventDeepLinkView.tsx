@@ -53,7 +53,7 @@ export default function EventDeepLinkView({
 
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px] pb-10 max-w-[760px]">
+      <div className="px-[var(--page-px)] pt-[22px] pb-10 max-w-[760px]">
         <Link
           href="/shifts"
           className="inline-flex items-center gap-1.5 text-[12.5px] text-pepo-t2 hover:text-pepo-t1 transition-colors mb-4"

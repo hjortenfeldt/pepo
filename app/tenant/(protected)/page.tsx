@@ -91,7 +91,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px]">
+      <div className="px-[var(--page-px)] pt-[22px]">
         <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Dashboard</div>
         <div className="text-[13.5px] text-pepo-t2 mt-[3px]">
           Overblik over omsætning, udbetaling og kommende events

@@ -129,7 +129,7 @@ export default function ProfileEditForm({
         </div>
       </PullToRefreshHeader>
 
-      <div className="px-5 pt-5 pb-8">
+      <div className="px-[var(--page-px)] pt-5 pb-8">
         {!showPhotoUpload ? (
           <div className="mb-5">
             <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
@@ -310,7 +310,7 @@ export default function ProfileEditForm({
       </div>
 
       <PullToRefreshFooter>
-        <div className="bg-pepo-wh border-t border-pepo-bd px-5 py-3.5">
+        <div className="bg-pepo-wh border-t border-pepo-bd px-[var(--page-px)] py-3.5">
           <button
             type="button"
             onClick={handleSave}

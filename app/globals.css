@@ -22,6 +22,19 @@
 
   --background: var(--pepo-wh);
   --foreground: var(--pepo-t1);
+
+  /* Vandret sidemargin for hovedindhold — brugt som `px-[var(--page-px)]`
+     på sidernes/boardenes yderste indholds-wrapper i BÅDE Freelancer Appen
+     og Admin Appen, i stedet for at gentage px-4/px-5/px-8 i hver enkelt
+     fil. Ét sted at justere værdien, hvis Hjorth vil ændre den. 16px på
+     mobil/app-bredde, 32px fra sm (640px) og op — se media query nedenfor. */
+  --page-px: 16px;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --page-px: 32px;
+  }
 }
 
 @theme inline {

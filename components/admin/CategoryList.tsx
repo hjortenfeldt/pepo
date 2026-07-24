@@ -226,7 +226,7 @@ export default function CategoryList({
 
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px]">
+      <div className="px-[var(--page-px)] pt-[22px]">
         <div className="mb-[18px]">
           <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">Jobfunktioner</div>
           <div className="text-[13.5px] text-pepo-t2 mt-[3px]">
@@ -235,7 +235,7 @@ export default function CategoryList({
         </div>
       </div>
 
-      <div className="px-8 pb-10 max-w-[640px]">
+      <div className="px-[var(--page-px)] pb-10 max-w-[640px]">
         <div className="text-[11px] font-semibold text-pepo-t3 uppercase tracking-wide mb-2.5">
           Tilføj jobfunktion
         </div>

@@ -191,7 +191,7 @@ export default function OverviewClient({
           bund-border gør den synligt adskilt fra indholdet, når det scroller
           op bagved. */}
       <PullToRefreshHeader>
-        <div className="z-10 bg-pepo-su px-5 pt-4 pb-3 border-b border-pepo-bd pepo-rise flex justify-between gap-3">
+        <div className="z-10 bg-pepo-su px-[var(--page-px)] pt-4 pb-3 border-b border-pepo-bd pepo-rise flex justify-between gap-3">
           {/* Kun logoet herinde — ingen ikon, ingen ekstra tekstlinje. Fylder
               hele barens højde (minus paddingen ovenfor/nedenunder) og højst
               halvdelen af bredden, så der altid er plads nok til navn +
@@ -237,7 +237,7 @@ export default function OverviewClient({
         </div>
       </PullToRefreshHeader>
 
-      <div className="px-5 pt-4 pb-6">
+      <div className="px-[var(--page-px)] pt-4 pb-6">
       {error && (
         <p className="mt-3 text-[12.5px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {error}

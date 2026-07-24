@@ -40,7 +40,7 @@ export default async function FreelancerMerePage() {
   const calendarWebcalUrl = calendarToken ? `webcal://app.${ROOT_DOMAIN}/api/calendar/${calendarToken}.ics` : null;
 
   return (
-    <div className="px-5 pt-4 pb-6">
+    <div className="px-[var(--page-px)] pt-4 pb-6">
       <div className="text-[20px] font-bold text-pepo-t1 mb-4 pepo-rise">Mere</div>
 
       <Link

@@ -241,7 +241,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
 
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px]">
+      <div className="px-[var(--page-px)] pt-[22px]">
         <div className="flex items-start justify-between mb-[18px]">
           <div>
             <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">
@@ -264,7 +264,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
       </div>
 
       <div className="border-t border-pepo-bd" />
-      <div className="flex items-center gap-2 px-8 py-4">
+      <div className="flex items-center gap-2 px-[var(--page-px)] py-4">
         {/* Samlet view-toggle — samme tynde stroke/rounding som søge-knappen
             lige til højre for den (border-pepo-bds, rounded-[9px]), i stedet
             for den tidligere udfyldte bg-pepo-su-baggrund, så de to knapper
@@ -300,7 +300,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
       </div>
       <div className="border-t border-pepo-bd" />
 
-      <div className="px-8 py-[22px] pb-10">
+      <div className="px-[var(--page-px)] py-[22px] pb-10">
         <div className="text-[12.5px] text-pepo-t2 mb-3.5">
           {clients.length} {clients.length === 1 ? "kunde" : "kunder"}
         </div>

@@ -377,7 +377,7 @@ export default function FreelancerBoard({
 
   return (
     <div className="flex flex-col">
-      <div className="px-8 pt-[22px]">
+      <div className="px-[var(--page-px)] pt-[22px]">
         <div className="flex items-start justify-between mb-[18px]">
           <div>
             <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">
@@ -398,7 +398,7 @@ export default function FreelancerBoard({
       </div>
 
       <div className="border-t border-pepo-bd" />
-      <div className="flex items-center gap-2 px-8 py-4">
+      <div className="flex items-center gap-2 px-[var(--page-px)] py-4">
         {/* Flyttet op over fanebladene, så toggle-knapperne sidder samme sted
             uanset hvilken fane/visning man står på — matcher mønsteret i
             ShiftBoard.tsx. Samlet view-toggle med samme tynde stroke/rounding
@@ -438,7 +438,7 @@ export default function FreelancerBoard({
           kommer tilbage, når søgefeltet foldes ind igen (krydset nulstiller
           searchOpen). */}
       {!searchOpen && (
-        <div className="flex gap-1.5 border-b border-pepo-bd px-8">
+        <div className="flex gap-1.5 border-b border-pepo-bd px-[var(--page-px)]">
           <button
             onClick={() => setMainTab("approved")}
             className={
@@ -478,7 +478,7 @@ export default function FreelancerBoard({
       )}
 
       {mainTab === "applications" && !searchOpen && (
-        <div className="flex items-center gap-2 px-8 py-3.5 flex-wrap">
+        <div className="flex items-center gap-2 px-[var(--page-px)] py-3.5 flex-wrap">
           <button
             onClick={() => setSubTab("pending")}
             className={
@@ -517,7 +517,7 @@ export default function FreelancerBoard({
       )}
 
       {mainTab === "approved" && !searchOpen && (
-        <div className="flex gap-2 px-8 pt-3.5 pb-5 flex-wrap">
+        <div className="flex gap-2 px-[var(--page-px)] pt-3.5 pb-5 flex-wrap">
           <button
             onClick={() => toggleCatFilter(null)}
             className={
@@ -566,7 +566,7 @@ export default function FreelancerBoard({
         </div>
       )}
 
-      <div className="px-8 py-[22px] pb-10">
+      <div className="px-[var(--page-px)] py-[22px] pb-10">
         {searchOpen && !search.trim() ? null : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-pepo-t3">
             <Icon name="inbox" size={32} className="mb-2.5" />

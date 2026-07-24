@@ -28,7 +28,7 @@ export default function AdminAppSection() {
   }, []);
 
   return (
-    <div className="px-8 pb-10 -mt-6 max-w-2xl flex flex-col gap-4">
+    <div className="px-[var(--page-px)] pb-10 -mt-6 max-w-2xl flex flex-col gap-4">
       <AdminPushToggle />
 
       {mobile && (

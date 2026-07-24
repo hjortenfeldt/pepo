@@ -32,7 +32,7 @@ export default function BeskederClient({ messages }: { messages: FreelancerMessa
   }
 
   return (
-    <div className="px-5 pt-4 pb-6">
+    <div className="px-[var(--page-px)] pt-4 pb-6">
       <div className="text-[20px] font-bold text-pepo-t1 mb-4 pepo-rise">Beskeder</div>
 
       {messages.length === 0 ? (
