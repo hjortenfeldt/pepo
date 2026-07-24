@@ -142,16 +142,25 @@ function StatColumn({
   const valueColor = accent === "purple" ? "text-pepo-pm" : "text-[#3B82F6]";
   const labelColor = accent === "purple" ? "text-pepo-p" : "text-[#1D4ED8]";
 
+  // Grid i stedet for tre separate flex-rækker: hver af de tre "søjler"
+  // (ikon/tal/tekst) skal flugte lodret på tværs af rækkerne — ikonerne
+  // centreret under hinanden, tallene centreret under hinanden (deres
+  // søjle-bredde sætter sig automatisk efter det bredeste tal), og
+  // teksterne venstrestillet fra samme lodrette linje. Et CSS-grid med
+  // grid-template-columns: auto auto 1fr giver præcis det: kolonne 1+2
+  // sizes efter deres bredeste indhold og centrerer hver celle (justify-
+  // self-center), kolonne 3 er resten af bredden og teksten flyder som
+  // altid fra venstre kant af sin celle — ingen justify-self nødvendig der.
   return (
-    <div className="flex-1 min-w-0 flex flex-col gap-2">
+    <div className="flex-1 min-w-0 grid grid-cols-[auto_auto_1fr] items-center gap-x-2.5 gap-y-2">
       {stats.map((s) => (
-        <div key={s.label} className="flex items-center gap-2.5">
-          <Icon name={s.icon} size={24} className={`${valueColor} flex-shrink-0`} />
-          <div className={`text-[22px] font-semibold tracking-tight leading-none ${valueColor}`}>
+        <Fragment key={s.label}>
+          <Icon name={s.icon} size={24} className={`${valueColor} justify-self-center`} />
+          <div className={`text-[22px] font-semibold tracking-tight leading-none justify-self-center ${valueColor}`}>
             {s.isHours ? hourFmt.format(s.value) : numberFmt.format(s.value)}
           </div>
           <div className={`text-[11px] break-words ${labelColor}`}>{s.label}</div>
-        </div>
+        </Fragment>
       ))}
     </div>
   );
