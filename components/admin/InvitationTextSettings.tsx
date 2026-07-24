@@ -110,55 +110,55 @@ export default function InvitationTextSettings({
               ))}
             </div>
           </div>
-        </div>
 
-        {error && (
-          <p className="mb-4 text-[12.5px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {error}
-          </p>
-        )}
+          {error && (
+            <p className="mb-4 text-[12.5px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            type="button"
-            onClick={save}
-            disabled={isSaving}
-            className="h-11 px-4 rounded-[10px] text-[13px] font-medium bg-pepo-p text-white flex items-center gap-1.5 disabled:opacity-40"
-          >
-            <Icon name="check" size={16} />
-            {isSaving ? "Gemmer..." : saved ? "Gemt" : "Gem ændringer"}
-          </button>
-
-          {!confirmingReset ? (
+          <div className="flex items-center gap-2.5 flex-wrap pt-1">
             <button
               type="button"
-              onClick={() => setConfirmingReset(true)}
-              className="h-11 px-4 rounded-[10px] text-[13px] font-medium bg-pepo-wh text-pepo-t2 border border-pepo-bds hover:bg-pepo-su flex items-center gap-1.5"
+              onClick={save}
+              disabled={isSaving}
+              className="h-11 px-4 rounded-[10px] text-[13px] font-medium bg-pepo-p text-white flex items-center gap-1.5 disabled:opacity-40"
             >
-              <Icon name="arrow-back-up" size={16} />
-              Nulstil til standardtekst
+              <Icon name="check" size={16} />
+              {isSaving ? "Gemmer..." : saved ? "Gemt" : "Gem ændringer"}
             </button>
-          ) : (
-            <div className="flex items-center gap-2 rounded-[10px] border border-[#F3C9C9] bg-[#FDECEA] px-3.5 py-2.5">
-              <span className="text-[12.5px] text-[#C0021A]">Nulstil til Pepos standardtekst?</span>
+
+            {!confirmingReset ? (
               <button
                 type="button"
-                onClick={() => setConfirmingReset(false)}
-                disabled={isResetting}
-                className="h-8 px-3 rounded-[7px] text-[12px] font-medium bg-pepo-wh border border-pepo-bds text-pepo-t1 disabled:opacity-50"
+                onClick={() => setConfirmingReset(true)}
+                className="h-11 px-4 rounded-[10px] text-[13px] font-medium bg-pepo-wh text-pepo-t2 border border-pepo-bds hover:bg-pepo-su flex items-center gap-1.5"
               >
-                Annuller
+                <Icon name="arrow-back-up" size={16} />
+                Nulstil til standardtekst
               </button>
-              <button
-                type="button"
-                onClick={reset}
-                disabled={isResetting}
-                className="h-8 px-3 rounded-[7px] text-[12px] font-medium bg-[#C0021A] text-white disabled:opacity-50"
-              >
-                {isResetting ? "Nulstiller..." : "Ja, nulstil"}
-              </button>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center gap-2 rounded-[10px] border border-[#F3C9C9] bg-[#FDECEA] px-3.5 py-2.5">
+                <span className="text-[12.5px] text-[#C0021A]">Nulstil til Pepos standardtekst?</span>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingReset(false)}
+                  disabled={isResetting}
+                  className="h-8 px-3 rounded-[7px] text-[12px] font-medium bg-pepo-wh border border-pepo-bds text-pepo-t1 disabled:opacity-50"
+                >
+                  Annuller
+                </button>
+                <button
+                  type="button"
+                  onClick={reset}
+                  disabled={isResetting}
+                  className="h-8 px-3 rounded-[7px] text-[12px] font-medium bg-[#C0021A] text-white disabled:opacity-50"
+                >
+                  {isResetting ? "Nulstiller..." : "Ja, nulstil"}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
