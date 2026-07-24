@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
@@ -34,8 +34,64 @@ function rubberBand(delta: number) {
   return (delta * MAX_DISTANCE * RUBBER_BAND_COEFFICIENT) / (MAX_DISTANCE + RUBBER_BAND_COEFFICIENT * delta);
 }
 
-type PullToRefreshSlots = { header: HTMLDivElement | null; footer: HTMLDivElement | null };
-const PullToRefreshSlotContext = createContext<PullToRefreshSlots>({ header: null, footer: null });
+type PullToRefreshSlots = {
+  header: HTMLDivElement | null;
+  footer: HTMLDivElement | null;
+};
+type PullToRefreshContextValue = PullToRefreshSlots & {
+  // Selve scrollRef'et (stabilt objekt, ændrer aldrig reference — kun
+  // .current gør), delt via context så usePageScrollLock (se dens egen
+  // doc-kommentar) kan låse DENNE konkrete boks — ikke document.body, som
+  // aldrig selv scroller her (se (protected)/layout.tsx's h-dvh
+  // overflow-hidden-wrapper). Sendes som et ref-objekt (ikke den udpakkede
+  // DOM-node i state, som header/footer er) specifikt så eslint's
+  // react-hooks/immutability-regel tillader at mutere .current.style
+  // direkte i usePageScrollLock — refs er den anerkendte undtagelse for
+  // imperativ DOM-manipulation, almindelig React-state/context er det ikke.
+  scrollElRef: React.RefObject<HTMLDivElement | null>;
+};
+const PullToRefreshSlotContext = createContext<PullToRefreshContextValue>({
+  header: null,
+  footer: null,
+  scrollElRef: { current: null },
+});
+
+/**
+ * Låser side-scrollen (scrollRef) mens et højreside-panel er åbent — brugt
+ * af useSlidePanel.ts (for de "monteres/afmonteres"-paneler) og direkte af
+ * de "altid i DOM'en, skifter kun translate-x"-paneler (ClientBoard.tsx,
+ * FreelancerBoard.tsx, MessageBoard.tsx: `usePageScrollLock(panelOpen)`).
+ *
+ * Grunden til dette lag OVENPÅ v0.29.0's overscroll-behavior:contain (se
+ * scrollRef's egen doc-kommentar): et panel er et `position: fixed`
+ * overlay, der teknisk set stadig er et DOM-efterkommer af scrollRef —
+ * overscroll-behavior forhindrer i teorien kædning fra panelets EGEN
+ * scroll-boks til scrollRef, men Hjorth oplevede fortsat den samme
+ * "frossen ved bunden"-opførsel på flere paneler efter den rettelse.
+ * `overflow: hidden` + `touch-action: none` på selve scrollRef er en mere
+ * håndfast spærring: uanset hvilken specifik WebKit-mekanisme der ellers
+ * lader en touch-gestus "lække" ned i scrollRef, kan den slet ikke scrolle
+ * eller reagere på touch, mens et panel er åbent. Genoprettes til den
+ * oprindelige stil, når panelet lukkes/afmonteres.
+ */
+export function usePageScrollLock(locked: boolean) {
+  const { scrollElRef } = useContext(PullToRefreshSlotContext);
+
+  useEffect(() => {
+    const scrollEl = scrollElRef.current;
+    if (!locked || !scrollEl) return;
+
+    const prevOverflow = scrollEl.style.overflow;
+    const prevTouchAction = scrollEl.style.touchAction;
+    scrollEl.style.overflow = "hidden";
+    scrollEl.style.touchAction = "none";
+
+    return () => {
+      scrollEl.style.overflow = prevOverflow;
+      scrollEl.style.touchAction = prevTouchAction;
+    };
+  }, [locked, scrollElRef]);
+}
 
 /**
  * Portalerer children ind i den faste top-bar-plads ved siden af (uden for)
@@ -307,8 +363,15 @@ export default function PullToRefresh({
     return () => clearTimeout(timer);
   }, [refreshing, isPending]);
 
+  // scrollElRef er scrollRef selv (stabilt objekt) — kun slots (header/
+  // footer) skal trigge et nyt context-objekt, når de faktisk ændres.
+  const contextValue = useMemo(
+    () => ({ ...slots, scrollElRef: scrollRef }),
+    [slots]
+  );
+
   return (
-    <PullToRefreshSlotContext.Provider value={slots}>
+    <PullToRefreshSlotContext.Provider value={contextValue}>
       {/* min-w-0 (ikke kun min-h-0): harmløst i Freelancer Appens flex-col-
           sammenhæng, men nødvendigt i Admin Appen, hvor denne komponent
           sidder som flex-item ved siden af AdminSidebar i en flex-row (se

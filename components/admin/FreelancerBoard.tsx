@@ -13,6 +13,7 @@ import {
 } from "@/app/tenant/(protected)/freelancers/actions";
 import Icon from "@/components/Icon";
 import { lastActiveLabel, lastActivePhrase } from "@/lib/format";
+import { usePageScrollLock } from "@/components/freelancer/PullToRefresh";
 import { AddressAutocompleteInput, type ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 import ExpandingSearchButton from "./ExpandingSearchButton";
 
@@ -369,6 +370,10 @@ export default function FreelancerBoard({
   }
 
   const panelIsOpen = panelMode === "create" || open !== null;
+  // Se usePageScrollLock's doc-kommentar i PullToRefresh.tsx — dette panel
+  // er "altid i DOM'en" (skifter kun translate-x), så useSlidePanel's
+  // indbyggede lås ikke gælder her; kaldes derfor direkte.
+  usePageScrollLock(panelIsOpen);
 
   return (
     <div className="flex flex-col">
@@ -913,7 +918,13 @@ export default function FreelancerBoard({
                     />
                   </Field>
 
-                  <div className="flex gap-2.5">
+                  {/* flex-col sm:flex-row: stakkes lodret på mobil (panelet er
+                      selv w-full under sm), så Fødselsdato-feltet får hele
+                      radens bredde i stedet for at blive presset ned i en
+                      halv, for smal kolonne — som fik det native
+                      dato-feltet til at se "for bredt"/i-stykker ud. Samme
+                      sm-breakpoint som panelets egen w-full/sm:w-[472px]. */}
+                  <div className="flex flex-col sm:flex-row gap-2.5">
                     <Field label="Køn" className="flex-1 min-w-0">
                       <select
                         value={form.gender}
@@ -932,7 +943,7 @@ export default function FreelancerBoard({
                         type="date"
                         value={form.birthDate}
                         onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
-                        className="w-full min-w-0 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
+                        className="w-full max-w-[200px] min-w-0 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
                       />
                     </Field>
                   </div>

@@ -6,6 +6,7 @@ import type { CategoryOption, FreelancerOption, MessageListItem } from "@/lib/ad
 import { sendMessage } from "@/app/tenant/(protected)/messages/actions";
 import Icon from "@/components/Icon";
 import ExpandingSearchButton from "./ExpandingSearchButton";
+import { usePageScrollLock } from "@/components/freelancer/PullToRefresh";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" });
@@ -83,6 +84,10 @@ export default function MessageBoard({
   }
 
   const panelOpen = composing || viewing !== null;
+  // Se usePageScrollLock's doc-kommentar i PullToRefresh.tsx — dette panel
+  // er "altid i DOM'en" (skifter kun translate-x), så useSlidePanel's
+  // indbyggede lås ikke gælder her; kaldes derfor direkte.
+  usePageScrollLock(panelOpen);
 
   return (
     <div className="flex flex-col">

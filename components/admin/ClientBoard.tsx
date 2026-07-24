@@ -14,6 +14,7 @@ import Icon from "@/components/Icon";
 import { VenueAddressFields } from "./VenueAddressFields";
 import ExpandingSearchButton from "./ExpandingSearchButton";
 import type { ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
+import { usePageScrollLock } from "@/components/freelancer/PullToRefresh";
 
 type CustomerType = "company" | "private";
 type ViewMode = "grid" | "list";
@@ -82,6 +83,11 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
   const [searchOpen, setSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [panelOpen, setPanelOpen] = useState(false);
+  // Se usePageScrollLock's doc-kommentar i PullToRefresh.tsx — dette panel
+  // er "altid i DOM'en" (skifter kun translate-x, se
+  // [[feedback_slide_panel_native_picker_bug]]), så useSlidePanel's
+  // indbyggede lås ikke gælder her; kaldes derfor direkte.
+  usePageScrollLock(panelOpen);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customerType, setCustomerType] = useState<CustomerType>("company");
   const [form, setForm] = useState<ClientBoardFormInput>(EMPTY_FORM);

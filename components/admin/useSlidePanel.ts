@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePageScrollLock } from "@/components/freelancer/PullToRefresh";
 
 // Slide-ind/ud-animation til højrepaneler, der monteres/afmonteres betinget
 // af forælderen (fx `{wizard && <Panel />}`) — i modsætning til paneler som
@@ -20,6 +21,11 @@ import { useEffect, useState } from "react";
 // [[feedback_slide_panel_native_picker_bug]].
 export function useSlidePanel(onClose: () => void, duration = 200) {
   const [visible, setVisible] = useState(false);
+
+  // Låser side-scrollen bag panelet, mens det er synligt — se
+  // usePageScrollLock's egen doc-kommentar i PullToRefresh.tsx for hvorfor
+  // (opdaget efter overscroll-behavior:contain alene ikke løste alt).
+  usePageScrollLock(visible);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));

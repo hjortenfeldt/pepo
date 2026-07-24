@@ -33,7 +33,11 @@ export function DateField({
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p disabled:bg-pepo-su disabled:text-pepo-t2"
+      // max-w-[200px]: en dato har ikke brug for at strække sig ud over hele
+      // panelets bredde — uden loft blev feltet unødvendigt bredt (og så
+      // "i stykker" ud) på mobil, hvor panelet selv er w-full. Samme loft som
+      // Fødselsdato-feltet i FreelancerBoard.tsx nu bruger.
+      className="w-full max-w-[200px] min-w-0 border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p disabled:bg-pepo-su disabled:text-pepo-t2"
     />
   );
 }
