@@ -123,18 +123,15 @@ function StatCard({
   return (
     <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1 h-[230px]">
       <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
-      <div className="flex gap-2.5 mx-[-12px]">
-        {stats.map((s, i) => (
-          <Fragment key={s.label}>
-            {i > 0 && <div className="w-px bg-pepo-bd" />}
-            <div className="flex-1 min-w-0 flex items-center justify-center gap-2">
-              <Icon name={s.icon} size={26} className={`${valueColor} flex-shrink-0`} />
-              <div className={`text-[26px] font-semibold tracking-tight leading-none ${valueColor}`}>
-                {s.isHours ? hourFmt.format(s.value) : numberFmt.format(s.value)}
-              </div>
-              <div className={`text-[11px] leading-tight break-words ${labelColor}`}>{s.label}</div>
+      <div className="flex flex-col gap-2 mx-[-12px]">
+        {stats.map((s) => (
+          <div key={s.label} className="flex items-center gap-2.5">
+            <Icon name={s.icon} size={24} className={`${valueColor} flex-shrink-0`} />
+            <div className={`text-[22px] font-semibold tracking-tight leading-none ${valueColor}`}>
+              {s.isHours ? hourFmt.format(s.value) : numberFmt.format(s.value)}
             </div>
-          </Fragment>
+            <div className={`text-[11px] break-words ${labelColor}`}>{s.label}</div>
+          </div>
         ))}
       </div>
     </div>
