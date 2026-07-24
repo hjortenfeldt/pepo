@@ -127,12 +127,12 @@ function StatCard({
         {stats.map((s, i) => (
           <Fragment key={s.label}>
             {i > 0 && <div className="w-px bg-pepo-bd" />}
-            <div className="flex-1 text-center">
-              <Icon name={s.icon} size={30} className={`${valueColor} block mx-auto mb-1.5`} />
-              <div className={`text-[32px] font-semibold tracking-tight ${valueColor}`}>
+            <div className="flex-1 min-w-0 flex items-center justify-center gap-2">
+              <Icon name={s.icon} size={26} className={`${valueColor} flex-shrink-0`} />
+              <div className={`text-[26px] font-semibold tracking-tight leading-none ${valueColor}`}>
                 {s.isHours ? hourFmt.format(s.value) : numberFmt.format(s.value)}
               </div>
-              <div className={`text-[11px] mt-1 ${labelColor}`}>{s.label}</div>
+              <div className={`text-[11px] leading-tight break-words ${labelColor}`}>{s.label}</div>
             </div>
           </Fragment>
         ))}
