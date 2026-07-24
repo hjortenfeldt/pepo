@@ -51,7 +51,7 @@ export default function DashboardBoard({
   return (
     <div className="flex flex-col">
       <div className="px-[var(--page-px)] py-[22px] pb-10">
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           <ActionRequiredCard
             title="Afventer handling"
             items={[
@@ -121,7 +121,7 @@ function StatisticsCard({
   right: { icon: string; value: number; label: string; isHours?: boolean }[];
 }) {
   return (
-    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1 h-[230px]">
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1">
       <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
       <div className="flex gap-5">
         <StatColumn stats={left} accent="purple" />
@@ -183,7 +183,7 @@ function ActionRequiredCard({
   items: { icon: string; value: number; label: string; href: string }[];
 }) {
   return (
-    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1 h-[230px]">
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5 sm:flex-1">
       <div className="text-[14.5px] font-semibold tracking-tight mb-[18px]">{title}</div>
       <div className="flex gap-2.5 mx-[-12px]">
         {items.map((it, i) => {
