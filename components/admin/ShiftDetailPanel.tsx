@@ -64,6 +64,7 @@ export default function ShiftDetailPanel({
   freelancers,
   onClose,
   onAssigned,
+  onReleased,
 }: {
   shift: ShiftListItem;
   event: EventListItem;
@@ -72,6 +73,9 @@ export default function ShiftDetailPanel({
   freelancers: FreelancerOption[];
   onClose: () => void;
   onAssigned?: (shiftId: string) => void;
+  // Kaldes efter en vellykket "Frigiv vagt" — samme flash-mekanisme som
+  // onAssigned, blot rød i stedet for grøn (se ShiftBoard.tsx's flashShift).
+  onReleased?: (shiftId: string) => void;
 }) {
   // Vagt-panelet viser OG redigerer samme vagt (inkl. event-fælles felter
   // som dato/titel/briefing/kunde&sted) — ingen separat "redigér event"-
@@ -254,7 +258,10 @@ export default function ShiftDetailPanel({
                   <button
                     onClick={() => {
                       if (confirm(`Frigiv vagten fra ${shift.assignedFreelancerName}? Vagten bliver åben igen.`)) {
-                        run(() => releaseShift(shift.id));
+                        run(() => releaseShift(shift.id), {
+                          closeOnSuccess: true,
+                          onSuccess: () => onReleased?.(shift.id),
+                        });
                       }
                     }}
                     disabled={isPending}

@@ -58,6 +58,29 @@ const STATUS_TEXT_CLASS: Record<ShiftStatus, string> = {
   cancelled: "text-pepo-t3",
 };
 
+// Sorteringsprioritet for vagter med samme starttid+jobfunktion — "Tildelt"
+// først, "Mangler" sidst, "Til salg" i midten (en mellemting: den HAR en
+// freelancer, men er på vej væk). "cancelled" forekommer aldrig reelt her
+// (activeShifts filtrerer dem fra før sortering), men skal med for at
+// Record<ShiftStatus, number> er komplet.
+const STATUS_SORT_ORDER: Record<ShiftStatus, number> = {
+  assigned: 0,
+  for_resale: 1,
+  open: 2,
+  cancelled: 3,
+};
+
+// Vagter under et event sorteres efter starttid (tidligst først), dernæst
+// alfabetisk efter jobfunktion (dansk sortering, så æ/ø/å havner rigtigt),
+// og til sidst efter status (se STATUS_SORT_ORDER) — så to ens vagter med
+// samme jobfunktion og starttid altid viser den tildelte før den ubesatte.
+function compareShifts(a: ShiftListItem, b: ShiftListItem): number {
+  if (a.startTime !== b.startTime) return a.startTime.localeCompare(b.startTime);
+  const categoryCompare = a.category.localeCompare(b.category, "da");
+  if (categoryCompare !== 0) return categoryCompare;
+  return STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
+}
+
 function dateStatusDot(events: EventListItem[], dateStr: string): "green" | "red" | "gray" | "none" {
   const dayEvents = events.filter((e) => e.eventDate === dateStr);
   if (dayEvents.length === 0) return "none";
@@ -87,7 +110,7 @@ export default function ShiftBoard({
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [wizard, setWizard] = useState<WizardState | null>(null);
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
-  const [flashShiftId, setFlashShiftId] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" } | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Skifter man visning (liste/kalender), nulstilles en evt. aktiv søgning,
@@ -100,14 +123,15 @@ export default function ShiftBoard({
     setSearchOpen(false);
   }
 
-  // Kaldes fra ShiftDetailPanel lige efter en vellykket tildeling — panelet
-  // lukker sig selv (closeOnSuccess), så dette er brugerens eneste visuelle
+  // Kaldes fra ShiftDetailPanel lige efter en vellykket tildeling (grøn,
+  // standard) ELLER frigivelse (rød) — panelet lukker sig selv
+  // (closeOnSuccess) i begge tilfælde, så dette er brugerens eneste visuelle
   // bekræftelse af HVILKEN vagt der lige blev opdateret. 1300ms matcher
-  // .pepo-flash-green-animationens varighed (se globals.css).
-  function flashShift(shiftId: string) {
+  // .pepo-flash-green/red-animationernes varighed (se globals.css).
+  function flashShift(shiftId: string, color: "green" | "red" = "green") {
     if (flashTimeout.current) clearTimeout(flashTimeout.current);
-    setFlashShiftId(shiftId);
-    flashTimeout.current = setTimeout(() => setFlashShiftId(null), 1300);
+    setFlash({ shiftId, color });
+    flashTimeout.current = setTimeout(() => setFlash(null), 1300);
   }
 
   useEffect(() => {
@@ -288,7 +312,7 @@ export default function ShiftBoard({
                       <EventCard
                         key={event.id}
                         event={event}
-                        flashShiftId={flashShiftId}
+                        flash={flash}
                         onEditEvent={() => openEditEvent(event)}
                         onAddShift={() => openAddShift(event)}
                         onOpenShift={(s) => openShiftDetail(s, event)}
@@ -341,7 +365,7 @@ export default function ShiftBoard({
                   <EventCard
                     key={event.id}
                     event={event}
-                    flashShiftId={flashShiftId}
+                    flash={flash}
                     onEditEvent={() => openEditEvent(event)}
                     onAddShift={() => openAddShift(event)}
                     onOpenShift={(s) => openShiftDetail(s, event)}
@@ -371,6 +395,7 @@ export default function ShiftBoard({
           freelancers={freelancers}
           onClose={() => setOpenShift(null)}
           onAssigned={flashShift}
+          onReleased={(shiftId) => flashShift(shiftId, "red")}
         />
       )}
     </div>
@@ -383,13 +408,13 @@ export default function ShiftBoard({
 // kort-visningen ikke skal duplikeres.
 export function EventCard({
   event,
-  flashShiftId,
+  flash,
   onEditEvent,
   onAddShift,
   onOpenShift,
 }: {
   event: EventListItem;
-  flashShiftId: string | null;
+  flash: { shiftId: string; color: "green" | "red" } | null;
   onEditEvent: () => void;
   onAddShift: () => void;
   onOpenShift: (shift: ShiftListItem) => void;
@@ -401,8 +426,12 @@ export function EventCard({
   // setCorners()-kaldet i effekten trigger selv et nyt render — en
   // uendelig loop, der reelt gjorde "Events & vagter"-siden usvarende
   // (rapporteret af Hjorth 2026-07-16 som "kan ikke loades").
+  //
+  // Sorteret efter starttid → jobfunktion → status (se compareShifts
+  // ovenfor), så rækkefølgen er forudsigelig uanset hvilken rækkefølge
+  // vagterne blev oprettet i.
   const activeShifts = useMemo(
-    () => event.shifts.filter((s) => s.status !== "cancelled"),
+    () => event.shifts.filter((s) => s.status !== "cancelled").sort(compareShifts),
     [event.shifts]
   );
   const containerRef = useRef<HTMLDivElement>(null);
@@ -518,7 +547,7 @@ export function EventCard({
                   cardRefs.current[i] = el;
                 }}
                 shift={shift}
-                isFlashing={shift.id === flashShiftId}
+                flashColor={shift.id === flash?.shiftId ? flash.color : null}
                 onClick={() => onOpenShift(shift)}
               />
             </Fragment>
@@ -533,10 +562,13 @@ const ShiftCard = forwardRef<
   HTMLButtonElement,
   {
     shift: ShiftListItem;
-    isFlashing: boolean;
+    // null = ikke ved at blinke. "green" efter en tildeling, "red" efter en
+    // frigivelse — se flashShift i ShiftBoard.tsx/EventDeepLinkView.tsx/
+    // UnfilledShiftsView.tsx.
+    flashColor: "green" | "red" | null;
     onClick: () => void;
   }
->(function ShiftCard({ shift, isFlashing, onClick }, ref) {
+>(function ShiftCard({ shift, flashColor, onClick }, ref) {
   const rightText = shift.assignedFreelancerName
     ? shift.assignedFreelancerName
     : shift.interests.length > 0
@@ -549,7 +581,7 @@ const ShiftCard = forwardRef<
       className={
         "relative text-left bg-pepo-wh border rounded-xl px-[15px] py-[13px] flex items-center gap-3 transition-colors hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] " +
         SHIFT_BORDER_CLASS[shift.status] +
-        (isFlashing ? " pepo-flash-green" : "")
+        (flashColor === "green" ? " pepo-flash-green" : flashColor === "red" ? " pepo-flash-red" : "")
       }
     >
       <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">

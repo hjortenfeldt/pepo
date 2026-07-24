@@ -31,14 +31,15 @@ export default function UnfilledShiftsView({
 }) {
   const [wizard, setWizard] = useState<WizardState | null>(null);
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
-  const [flashShiftId, setFlashShiftId] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" } | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Samme mønster som ShiftBoard.tsx/EventDeepLinkView.tsx.
-  function flashShift(shiftId: string) {
+  // Samme mønster som ShiftBoard.tsx/EventDeepLinkView.tsx (grøn = tildelt,
+  // rød = frigivet).
+  function flashShift(shiftId: string, color: "green" | "red" = "green") {
     if (flashTimeout.current) clearTimeout(flashTimeout.current);
-    setFlashShiftId(shiftId);
-    flashTimeout.current = setTimeout(() => setFlashShiftId(null), 1300);
+    setFlash({ shiftId, color });
+    flashTimeout.current = setTimeout(() => setFlash(null), 1300);
   }
 
   // Samme sortering (næste event øverst) og gruppering pr. dato som
@@ -86,7 +87,7 @@ export default function UnfilledShiftsView({
                     <EventCard
                       key={event.id}
                       event={event}
-                      flashShiftId={flashShiftId}
+                      flash={flash}
                       onEditEvent={() => setWizard({ mode: "editEvent", event })}
                       onAddShift={() => setWizard({ mode: "addShift", event })}
                       onOpenShift={(shift) => setOpenShift({ shift, event })}
@@ -112,6 +113,7 @@ export default function UnfilledShiftsView({
           freelancers={freelancers}
           onClose={() => setOpenShift(null)}
           onAssigned={flashShift}
+          onReleased={(shiftId) => flashShift(shiftId, "red")}
         />
       )}
     </div>

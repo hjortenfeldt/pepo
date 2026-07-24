@@ -41,14 +41,15 @@ export default function EventDeepLinkView({
 }) {
   const [wizard, setWizard] = useState<WizardState | null>(null);
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
-  const [flashShiftId, setFlashShiftId] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" } | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Samme mønster som ShiftBoard.tsx — se dens kommentar for hvorfor 1300ms.
-  function flashShift(shiftId: string) {
+  // Samme mønster som ShiftBoard.tsx — se dens kommentar for hvorfor 1300ms
+  // og for grøn (tildeling)/rød (frigivelse) farvevalget.
+  function flashShift(shiftId: string, color: "green" | "red" = "green") {
     if (flashTimeout.current) clearTimeout(flashTimeout.current);
-    setFlashShiftId(shiftId);
-    flashTimeout.current = setTimeout(() => setFlashShiftId(null), 1300);
+    setFlash({ shiftId, color });
+    flashTimeout.current = setTimeout(() => setFlash(null), 1300);
   }
 
   return (
@@ -68,7 +69,7 @@ export default function EventDeepLinkView({
 
         <EventCard
           event={event}
-          flashShiftId={flashShiftId}
+          flash={flash}
           onEditEvent={() => setWizard({ mode: "editEvent", event })}
           onAddShift={() => setWizard({ mode: "addShift", event })}
           onOpenShift={(shift) => setOpenShift({ shift, event })}
@@ -88,6 +89,7 @@ export default function EventDeepLinkView({
           freelancers={freelancers}
           onClose={() => setOpenShift(null)}
           onAssigned={flashShift}
+          onReleased={(shiftId) => flashShift(shiftId, "red")}
         />
       )}
     </div>
