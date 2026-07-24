@@ -55,8 +55,8 @@ export default function DashboardBoard({
           <ActionRequiredCard
             title="Afventer handling"
             items={[
-              { icon: "calendar-event", value: actionRequired.vagtanmodninger, label: "Vagtanmodninger", href: "/shifts?tab=requests" },
-              { icon: "user-plus", value: actionRequired.ansoegninger, label: "Ansøgninger", href: "/freelancers?tab=applications" },
+              { icon: "calendar-event", value: actionRequired.vagtanmodninger, label: "Vagt­anmodninger", href: "/shifts?tab=requests" },
+              { icon: "user-plus", value: actionRequired.ansoegninger, label: "Ansøg­ninger", href: "/freelancers?tab=applications" },
               { icon: "message", value: actionRequired.ulaesteBeskeder, label: "Ulæste beskeder", href: "/messages" },
             ]}
           />
@@ -169,11 +169,11 @@ function ActionRequiredCard({
               {i > 0 && <div className="w-px bg-pepo-bd" />}
               <Link
                 href={it.href}
-                className="flex-1 text-center block rounded-[8px] hover:bg-pepo-su transition-colors -mx-1 px-1 py-1"
+                className="flex-1 min-w-0 text-center block rounded-[8px] hover:bg-pepo-su transition-colors -mx-1 px-1 py-1"
               >
                 <Icon name={it.icon} size={30} className={`${color} block mx-auto mb-1.5`} />
                 <div className={`text-[32px] font-semibold tracking-tight ${color}`}>{numberFmt.format(it.value)}</div>
-                <div className={`text-[13px] mt-1 ${color}`}>{it.label}</div>
+                <div className={`text-[13px] mt-1 break-words ${color}`}>{it.label}</div>
               </Link>
             </Fragment>
           );
