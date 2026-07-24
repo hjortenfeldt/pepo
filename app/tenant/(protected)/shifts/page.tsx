@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCompanyBySubdomain } from "@/lib/tenant";
-import { getShiftsBoardData, countPendingShiftRequests } from "@/lib/shifts-data";
+import { getShiftsBoardData } from "@/lib/shifts-data";
+import { countPendingShiftRequests } from "@/lib/shift-request-utils";
 import ShiftBoard from "@/components/admin/ShiftBoard";
 
 export const metadata: Metadata = { title: "Events & vagter" };

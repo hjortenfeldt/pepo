@@ -11,7 +11,7 @@ import type {
   ShiftStatus,
 } from "@/lib/admin-types";
 import { formatDayHeading, formatTimeRange, todayIso } from "@/lib/format";
-import { hasPendingShiftRequest, countPendingShiftRequests } from "@/lib/shifts-data";
+import { hasPendingShiftRequest, countPendingShiftRequests } from "@/lib/shift-request-utils";
 import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
 import ExpandingSearchButton from "./ExpandingSearchButton";
@@ -138,8 +138,8 @@ export default function ShiftBoard({
       if (tab === "past") list = list.filter((e) => e.eventDate < now);
       // Kommende events med mindst én ubesat vagt, der har en ventende
       // vagtanmodning admin endnu ikke har taget stilling til — se
-      // hasPendingShiftRequest (lib/shifts-data.ts), delt med fanens
-      // antals-badge og page.tsx's valg af standard-fane.
+      // hasPendingShiftRequest (lib/shift-request-utils.ts), delt med
+      // fanens antals-badge og page.tsx's valg af standard-fane.
       if (tab === "requests")
         list = list.filter((e) => e.eventDate >= now && e.shifts.some(hasPendingShiftRequest));
     } else {
