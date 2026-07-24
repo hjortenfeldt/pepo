@@ -250,9 +250,14 @@ export async function createFreelancer(input: FreelancerFormInput) {
  * og senere fra freelancerens profil, indtil første login (se
  * hasFreelancerLoggedIn nedenfor).
  *
- * user_metadata sættes med virksomhedens navn lige før afsendelse, så
- * mail-skabelonen (Supabase Dashboard > Authentication > Email Templates >
- * Magic Link) kan vise {{ .Data.invited_company_name }} i teksten.
+ * user_metadata sættes med virksomhedens id lige før afsendelse, så
+ * Send Email-hooket (app/api/auth/send-email/route.ts) kan se at DETTE er
+ * en reel invitation (ikke bare en tilbagevendende login-kode) og slå
+ * firma/profil op for at bygge den fulde, tenant-tilpassede invitationsmail
+ * (se lib/email-templates.ts). Sat pr. kald, ikke ryddet bagefter — er i
+ * praksis harmløst, da UI'et (ActivityStatus i FreelancerBoard.tsx) alligevel
+ * skjuler "Send invitation"-knappen, så snart last_active_at er sat, så
+ * denne handling reelt kun sker før freelancerens allerførste login.
  * freelancerId er DENNE virksomheds profil-id — vi slår login-id'et
  * (auth_user_id) op ud fra den, da det er login-id'et OTP-koden sendes til.
  */
@@ -278,7 +283,7 @@ export async function sendFreelancerInvitation(freelancerId: string) {
   }
 
   await adminClient.auth.admin.updateUserById(profile.auth_user_id, {
-    user_metadata: { invited_company_name: company.name },
+    user_metadata: { invited_company_id: company.id },
   });
 
   // Samme klient/kald som freelancerens egen login-side (sendLoginCode i

@@ -42,6 +42,12 @@ const SETTINGS_CARDS = [
     icon: "link",
     description: "Links I kan dele med jeres freelancere og på jeres egen hjemmeside",
   },
+  {
+    href: "/settings/texts",
+    label: "Tekster",
+    icon: "file-text",
+    description: "Tilpas ordlyden i de automatiske e-mails, jeres virksomhed sender",
+  },
 ];
 
 export default function SettingsIndexPage() {
