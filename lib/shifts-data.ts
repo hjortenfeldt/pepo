@@ -6,6 +6,7 @@ import type {
   ClientOption,
   CategoryOption,
   FreelancerOption,
+  ShiftListItem,
   ShiftStatus,
   InterestStatus,
 } from "@/lib/admin-types";
@@ -332,6 +333,30 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
  * event) at afgøre om et event tages med — et event med både en tildelt og
  * en ubesat vagt skal stadig vises, så admin kan se og besætte den sidste.
  */
+/**
+ * Afgør om en vagt har en ventende vagtanmodning, admin endnu ikke har
+ * taget stilling til — samme betingelse som ShiftCard (ShiftBoard.tsx)
+ * bruger til at vise "X vagtanmodninger" i stedet for et tildelt navn.
+ * Delt herfra, så både "Vagtanmodninger"-fanebladets filter/antals-badge
+ * OG page.tsx's valg af standard-fane (se dens kommentar) bruger nøjagtig
+ * samme regel i stedet for to steder der kan gå ud af sync.
+ */
+export function hasPendingShiftRequest(shift: ShiftListItem): boolean {
+  return shift.status !== "cancelled" && !shift.assignedFreelancerId && shift.interests.some((i) => i.status === "pending");
+}
+
+/** Antal ventende vagtanmodninger på tværs af alle KOMMENDE events. */
+export function countPendingShiftRequests(events: EventListItem[], today: string = todayIso()): number {
+  let count = 0;
+  for (const e of events) {
+    if (e.eventDate < today) continue;
+    for (const s of e.shifts) {
+      if (hasPendingShiftRequest(s)) count++;
+    }
+  }
+  return count;
+}
+
 export function filterEventsWithUnfilledShiftsWithinDays(
   events: EventListItem[],
   days: number,

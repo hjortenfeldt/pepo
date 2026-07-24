@@ -11,6 +11,7 @@ import type {
   ShiftStatus,
 } from "@/lib/admin-types";
 import { formatDayHeading, formatTimeRange, todayIso } from "@/lib/format";
+import { hasPendingShiftRequest, countPendingShiftRequests } from "@/lib/shifts-data";
 import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
 import ExpandingSearchButton from "./ExpandingSearchButton";
@@ -18,11 +19,12 @@ import ExpandingSearchButton from "./ExpandingSearchButton";
 const krFmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 0 });
 const kmFmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 1 });
 
-type Tab = "upcoming" | "past";
+type Tab = "upcoming" | "past" | "requests";
 
 const TAB_LABELS: Record<Tab, string> = {
   upcoming: "Kommende",
   past: "Tidligere",
+  requests: "Vagtanmodninger",
 };
 
 const STATUS_LABEL: Record<ShiftStatus, string> = {
@@ -116,6 +118,11 @@ export default function ShiftBoard({
 
   const now = todayIso();
 
+  // Antal ventende vagtanmodninger — vist som rødt iOS-stil badge på
+  // "Vagtanmodninger"-fanen, samme stil som "Ansøgninger"-fanen på
+  // Freelancere-siden (FreelancerBoard.tsx).
+  const requestsCount = useMemo(() => countPendingShiftRequests(events, now), [events, now]);
+
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -129,6 +136,12 @@ export default function ShiftBoard({
     if (!q) {
       if (tab === "upcoming") list = list.filter((e) => e.eventDate >= now && e.shifts.some((s) => s.status !== "cancelled"));
       if (tab === "past") list = list.filter((e) => e.eventDate < now);
+      // Kommende events med mindst én ubesat vagt, der har en ventende
+      // vagtanmodning admin endnu ikke har taget stilling til — se
+      // hasPendingShiftRequest (lib/shifts-data.ts), delt med fanens
+      // antals-badge og page.tsx's valg af standard-fane.
+      if (tab === "requests")
+        list = list.filter((e) => e.eventDate >= now && e.shifts.some(hasPendingShiftRequest));
     } else {
       list = list.filter(
         (e) =>
@@ -241,11 +254,16 @@ export default function ShiftBoard({
               key={t}
               onClick={() => setTab(t)}
               className={
-                "py-2.5 px-1 mr-[22px] text-[13.5px] font-medium border-b-2 -mb-px transition-colors " +
+                "py-2.5 px-1 mr-[22px] text-[13.5px] font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors " +
                 (tab === t ? "text-pepo-p border-pepo-p" : "text-pepo-t2 border-transparent hover:text-pepo-t1")
               }
             >
               {TAB_LABELS[t]}
+              {t === "requests" && requestsCount > 0 && (
+                <span className="bg-[#C0021A] text-white text-[11px] font-bold min-w-[18px] h-[18px] rounded-full inline-flex items-center justify-center px-1 leading-none">
+                  {requestsCount}
+                </span>
+              )}
             </button>
           ))}
         </div>

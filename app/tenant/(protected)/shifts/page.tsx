@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCompanyBySubdomain } from "@/lib/tenant";
-import { getShiftsBoardData } from "@/lib/shifts-data";
+import { getShiftsBoardData, countPendingShiftRequests } from "@/lib/shifts-data";
 import ShiftBoard from "@/components/admin/ShiftBoard";
 
 export const metadata: Metadata = { title: "Events & vagter" };
@@ -23,9 +23,21 @@ export default async function AdminShiftsPage({
   if (!company) redirect("/login?error=unknown_company");
 
   const { tab } = await searchParams;
-  const initialTab = tab === "past" ? "past" : "upcoming";
-
   const { events, clients, categories, freelancers } = await getShiftsBoardData(company.id);
+
+  // Uden et eksplicit ?tab= (dvs. man klikkede "Events & vagter" i selve
+  // hovedmenuen, ikke et af Dashboard-sidens "Se alle"-links, som ALTID
+  // sætter ?tab=upcoming/past eksplicit) lander man direkte på
+  // "Vagtanmodninger", hvis der er ventende anmodninger admin mangler at
+  // tage stilling til — ellers "Kommende" som hidtil.
+  const initialTab =
+    tab === "past"
+      ? "past"
+      : tab === "upcoming"
+      ? "upcoming"
+      : countPendingShiftRequests(events) > 0
+      ? "requests"
+      : "upcoming";
 
   return (
     <ShiftBoard
