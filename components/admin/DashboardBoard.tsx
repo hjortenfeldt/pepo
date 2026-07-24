@@ -155,7 +155,7 @@ function EventListCard({
 }) {
   return (
     <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-5">
-      <div className="flex items-center gap-3 mb-[18px]">
+      <div className="flex items-center justify-between mb-[18px]">
         <div className="text-[14.5px] font-semibold tracking-tight">{title}</div>
         <Link
           href={seeAllHref}
