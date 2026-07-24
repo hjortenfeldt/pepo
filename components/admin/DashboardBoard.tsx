@@ -132,7 +132,7 @@ function StatCard({
               <div className={`text-[32px] font-semibold tracking-tight ${valueColor}`}>
                 {s.isHours ? hourFmt.format(s.value) : numberFmt.format(s.value)}
               </div>
-              <div className={`text-[13px] mt-1 ${labelColor}`}>{s.label}</div>
+              <div className={`text-[11px] mt-1 ${labelColor}`}>{s.label}</div>
             </div>
           </Fragment>
         ))}
@@ -173,7 +173,7 @@ function ActionRequiredCard({
               >
                 <Icon name={it.icon} size={30} className={`${color} block mx-auto mb-1.5`} />
                 <div className={`text-[32px] font-semibold tracking-tight ${color}`}>{numberFmt.format(it.value)}</div>
-                <div className={`text-[13px] mt-1 break-words ${color}`}>{it.label}</div>
+                <div className={`text-[11px] mt-1 break-words ${color}`}>{it.label}</div>
               </Link>
             </Fragment>
           );
