@@ -830,8 +830,18 @@ export default function FreelancerBoard({
 
                   <div className="border-t border-pepo-bd mt-6" />
 
-                  <Row icon="mail" label="Email" value={open.email || "—"} />
-                  <Row icon="phone" label="Mobil" value={open.phone} />
+                  <Row
+                    icon="mail"
+                    label="Email"
+                    value={open.email || "—"}
+                    href={open.email ? `mailto:${open.email}` : undefined}
+                  />
+                  <Row
+                    icon="phone"
+                    label="Mobil"
+                    value={open.phone}
+                    href={open.phone ? `tel:${open.phone.replace(/\s+/g, "")}` : undefined}
+                  />
                   {open.socialMediaUrl && (
                     <Row icon="brand-instagram" label="SoMe" value={open.socialMediaUrl} />
                   )}
@@ -1223,11 +1233,15 @@ function Row({
   label,
   value,
   multiline = false,
+  href,
 }: {
   icon: string;
   label?: string;
   value: string;
   multiline?: boolean;
+  // Valgfri — sat for Email ("mailto:...") og Mobil ("tel:...") nedenfor, så
+  // værdien bliver et rigtigt klikbart link i stedet for bare tekst.
+  href?: string;
 }) {
   return (
     <div className="flex items-start gap-2.5 py-2.5 border-b border-pepo-bd last:border-none">
@@ -1236,13 +1250,23 @@ function Row({
         {label && (
           <div className="text-[11px] text-pepo-t3 uppercase tracking-wide">{label}</div>
         )}
-        <div
-          className={
-            "text-[13.5px] text-pepo-t1 mt-px leading-relaxed " + (multiline ? "whitespace-pre-line" : "")
-          }
-        >
-          {value}
-        </div>
+        {href ? (
+          <a
+            href={href}
+            onClick={(e) => e.stopPropagation()}
+            className="text-[13.5px] text-pepo-p mt-px leading-relaxed hover:underline inline-block"
+          >
+            {value}
+          </a>
+        ) : (
+          <div
+            className={
+              "text-[13.5px] text-pepo-t1 mt-px leading-relaxed " + (multiline ? "whitespace-pre-line" : "")
+            }
+          >
+            {value}
+          </div>
+        )}
       </div>
     </div>
   );
