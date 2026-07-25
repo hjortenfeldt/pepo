@@ -159,7 +159,9 @@ export default function ShiftDetailPanel({
   // categories er en liste af jobfunktions-NAVNE (ikke id'er, se
   // lib/shifts-data.ts), så vi slår den valgte kategoris navn op via id'et.
   const selectedCategoryName = categories.find((c) => c.id === row.categoryId)?.name ?? "";
-  const matchingFreelancers = freelancers.filter((f) => f.categories.includes(selectedCategoryName));
+  const matchingFreelancers = freelancers
+    .filter((f) => f.categories.includes(selectedCategoryName))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "da"));
 
   function run(
     action: () => Promise<{ success: boolean; error?: string }>,
@@ -286,6 +288,28 @@ export default function ShiftDetailPanel({
 
           {!readOnly && (
             <>
+              <Field label="Jobfunktion">
+                <select
+                  value={row.categoryId}
+                  onChange={(e) => setRow((r) => ({ ...r, categoryId: e.target.value }))}
+                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p bg-pepo-wh"
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <div className="flex gap-2.5">
+                <Field label="Starttid" className="flex-1 min-w-0">
+                  <TimeField value={row.startTime} onChange={(v) => setRow((r) => ({ ...r, startTime: v }))} />
+                </Field>
+                <Field label="Sluttid" className="flex-1 min-w-0">
+                  <TimeField value={row.endTime} onChange={(v) => setRow((r) => ({ ...r, endTime: v }))} />
+                </Field>
+              </div>
+
               {shift.assignedFreelancerName && (
                 <div className="flex items-center gap-2.5 py-2.5 border-b border-pepo-bd">
                   <Icon name="user-check" size={16} className="text-pepo-t3 flex-shrink-0" />
@@ -349,28 +373,6 @@ export default function ShiftDetailPanel({
                   </div>
                 </>
               )}
-
-              <Field label="Jobfunktion" className="mt-5">
-                <select
-                  value={row.categoryId}
-                  onChange={(e) => setRow((r) => ({ ...r, categoryId: e.target.value }))}
-                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p bg-pepo-wh"
-                >
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <div className="flex gap-2.5">
-                <Field label="Starttid" className="flex-1 min-w-0">
-                  <TimeField value={row.startTime} onChange={(v) => setRow((r) => ({ ...r, startTime: v }))} />
-                </Field>
-                <Field label="Sluttid" className="flex-1 min-w-0">
-                  <TimeField value={row.endTime} onChange={(v) => setRow((r) => ({ ...r, endTime: v }))} />
-                </Field>
-              </div>
 
               <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2 mt-5">
                 Tildel manuelt
