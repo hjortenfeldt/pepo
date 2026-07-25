@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { CategoryOption, ClientOption, EventListItem, FreelancerOption, ShiftListItem, ShiftStatus } from "@/lib/admin-types";
+import type { CategoryOption, ClientOption, EventListItem, FreelancerOption, ShiftListItem } from "@/lib/admin-types";
 import { formatEventDate, formatTimeRange } from "@/lib/format";
 import {
   updateShift,
@@ -41,20 +41,6 @@ function initials(name: string) {
     .join("")
     .toUpperCase();
 }
-
-const STATUS_LABEL: Record<ShiftStatus, string> = {
-  open: "Mangler",
-  for_resale: "Til salg",
-  assigned: "Tildelt",
-  cancelled: "Slettet",
-};
-
-const STATUS_BADGE_CLASS: Record<ShiftStatus, string> = {
-  open: "bg-[#FDECEA] text-[#C0021A]",
-  for_resale: "bg-[#FEF3E2] text-[#9A5F00]",
-  assigned: "bg-[#EAF6EE] text-[#1A7A34]",
-  cancelled: "bg-pepo-su text-pepo-t3",
-};
 
 export default function ShiftDetailPanel({
   shift,
@@ -282,10 +268,6 @@ export default function ShiftDetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 pt-[22px]">
-          <span className={"badge mb-4 inline-flex " + STATUS_BADGE_CLASS[shift.status]}>
-            {STATUS_LABEL[shift.status]}
-          </span>
-
           {!readOnly && (
             <>
               <Field label="Jobfunktion">
@@ -310,9 +292,10 @@ export default function ShiftDetailPanel({
                 </Field>
               </div>
 
+              <div className="border-t border-pepo-bd my-5" />
+
               {shift.assignedFreelancerName && (
                 <div className="flex items-center gap-2.5 py-2.5 border-b border-pepo-bd">
-                  <Icon name="user-check" size={16} className="text-pepo-t3 flex-shrink-0" />
                   <div className="flex-1">
                     <div className="text-[11px] text-pepo-t3 uppercase tracking-wide">Tildelt</div>
                     <div className="text-[13.5px] text-pepo-t1 mt-px">{shift.assignedFreelancerName}</div>
@@ -335,12 +318,12 @@ export default function ShiftDetailPanel({
               )}
 
               {/* Skjules helt når ingen har anmodet — ingen grund til at vise
-                  en tom "Interesserede freelancere"-sektion med kun en
-                  "ingen interesse endnu"-linje. */}
+                  en tom "Anmodet"-sektion med kun en "ingen interesse endnu"-
+                  linje. */}
               {shift.interests.length > 0 && (
                 <>
                   <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2 mt-5">
-                    Interesserede freelancere
+                    Anmodet
                   </div>
                   <div className="flex flex-col gap-2 mb-1">
                     {shift.interests.map((i) => (
