@@ -43,6 +43,11 @@ export default function EventDeepLinkView({
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
   const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" | "purple" } | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Vagten der lige nu kører "Slet vagt"-animationen, og hvilken fase — se
+  // ShiftBoard.tsx's startRemoving-kommentar for hvorfor.
+  const [removingShiftId, setRemovingShiftId] = useState<string | null>(null);
+  const [removeStage, setRemoveStage] = useState<"flash" | "fade" | "collapse" | null>(null);
+  const removeTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Samme mønster som ShiftBoard.tsx — se dens kommentar for hvorfor 1300ms
   // og for grøn (tildeling)/rød (frigivelse)/lilla (gem ændringer) farvevalget.
@@ -50,6 +55,30 @@ export default function EventDeepLinkView({
     if (flashTimeout.current) clearTimeout(flashTimeout.current);
     setFlash({ shiftId, color });
     flashTimeout.current = setTimeout(() => setFlash(null), 1300);
+  }
+
+  // Samme mønster som ShiftBoard.tsx's startRemoving — se dens kommentar.
+  function startRemoving(shiftId: string) {
+    removeTimeouts.current.forEach(clearTimeout);
+    removeTimeouts.current = [];
+    setRemovingShiftId(shiftId);
+    setRemoveStage("flash");
+    removeTimeouts.current.push(
+      setTimeout(() => {
+        setRemoveStage("fade");
+        removeTimeouts.current.push(
+          setTimeout(() => {
+            setRemoveStage("collapse");
+            removeTimeouts.current.push(
+              setTimeout(() => {
+                setRemovingShiftId(null);
+                setRemoveStage(null);
+              }, 300)
+            );
+          }, 300)
+        );
+      }, 1300)
+    );
   }
 
   return (
@@ -70,6 +99,8 @@ export default function EventDeepLinkView({
         <EventCard
           event={event}
           flash={flash}
+          removingShiftId={removingShiftId}
+          removeStage={removeStage}
           onEditEvent={() => setWizard({ mode: "editEvent", event })}
           onAddShift={() => setWizard({ mode: "addShift", event })}
           onOpenShift={(shift) => setOpenShift({ shift, event })}
@@ -91,6 +122,7 @@ export default function EventDeepLinkView({
           onAssigned={flashShift}
           onReleased={(shiftId) => flashShift(shiftId, "red")}
           onSaved={(shiftId) => flashShift(shiftId, "purple")}
+          onDeleted={startRemoving}
         />
       )}
     </div>

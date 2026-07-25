@@ -33,6 +33,11 @@ export default function UnfilledShiftsView({
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
   const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" | "purple" } | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Vagten der lige nu kører "Slet vagt"-animationen, og hvilken fase — se
+  // ShiftBoard.tsx's startRemoving-kommentar for hvorfor.
+  const [removingShiftId, setRemovingShiftId] = useState<string | null>(null);
+  const [removeStage, setRemoveStage] = useState<"flash" | "fade" | "collapse" | null>(null);
+  const removeTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Samme mønster som ShiftBoard.tsx/EventDeepLinkView.tsx (grøn = tildelt,
   // rød = frigivet, lilla = gem ændringer).
@@ -40,6 +45,30 @@ export default function UnfilledShiftsView({
     if (flashTimeout.current) clearTimeout(flashTimeout.current);
     setFlash({ shiftId, color });
     flashTimeout.current = setTimeout(() => setFlash(null), 1300);
+  }
+
+  // Samme mønster som ShiftBoard.tsx's startRemoving — se dens kommentar.
+  function startRemoving(shiftId: string) {
+    removeTimeouts.current.forEach(clearTimeout);
+    removeTimeouts.current = [];
+    setRemovingShiftId(shiftId);
+    setRemoveStage("flash");
+    removeTimeouts.current.push(
+      setTimeout(() => {
+        setRemoveStage("fade");
+        removeTimeouts.current.push(
+          setTimeout(() => {
+            setRemoveStage("collapse");
+            removeTimeouts.current.push(
+              setTimeout(() => {
+                setRemovingShiftId(null);
+                setRemoveStage(null);
+              }, 300)
+            );
+          }, 300)
+        );
+      }, 1300)
+    );
   }
 
   // Samme sortering (næste event øverst) og gruppering pr. dato som
@@ -88,6 +117,8 @@ export default function UnfilledShiftsView({
                       key={event.id}
                       event={event}
                       flash={flash}
+                      removingShiftId={removingShiftId}
+                      removeStage={removeStage}
                       onEditEvent={() => setWizard({ mode: "editEvent", event })}
                       onAddShift={() => setWizard({ mode: "addShift", event })}
                       onOpenShift={(shift) => setOpenShift({ shift, event })}
@@ -115,6 +146,7 @@ export default function UnfilledShiftsView({
           onAssigned={flashShift}
           onReleased={(shiftId) => flashShift(shiftId, "red")}
           onSaved={(shiftId) => flashShift(shiftId, "purple")}
+          onDeleted={startRemoving}
         />
       )}
     </div>

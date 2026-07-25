@@ -655,7 +655,10 @@ export async function duplicateShift(shiftId: string) {
   await queueOpenShiftNotifications(company.id, inserted.category_id as string, inserted.id as string);
 
   revalidatePath("/shifts");
-  return { success: true };
+  // `id` bruges af ShiftDetailPanel til at lilla-blinke den NYE vagt (ikke
+  // den oprindelige, der ikke selv ændrede sig) og lukke panelet, samme
+  // mønster som onSaved — se dens kald af duplicateShift.
+  return { success: true, id: inserted.id as string };
 }
 
 export async function createVenue(clientId: string, input: VenueFormInput) {

@@ -74,11 +74,20 @@ const STATUS_SORT_ORDER: Record<ShiftStatus, number> = {
 // alfabetisk efter jobfunktion (dansk sortering, så æ/ø/å havner rigtigt),
 // og til sidst efter status (se STATUS_SORT_ORDER) — så to ens vagter med
 // samme jobfunktion og starttid altid viser den tildelte før den ubesatte.
-function compareShifts(a: ShiftListItem, b: ShiftListItem): number {
+//
+// `removingShiftId` er den vagt, der lige nu kører "Slet vagt"-animationen
+// (blink → udtoning → kollaps, se ShiftCard) — så længe den animerer,
+// sorteres den efter sin OPRINDELIGE status (previousStatus), ikke den nye
+// "cancelled"-status, ellers ville kortet visuelt hoppe ned til bunden af
+// listen i det øjeblik det starter med at forsvinde, i stedet for at blive
+// stående og bare falde væk der hvor det allerede lå.
+function compareShifts(a: ShiftListItem, b: ShiftListItem, removingShiftId?: string | null): number {
   if (a.startTime !== b.startTime) return a.startTime.localeCompare(b.startTime);
   const categoryCompare = a.category.localeCompare(b.category, "da");
   if (categoryCompare !== 0) return categoryCompare;
-  return STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
+  const effectiveStatus = (s: ShiftListItem) =>
+    s.id === removingShiftId ? s.previousStatus ?? s.status : s.status;
+  return STATUS_SORT_ORDER[effectiveStatus(a)] - STATUS_SORT_ORDER[effectiveStatus(b)];
 }
 
 function dateStatusDot(events: EventListItem[], dateStr: string): "green" | "red" | "gray" | "none" {
@@ -112,6 +121,12 @@ export default function ShiftBoard({
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
   const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" | "purple" } | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Vagten der lige nu kører "Slet vagt"-animationen, og hvilken af de tre
+  // faser den er i — se startRemoving() nedenfor og ShiftCard/EventCard for
+  // hvordan de bruges.
+  const [removingShiftId, setRemovingShiftId] = useState<string | null>(null);
+  const [removeStage, setRemoveStage] = useState<"flash" | "fade" | "collapse" | null>(null);
+  const removeTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Skifter man visning (liste/kalender), nulstilles en evt. aktiv søgning,
   // så det nye view altid starter fra sit eget standardindhold (faneblade
@@ -134,9 +149,39 @@ export default function ShiftBoard({
     flashTimeout.current = setTimeout(() => setFlash(null), 1300);
   }
 
+  // Kaldes fra ShiftDetailPanel lige efter en vellykket "Slet vagt" — panelet
+  // lukker sig selv (closeOnSuccess), og her kører vi de tre sekventielle
+  // faser af blink-udtoning-kollaps (se ShiftCard's kommentar for hvorfor
+  // netop disse tre trin og varigheder). Selve vagten holdes bevidst i
+  // EventCard's activeShifts, indtil removingShiftId nulstilles her til
+  // sidst — se dens filter.
+  function startRemoving(shiftId: string) {
+    removeTimeouts.current.forEach(clearTimeout);
+    removeTimeouts.current = [];
+    setRemovingShiftId(shiftId);
+    setRemoveStage("flash");
+    removeTimeouts.current.push(
+      setTimeout(() => {
+        setRemoveStage("fade");
+        removeTimeouts.current.push(
+          setTimeout(() => {
+            setRemoveStage("collapse");
+            removeTimeouts.current.push(
+              setTimeout(() => {
+                setRemovingShiftId(null);
+                setRemoveStage(null);
+              }, 300)
+            );
+          }, 300)
+        );
+      }, 1300)
+    );
+  }
+
   useEffect(() => {
     return () => {
       if (flashTimeout.current) clearTimeout(flashTimeout.current);
+      removeTimeouts.current.forEach(clearTimeout);
     };
   }, []);
 
@@ -313,6 +358,8 @@ export default function ShiftBoard({
                         key={event.id}
                         event={event}
                         flash={flash}
+                        removingShiftId={removingShiftId}
+                        removeStage={removeStage}
                         onEditEvent={() => openEditEvent(event)}
                         onAddShift={() => openAddShift(event)}
                         onOpenShift={(s) => openShiftDetail(s, event)}
@@ -366,6 +413,8 @@ export default function ShiftBoard({
                     key={event.id}
                     event={event}
                     flash={flash}
+                    removingShiftId={removingShiftId}
+                    removeStage={removeStage}
                     onEditEvent={() => openEditEvent(event)}
                     onAddShift={() => openAddShift(event)}
                     onOpenShift={(s) => openShiftDetail(s, event)}
@@ -397,6 +446,7 @@ export default function ShiftBoard({
           onAssigned={flashShift}
           onReleased={(shiftId) => flashShift(shiftId, "red")}
           onSaved={(shiftId) => flashShift(shiftId, "purple")}
+          onDeleted={startRemoving}
         />
       )}
     </div>
@@ -410,12 +460,20 @@ export default function ShiftBoard({
 export function EventCard({
   event,
   flash,
+  removingShiftId,
+  removeStage,
   onEditEvent,
   onAddShift,
   onOpenShift,
 }: {
   event: EventListItem;
   flash: { shiftId: string; color: "green" | "red" | "purple" } | null;
+  // Vagten der lige nu kører "Slet vagt"-animationen (se ShiftCard) — holdes
+  // midlertidigt i activeShifts nedenfor, selvom dens status allerede er
+  // "cancelled", indtil forælderen selv nulstiller removingShiftId (se
+  // ShiftBoard.tsx's startRemoving).
+  removingShiftId?: string | null;
+  removeStage?: "flash" | "fade" | "collapse" | null;
   onEditEvent: () => void;
   onAddShift: () => void;
   onOpenShift: (shift: ShiftListItem) => void;
@@ -430,13 +488,19 @@ export function EventCard({
   //
   // Sorteret efter starttid → jobfunktion → status (se compareShifts
   // ovenfor), så rækkefølgen er forudsigelig uanset hvilken rækkefølge
-  // vagterne blev oprettet i.
+  // vagterne blev oprettet i. En vagt under sletning ("removingShiftId")
+  // holdes bevidst med i listen selvom dens status allerede er "cancelled",
+  // så ShiftCard kan nå at spille blink/udtoning/kollaps-animationen,
+  // FØR den forsvinder helt — se ShiftCard's "removeStage"-prop.
   const activeShifts = useMemo(
-    () => event.shifts.filter((s) => s.status !== "cancelled").sort(compareShifts),
-    [event.shifts]
+    () =>
+      event.shifts
+        .filter((s) => s.status !== "cancelled" || s.id === removingShiftId)
+        .sort((a, b) => compareShifts(a, b, removingShiftId)),
+    [event.shifts, removingShiftId]
   );
   const containerRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [tickYs, setTickYs] = useState<number[]>([]);
 
   // Måler de faktiske korthøjder i DOM'en i stedet for at antage en fast
@@ -549,6 +613,7 @@ export function EventCard({
                 }}
                 shift={shift}
                 flashColor={shift.id === flash?.shiftId ? flash.color : null}
+                removeStage={shift.id === removingShiftId ? removeStage ?? null : null}
                 onClick={() => onOpenShift(shift)}
               />
             </Fragment>
@@ -560,23 +625,43 @@ export function EventCard({
 }
 
 const ShiftCard = forwardRef<
-  HTMLButtonElement,
+  HTMLDivElement,
   {
     shift: ShiftListItem;
     // null = ikke ved at blinke. "green" efter en tildeling, "red" efter en
-    // frigivelse, "purple" efter en almindelig "Gem ændringer" — se
-    // flashShift i ShiftBoard.tsx/EventDeepLinkView.tsx/UnfilledShiftsView.tsx.
+    // frigivelse, "purple" efter en almindelig "Gem ændringer"/"Duplikér
+    // vagt" — se flashShift i ShiftBoard.tsx/EventDeepLinkView.tsx/
+    // UnfilledShiftsView.tsx.
     flashColor: "green" | "red" | "purple" | null;
+    // "Slet vagt"-animationens tre sekventielle faser for netop dette kort,
+    // styret af forælderen (se ShiftBoard.tsx's startRemoving — samme
+    // imperative mønster som flashShift, ikke en reaktiv effekt her i
+    // komponenten):
+    // 1) "flash" (1300ms) — samme lilla blink som "Gem ændringer"/
+    //    "Duplikér vagt" (matcher pepo-flash-purple's varighed, se
+    //    globals.css), så det er tydeligt HVILKET kort der lige blev slettet.
+    // 2) "fade" (300ms) — kortet toner ud (opacity → 0), men beholder sin
+    //    fulde plads i layoutet indtil det er helt gennemsigtigt.
+    // 3) "collapse" (300ms) — FØRST når kortet er usynligt, kollapser dets
+    //    højde, så resten af vagterne glider op og fylder hullet ud, i
+    //    stedet for at springe med det samme. `maxHeight` sættes til en fast
+    //    pixelværdi i "fade"-fasen (uden selv at transitionere), så der er
+    //    en forpligtet startværdi CSS-transitionen faktisk kan animere FRA
+    //    i "collapse"-fasen — man kan ikke transitionere fra en
+    //    uspecificeret (auto) højde.
+    removeStage: "flash" | "fade" | "collapse" | null;
     onClick: () => void;
   }
->(function ShiftCard({ shift, flashColor, onClick }, ref) {
+>(function ShiftCard({ shift, flashColor, removeStage, onClick }, ref) {
   const rightText = shift.assignedFreelancerName
     ? shift.assignedFreelancerName
     : shift.interests.length > 0
     ? `${shift.interests.length} vagtanmodning${shift.interests.length === 1 ? "" : "er"}`
     : "";
   const flashClass =
-    flashColor === "green"
+    removeStage === "flash"
+      ? " pepo-flash-purple"
+      : flashColor === "green"
       ? " pepo-flash-green"
       : flashColor === "red"
       ? " pepo-flash-red"
@@ -584,38 +669,49 @@ const ShiftCard = forwardRef<
       ? " pepo-flash-purple"
       : "";
   return (
-    <button
+    <div
       ref={ref}
-      onClick={onClick}
-      className={
-        "relative text-left bg-pepo-wh border rounded-xl px-[15px] py-[13px] flex items-center gap-3 transition-colors hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] " +
-        SHIFT_BORDER_CLASS[shift.status] +
-        flashClass
+      className="overflow-hidden"
+      style={
+        removeStage === "fade"
+          ? { opacity: 0, maxHeight: 200, transition: "opacity 300ms ease" }
+          : removeStage === "collapse"
+          ? { opacity: 0, maxHeight: 0, transition: "max-height 300ms ease" }
+          : undefined
       }
     >
-      <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">
-        <Icon name={shift.categoryIcon || "briefcase"} size={20} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[13.5px] font-medium text-pepo-t1">{shift.category}</div>
-        <div className="text-xs text-pepo-t2 mt-0.5">{formatTimeRange(shift.startTime, shift.endTime)}</div>
-      </div>
-      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        <span className={"badge " + STATUS_BADGE_CLASS[shift.status]}>{STATUS_LABEL[shift.status]}</span>
-        {rightText && <span className={"text-[11.5px] " + STATUS_TEXT_CLASS[shift.status]}>{rightText}</span>}
-      </div>
-      <style jsx>{`
-        .badge {
-          display: inline-flex;
-          padding: 3px 9px;
-          border-radius: 20px;
-          font-size: 11px;
-          font-weight: 500;
-          white-space: nowrap;
-          flex-shrink: 0;
+      <button
+        onClick={onClick}
+        className={
+          "relative text-left w-full bg-pepo-wh border rounded-xl px-[15px] py-[13px] flex items-center gap-3 transition-colors hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] " +
+          SHIFT_BORDER_CLASS[shift.status] +
+          flashClass
         }
-      `}</style>
-    </button>
+      >
+        <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">
+          <Icon name={shift.categoryIcon || "briefcase"} size={20} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13.5px] font-medium text-pepo-t1">{shift.category}</div>
+          <div className="text-xs text-pepo-t2 mt-0.5">{formatTimeRange(shift.startTime, shift.endTime)}</div>
+        </div>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <span className={"badge " + STATUS_BADGE_CLASS[shift.status]}>{STATUS_LABEL[shift.status]}</span>
+          {rightText && <span className={"text-[11.5px] " + STATUS_TEXT_CLASS[shift.status]}>{rightText}</span>}
+        </div>
+        <style jsx>{`
+          .badge {
+            display: inline-flex;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            flex-shrink: 0;
+          }
+        `}</style>
+      </button>
+    </div>
   );
 });
 

@@ -52,6 +52,7 @@ export default function ShiftDetailPanel({
   onAssigned,
   onReleased,
   onSaved,
+  onDeleted,
 }: {
   shift: ShiftListItem;
   event: EventListItem;
@@ -65,8 +66,13 @@ export default function ShiftDetailPanel({
   onReleased?: (shiftId: string) => void;
   // Kaldes efter et vellykket "Gem ændringer" (redigerede vagt-/event-felter)
   // — samme flash-mekanisme igen, denne gang lilla (hverken tildeling eller
-  // frigivelse, bare en almindelig redigering).
+  // frigivelse, bare en almindelig redigering). "Duplikér vagt" genbruger
+  // også denne, blot med den NYE vagts id (se duplicate() nedenfor).
   onSaved?: (shiftId: string) => void;
+  // Kaldes efter en vellykket "Slet vagt" — starter den lilla-blink-så-
+  // udtoning-så-kollaps-animation på selve vagt-kortet (se ShiftBoard.tsx's
+  // removingShiftId/EventCard), i stedet for et almindeligt flash.
+  onDeleted?: (shiftId: string) => void;
 }) {
   // Vagt-panelet viser OG redigerer samme vagt (inkl. event-fælles felter
   // som dato/titel/briefing/kunde&sted) — ingen separat "redigér event"-
@@ -211,6 +217,24 @@ export default function ShiftDetailPanel({
       // Samme luk-og-blink-mønster som tildeling (grøn)/frigivelse (rød),
       // her lilla — se onSaved-kommentaren ved komponentens props.
       onSaved?.(shift.id);
+      close();
+    });
+  }
+
+  // "Duplikér vagt" opretter en helt ny vagt — det er DEN, der skal lilla-
+  // blinke (via samme onSaved-mekanisme), ikke den oprindelige vagt, som
+  // ikke selv blev ændret. Kører derfor uden om den generiske run()-hjælper,
+  // så vi kan læse result.id ud og videregive det.
+  function duplicate() {
+    setError(null);
+    startTransition(async () => {
+      const result = await duplicateShift(shift.id);
+      if (!result.success) {
+        setError(result.error ?? "Der opstod en fejl.");
+        return;
+      }
+      router.refresh();
+      if (result.id) onSaved?.(result.id);
       close();
     });
   }
@@ -467,7 +491,7 @@ export default function ShiftDetailPanel({
           )}
           <div className="flex gap-2">
             <button
-              onClick={() => run(() => duplicateShift(shift.id))}
+              onClick={duplicate}
               disabled={isPending}
               className="flex-1 h-9 rounded-[9px] text-[12.5px] font-medium bg-pepo-wh text-pepo-t2 border border-pepo-bds hover:bg-pepo-su disabled:opacity-40 flex items-center justify-center gap-1.5"
             >
@@ -486,8 +510,11 @@ export default function ShiftDetailPanel({
             ) : (
               <button
                 onClick={() => {
-                  if (confirm("Slet denne vagt? Du kan fortryde bagefter.")) {
-                    run(() => deleteShift(shift.id), { closeOnSuccess: false });
+                  if (confirm("Slet denne vagt?")) {
+                    run(() => deleteShift(shift.id), {
+                      closeOnSuccess: true,
+                      onSuccess: () => onDeleted?.(shift.id),
+                    });
                   }
                 }}
                 disabled={isPending}
