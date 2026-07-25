@@ -110,7 +110,7 @@ export default function ShiftBoard({
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [wizard, setWizard] = useState<WizardState | null>(null);
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
-  const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" } | null>(null);
+  const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" | "purple" } | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Skifter man visning (liste/kalender), nulstilles en evt. aktiv søgning,
@@ -128,7 +128,7 @@ export default function ShiftBoard({
   // (closeOnSuccess) i begge tilfælde, så dette er brugerens eneste visuelle
   // bekræftelse af HVILKEN vagt der lige blev opdateret. 1300ms matcher
   // .pepo-flash-green/red-animationernes varighed (se globals.css).
-  function flashShift(shiftId: string, color: "green" | "red" = "green") {
+  function flashShift(shiftId: string, color: "green" | "red" | "purple" = "green") {
     if (flashTimeout.current) clearTimeout(flashTimeout.current);
     setFlash({ shiftId, color });
     flashTimeout.current = setTimeout(() => setFlash(null), 1300);
@@ -396,6 +396,7 @@ export default function ShiftBoard({
           onClose={() => setOpenShift(null)}
           onAssigned={flashShift}
           onReleased={(shiftId) => flashShift(shiftId, "red")}
+          onSaved={(shiftId) => flashShift(shiftId, "purple")}
         />
       )}
     </div>
@@ -414,7 +415,7 @@ export function EventCard({
   onOpenShift,
 }: {
   event: EventListItem;
-  flash: { shiftId: string; color: "green" | "red" } | null;
+  flash: { shiftId: string; color: "green" | "red" | "purple" } | null;
   onEditEvent: () => void;
   onAddShift: () => void;
   onOpenShift: (shift: ShiftListItem) => void;
@@ -563,9 +564,9 @@ const ShiftCard = forwardRef<
   {
     shift: ShiftListItem;
     // null = ikke ved at blinke. "green" efter en tildeling, "red" efter en
-    // frigivelse — se flashShift i ShiftBoard.tsx/EventDeepLinkView.tsx/
-    // UnfilledShiftsView.tsx.
-    flashColor: "green" | "red" | null;
+    // frigivelse, "purple" efter en almindelig "Gem ændringer" — se
+    // flashShift i ShiftBoard.tsx/EventDeepLinkView.tsx/UnfilledShiftsView.tsx.
+    flashColor: "green" | "red" | "purple" | null;
     onClick: () => void;
   }
 >(function ShiftCard({ shift, flashColor, onClick }, ref) {
@@ -574,6 +575,14 @@ const ShiftCard = forwardRef<
     : shift.interests.length > 0
     ? `${shift.interests.length} vagtanmodning${shift.interests.length === 1 ? "" : "er"}`
     : "";
+  const flashClass =
+    flashColor === "green"
+      ? " pepo-flash-green"
+      : flashColor === "red"
+      ? " pepo-flash-red"
+      : flashColor === "purple"
+      ? " pepo-flash-purple"
+      : "";
   return (
     <button
       ref={ref}
@@ -581,7 +590,7 @@ const ShiftCard = forwardRef<
       className={
         "relative text-left bg-pepo-wh border rounded-xl px-[15px] py-[13px] flex items-center gap-3 transition-colors hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] " +
         SHIFT_BORDER_CLASS[shift.status] +
-        (flashColor === "green" ? " pepo-flash-green" : flashColor === "red" ? " pepo-flash-red" : "")
+        flashClass
       }
     >
       <div className="w-[38px] h-[38px] rounded-[10px] bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0 text-base">

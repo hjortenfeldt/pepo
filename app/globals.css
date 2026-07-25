@@ -170,6 +170,28 @@ select {
   animation: pepo-flash-red 1.3s ease-out;
 }
 
+/* Samme "blink"-mønster igen, men lilla (--pepo-p/--pepo-pl) — bruges når
+   "Gem ændringer" i ShiftDetailPanel gemmer ÆNDREDE vagt-/event-felter (dato,
+   titel, jobfunktion, tid, briefing, kunde&sted), altså hverken en
+   tildeling (grøn) eller en frigivelse (rød). */
+@keyframes pepo-flash-purple {
+  0%, 100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(62, 31, 138, 0);
+  }
+  20%, 60% {
+    background-color: #f3eeff;
+    box-shadow: 0 0 0 3px rgba(62, 31, 138, 0.25);
+  }
+  40% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(62, 31, 138, 0);
+  }
+}
+.pepo-flash-purple {
+  animation: pepo-flash-purple 1.3s ease-out;
+}
+
 /* Splash-skærmens logo (components/freelancer/SplashScreen.tsx) — toner frem
    imens det vokser, og bounder let tilbage i størrelse mod slutningen
    (ease-out). Varer præcis 2 sek., magen til SplashScreen's MIN_VISIBLE_MS —

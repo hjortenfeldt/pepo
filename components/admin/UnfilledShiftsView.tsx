@@ -31,12 +31,12 @@ export default function UnfilledShiftsView({
 }) {
   const [wizard, setWizard] = useState<WizardState | null>(null);
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
-  const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" } | null>(null);
+  const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" | "purple" } | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Samme mønster som ShiftBoard.tsx/EventDeepLinkView.tsx (grøn = tildelt,
-  // rød = frigivet).
-  function flashShift(shiftId: string, color: "green" | "red" = "green") {
+  // rød = frigivet, lilla = gem ændringer).
+  function flashShift(shiftId: string, color: "green" | "red" | "purple" = "green") {
     if (flashTimeout.current) clearTimeout(flashTimeout.current);
     setFlash({ shiftId, color });
     flashTimeout.current = setTimeout(() => setFlash(null), 1300);
@@ -114,6 +114,7 @@ export default function UnfilledShiftsView({
           onClose={() => setOpenShift(null)}
           onAssigned={flashShift}
           onReleased={(shiftId) => flashShift(shiftId, "red")}
+          onSaved={(shiftId) => flashShift(shiftId, "purple")}
         />
       )}
     </div>

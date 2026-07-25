@@ -65,6 +65,7 @@ export default function ShiftDetailPanel({
   onClose,
   onAssigned,
   onReleased,
+  onSaved,
 }: {
   shift: ShiftListItem;
   event: EventListItem;
@@ -76,6 +77,10 @@ export default function ShiftDetailPanel({
   // Kaldes efter en vellykket "Frigiv vagt" — samme flash-mekanisme som
   // onAssigned, blot rød i stedet for grøn (se ShiftBoard.tsx's flashShift).
   onReleased?: (shiftId: string) => void;
+  // Kaldes efter et vellykket "Gem ændringer" (redigerede vagt-/event-felter)
+  // — samme flash-mekanisme igen, denne gang lilla (hverken tildeling eller
+  // frigivelse, bare en almindelig redigering).
+  onSaved?: (shiftId: string) => void;
 }) {
   // Vagt-panelet viser OG redigerer samme vagt (inkl. event-fælles felter
   // som dato/titel/briefing/kunde&sted) — ingen separat "redigér event"-
@@ -192,6 +197,10 @@ export default function ShiftDetailPanel({
         }
       }
       router.refresh();
+      // Samme luk-og-blink-mønster som tildeling (grøn)/frigivelse (rød),
+      // her lilla — se onSaved-kommentaren ved komponentens props.
+      onSaved?.(shift.id);
+      close();
     });
   }
 
@@ -428,16 +437,6 @@ export default function ShiftDetailPanel({
                 onChange={(clientId, venueId) => setEventForm((f) => ({ ...f, clientId, venueId }))}
                 onClientSaved={onClientSaved}
               />
-
-              {dirty && (
-                <button
-                  onClick={saveChanges}
-                  disabled={isPending}
-                  className="w-full h-9 rounded-[9px] text-[12.5px] font-medium bg-pepo-p text-white mt-5 mb-2 disabled:opacity-40"
-                >
-                  {isPending ? "Gemmer..." : "Gem ændringer"}
-                </button>
-              )}
             </>
           )}
         </div>
@@ -448,37 +447,52 @@ export default function ShiftDetailPanel({
           </p>
         )}
 
-        <div className="px-6 py-[22px] border-t border-pepo-bd flex-shrink-0 flex gap-2">
-          <button
-            onClick={() => run(() => duplicateShift(shift.id))}
-            disabled={isPending}
-            className="flex-1 h-9 rounded-[9px] text-[12.5px] font-medium bg-pepo-wh text-pepo-t2 border border-pepo-bds hover:bg-pepo-su disabled:opacity-40 flex items-center justify-center gap-1.5"
-          >
-            <Icon name="copy" size={18} />
-            Duplikér vagt
-          </button>
-          {shift.status === "cancelled" ? (
+        {/* Sticky bund-element — "Gem ændringer" (kun når der reelt er
+            ændringer) ligger ØVERST i samme element som "Duplikér vagt"/
+            "Slet vagt", ikke inde i det scrollbare indhold ovenfor, så den
+            altid er synlig uden at skulle scrolle ned. */}
+        <div className="px-6 py-[22px] border-t border-pepo-bd flex-shrink-0 flex flex-col gap-2">
+          {dirty && (
             <button
-              onClick={() => run(() => undeleteShift(shift.id), { closeOnSuccess: false })}
+              onClick={saveChanges}
+              disabled={isPending}
+              className="w-full h-9 rounded-[9px] text-[12.5px] font-medium bg-pepo-p text-white disabled:opacity-40"
+            >
+              {isPending ? "Gemmer..." : "Gem ændringer"}
+            </button>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => run(() => duplicateShift(shift.id))}
               disabled={isPending}
               className="flex-1 h-9 rounded-[9px] text-[12.5px] font-medium bg-pepo-wh text-pepo-t2 border border-pepo-bds hover:bg-pepo-su disabled:opacity-40 flex items-center justify-center gap-1.5"
             >
-              <Icon name="arrow-back-up" size={18} />
-              Fortryd sletning
+              <Icon name="copy" size={18} />
+              Duplikér vagt
             </button>
-          ) : (
-            <button
-              onClick={() => {
-                if (confirm("Slet denne vagt? Du kan fortryde bagefter.")) {
-                  run(() => deleteShift(shift.id), { closeOnSuccess: false });
-                }
-              }}
-              disabled={isPending}
-              className="flex-1 h-9 rounded-[9px] text-[12.5px] font-medium bg-pepo-wh text-[#C0021A] border border-[#F3C9C9] hover:bg-[#FDECEA] disabled:opacity-40"
-            >
-              Slet vagt
-            </button>
-          )}
+            {shift.status === "cancelled" ? (
+              <button
+                onClick={() => run(() => undeleteShift(shift.id), { closeOnSuccess: false })}
+                disabled={isPending}
+                className="flex-1 h-9 rounded-[9px] text-[12.5px] font-medium bg-pepo-wh text-pepo-t2 border border-pepo-bds hover:bg-pepo-su disabled:opacity-40 flex items-center justify-center gap-1.5"
+              >
+                <Icon name="arrow-back-up" size={18} />
+                Fortryd sletning
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (confirm("Slet denne vagt? Du kan fortryde bagefter.")) {
+                    run(() => deleteShift(shift.id), { closeOnSuccess: false });
+                  }
+                }}
+                disabled={isPending}
+                className="flex-1 h-9 rounded-[9px] text-[12.5px] font-medium bg-pepo-wh text-[#C0021A] border border-[#F3C9C9] hover:bg-[#FDECEA] disabled:opacity-40"
+              >
+                Slet vagt
+              </button>
+            )}
+          </div>
         </div>
       </div>
       <style jsx>{`

@@ -41,12 +41,12 @@ export default function EventDeepLinkView({
 }) {
   const [wizard, setWizard] = useState<WizardState | null>(null);
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
-  const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" } | null>(null);
+  const [flash, setFlash] = useState<{ shiftId: string; color: "green" | "red" | "purple" } | null>(null);
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Samme mønster som ShiftBoard.tsx — se dens kommentar for hvorfor 1300ms
-  // og for grøn (tildeling)/rød (frigivelse) farvevalget.
-  function flashShift(shiftId: string, color: "green" | "red" = "green") {
+  // og for grøn (tildeling)/rød (frigivelse)/lilla (gem ændringer) farvevalget.
+  function flashShift(shiftId: string, color: "green" | "red" | "purple" = "green") {
     if (flashTimeout.current) clearTimeout(flashTimeout.current);
     setFlash({ shiftId, color });
     flashTimeout.current = setTimeout(() => setFlash(null), 1300);
@@ -90,6 +90,7 @@ export default function EventDeepLinkView({
           onClose={() => setOpenShift(null)}
           onAssigned={flashShift}
           onReleased={(shiftId) => flashShift(shiftId, "red")}
+          onSaved={(shiftId) => flashShift(shiftId, "purple")}
         />
       )}
     </div>
