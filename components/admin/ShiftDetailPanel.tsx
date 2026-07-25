@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CategoryOption, ClientOption, EventListItem, FreelancerOption, ShiftListItem, ShiftStatus } from "@/lib/admin-types";
-import { formatTimeRange } from "@/lib/format";
+import { formatEventDate, formatTimeRange } from "@/lib/format";
 import {
   updateShift,
   updateEvent,
@@ -18,7 +18,7 @@ import {
   type EventFormInput,
   type ShiftRowInput,
 } from "@/app/tenant/(protected)/shifts/actions";
-import { DateField, TimeField } from "./ShiftFormFields";
+import { TimeField } from "./ShiftFormFields";
 import ClientVenueField from "./ClientVenueField";
 import Icon from "@/components/Icon";
 import { useSlidePanel } from "./useSlidePanel";
@@ -124,19 +124,42 @@ export default function ShiftDetailPanel({
   const shiftHasStarted = Number.isFinite(shiftStartMs) && shiftStartMs <= now;
   const shiftHasEnded = Number.isFinite(shiftEndMs) && shiftEndMs <= now;
 
+  // Briefing-feltet starter i to linjers højde, men vokser (og krymper
+  // igen) med indholdet, så hele briefingen altid er synlig uden selv at
+  // skulle scrolle i det lille felt — samme "auto-height"-teknik som andre
+  // steder ikke bruger endnu: nulstil højden, mål så den reelle
+  // scrollHeight, og sæt den som ny højde. Kører også ved mount, i tilfælde
+  // af at en eksisterende briefing allerede fylder mere end to linjer.
+  const briefingRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = briefingRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [eventForm.description]);
+
   function onClientSaved(client: ClientOption) {
     setClientsState((prev) => (prev.some((c) => c.id === client.id) ? prev.map((c) => (c.id === client.id ? client : c)) : [...prev, client]));
   }
 
   const shiftDirty =
     row.categoryId !== shift.categoryId || row.startTime !== shift.startTime || row.endTime !== shift.endTime;
+  // title/eventDate er ikke længere redigerbare felter i dette panel (vises
+  // nu read-only øverst i headeren i stedet — se dens kommentar), så de kan
+  // aldrig afvige fra event-proppen; kun beskrivelse/kunde/sted kan gøre
+  // eventForm "dirty".
   const eventDirty =
-    eventForm.title !== event.title ||
-    eventForm.eventDate !== event.eventDate ||
     eventForm.description !== (event.description ?? "") ||
     eventForm.clientId !== event.clientId ||
     eventForm.venueId !== event.venueId;
   const dirty = shiftDirty || eventDirty || clockDirty;
+
+  // "Tildel manuelt" viser kun godkendte freelancere, der reelt matcher den
+  // (evt. lige nu redigerede) jobfunktion for DENNE vagt — FreelancerOption.
+  // categories er en liste af jobfunktions-NAVNE (ikke id'er, se
+  // lib/shifts-data.ts), så vi slår den valgte kategoris navn op via id'et.
+  const selectedCategoryName = categories.find((c) => c.id === row.categoryId)?.name ?? "";
+  const matchingFreelancers = freelancers.filter((f) => f.categories.includes(selectedCategoryName));
 
   function run(
     action: () => Promise<{ success: boolean; error?: string }>,
@@ -243,9 +266,15 @@ export default function ShiftDetailPanel({
           (visible ? "" : "translate-x-full")
         }
       >
-        <div className="flex items-center justify-between px-5 py-[18px] border-b border-pepo-bd flex-shrink-0">
-          <span className="text-sm font-medium">Vagtdetaljer</span>
-          <button onClick={close} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
+        <div className="flex items-start justify-between px-5 py-[18px] border-b border-pepo-bd flex-shrink-0">
+          <div>
+            <div className="text-sm font-medium">Vagtdetaljer</div>
+            {/* Dato/titel er ikke redigerbare her (det gøres på eventets eget
+                kort) — vist read-only i stedet, så de stadig er synlige. */}
+            <div className="text-[15px] font-semibold text-pepo-t1 mt-3">{event.title}</div>
+            <div className="text-[12.5px] text-pepo-t2 mt-0.5">{formatEventDate(event.eventDate)}</div>
+          </div>
+          <button onClick={close} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su flex-shrink-0">
             <Icon name="x" size={20} />
           </button>
         </div>
@@ -281,91 +310,47 @@ export default function ShiftDetailPanel({
                 </div>
               )}
 
-              <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2 mt-5">
-                Interesserede freelancere
-              </div>
-              {shift.interests.length > 0 ? (
-                <div className="flex flex-col gap-2 mb-1">
-                  {shift.interests.map((i) => (
-                    <div
-                      key={i.freelancerId}
-                      className="flex items-center gap-2.5 border border-pepo-bd rounded-[10px] px-2.5 py-2"
-                    >
-                      <div className="w-[30px] h-[30px] rounded-full bg-pepo-pl text-pepo-p text-[11px] font-medium flex items-center justify-center flex-shrink-0">
-                        {initials(i.freelancerName)}
+              {/* Skjules helt når ingen har anmodet — ingen grund til at vise
+                  en tom "Interesserede freelancere"-sektion med kun en
+                  "ingen interesse endnu"-linje. */}
+              {shift.interests.length > 0 && (
+                <>
+                  <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2 mt-5">
+                    Interesserede freelancere
+                  </div>
+                  <div className="flex flex-col gap-2 mb-1">
+                    {shift.interests.map((i) => (
+                      <div
+                        key={i.freelancerId}
+                        className="flex items-center gap-2.5 border border-pepo-bd rounded-[10px] px-2.5 py-2"
+                      >
+                        <div className="w-[30px] h-[30px] rounded-full bg-pepo-pl text-pepo-p text-[11px] font-medium flex items-center justify-center flex-shrink-0">
+                          {initials(i.freelancerName)}
+                        </div>
+                        <span className="text-[13px] font-medium text-pepo-t1 flex-1">{i.freelancerName}</span>
+                        {shift.assignedFreelancerId === i.freelancerId ? (
+                          <span className="badge bg-[#EAF6EE] text-[#1A7A34]">Tildelt</span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              run(() => assignFreelancer(shift.id, i.freelancerId), {
+                                closeOnSuccess: true,
+                                onSuccess: () => onAssigned?.(shift.id),
+                              })
+                            }
+                            disabled={isPending}
+                            className="h-[30px] px-3 rounded-[7px] bg-pepo-p text-white text-[12px] font-medium"
+                          >
+                            Tildel
+                          </button>
+                        )}
                       </div>
-                      <span className="text-[13px] font-medium text-pepo-t1 flex-1">{i.freelancerName}</span>
-                      {shift.assignedFreelancerId === i.freelancerId ? (
-                        <span className="badge bg-[#EAF6EE] text-[#1A7A34]">Tildelt</span>
-                      ) : (
-                        <button
-                          onClick={() =>
-                            run(() => assignFreelancer(shift.id, i.freelancerId), {
-                              closeOnSuccess: true,
-                              onSuccess: () => onAssigned?.(shift.id),
-                            })
-                          }
-                          disabled={isPending}
-                          className="h-[30px] px-3 rounded-[7px] bg-pepo-p text-white text-[12px] font-medium"
-                        >
-                          Tildel
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-[12.5px] text-pepo-t3 pb-1">Ingen har tilkendegivet interesse endnu.</div>
+                    ))}
+                  </div>
+                </>
               )}
 
-              <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2 mt-5">
-                Tildel manuelt
-              </div>
-              <select
-                value=""
-                onChange={(e) =>
-                  e.target.value &&
-                  run(() => assignFreelancer(shift.id, e.target.value), {
-                    closeOnSuccess: true,
-                    onSuccess: () => onAssigned?.(shift.id),
-                  })
-                }
-                disabled={isPending}
-                className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p bg-pepo-wh"
-              >
-                <option value="">Vælg en godkendt freelancer...</option>
-                {freelancers.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.fullName}
-                  </option>
-                ))}
-              </select>
-
-              <div className="border-t border-pepo-bd my-6" />
-            </>
-          )}
-
-          {readOnly ? (
-            <div className="text-[13.5px] text-pepo-t2 mb-4">
-              {event.title} · {formatTimeRange(shift.startTime, shift.endTime)}
-            </div>
-          ) : (
-            <>
-              <Field label="Dato">
-                <DateField value={eventForm.eventDate} onChange={(v) => setEventForm((f) => ({ ...f, eventDate: v }))} />
-              </Field>
-
-              <Field label="Titel / anledning">
-                <input
-                  type="text"
-                  value={eventForm.title}
-                  onChange={(e) => setEventForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="Fx Firmafest Kanal 4"
-                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
-                />
-              </Field>
-
-              <Field label="Jobfunktion">
+              <Field label="Jobfunktion" className="mt-5">
                 <select
                   value={row.categoryId}
                   onChange={(e) => setRow((r) => ({ ...r, categoryId: e.target.value }))}
@@ -387,6 +372,39 @@ export default function ShiftDetailPanel({
                 </Field>
               </div>
 
+              <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2 mt-5">
+                Tildel manuelt
+              </div>
+              <select
+                value=""
+                onChange={(e) =>
+                  e.target.value &&
+                  run(() => assignFreelancer(shift.id, e.target.value), {
+                    closeOnSuccess: true,
+                    onSuccess: () => onAssigned?.(shift.id),
+                  })
+                }
+                disabled={isPending}
+                className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p bg-pepo-wh"
+              >
+                <option value="">Vælg en godkendt freelancer...</option>
+                {matchingFreelancers.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.fullName} ({selectedCategoryName})
+                  </option>
+                ))}
+              </select>
+
+              <div className="border-t border-pepo-bd my-6" />
+            </>
+          )}
+
+          {readOnly ? (
+            // Titel/dato vises nu altid øverst i headeren — her er kun
+            // vagtens eget tidsrum tilbage at vise.
+            <div className="text-[13.5px] text-pepo-t2 mb-4">{formatTimeRange(shift.startTime, shift.endTime)}</div>
+          ) : (
+            <>
               {shiftHasStarted && (
                 <div className="flex gap-2.5">
                   <Field label="Stemplet ind" className="flex-1 min-w-0">
@@ -402,13 +420,22 @@ export default function ShiftDetailPanel({
                 </div>
               )}
 
+              <ClientVenueField
+                clients={clientsState}
+                clientId={eventForm.clientId}
+                venueId={eventForm.venueId}
+                onChange={(clientId, venueId) => setEventForm((f) => ({ ...f, clientId, venueId }))}
+                onClientSaved={onClientSaved}
+              />
+
               <Field label="Briefing">
                 <textarea
+                  ref={briefingRef}
                   value={eventForm.description}
                   onChange={(e) => setEventForm((f) => ({ ...f, description: e.target.value }))}
-                  rows={6}
+                  rows={2}
                   placeholder="Detaljer om vagten (valgfrit)"
-                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none resize-none focus:border-pepo-p"
+                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none resize-none overflow-hidden focus:border-pepo-p"
                 />
                 <div className="flex flex-col gap-1.5 mt-2.5 mb-2">
                   {attachments.map((a) => (
@@ -424,19 +451,11 @@ export default function ShiftDetailPanel({
                   ))}
                 </div>
                 <label className="inline-flex items-center gap-1.5 text-[12.5px] text-pepo-p cursor-pointer hover:underline">
-                  <Icon name="plus" size={13} />
+                  <Icon name="paperclip" size={13} />
                   Vedhæft fil
                   <input type="file" multiple className="hidden" onChange={(e) => onAttachFiles(e.target.files)} />
                 </label>
               </Field>
-
-              <ClientVenueField
-                clients={clientsState}
-                clientId={eventForm.clientId}
-                venueId={eventForm.venueId}
-                onChange={(clientId, venueId) => setEventForm((f) => ({ ...f, clientId, venueId }))}
-                onClientSaved={onClientSaved}
-              />
             </>
           )}
         </div>
