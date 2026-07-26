@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { pushNewShiftRequestToAdmins } from "@/lib/shift-notifications";
+import { pushNewShiftRequestToAdmins, queueOpenShiftNotifications } from "@/lib/shift-notifications";
 
 /**
  * Stempel-ur: starter en ny time_clock_entries-række for den indloggede
@@ -130,6 +130,68 @@ export async function withdrawShiftRequest(shiftId: string) {
   if (error) {
     console.error("withdrawShiftRequest fejlede", error);
     return { success: false as const, error: "Kunne ikke annullere anmodningen. Prøv igen." };
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/vagt/${shiftId}`);
+  return { success: true as const };
+}
+
+/**
+ * "Sæt vagten til salg" — freelanceren gør sin egen TILDELTE vagt ledig
+ * igen, uden selv at give slip på den: tager ingen anden vagten inden
+ * eventen, er det stadig freelanceren selv, der møder op (se
+ * cancelShiftResale nedenfor for fortryd-vejen). Kører via en SECURITY
+ * DEFINER-funktion i databasen (put_shift_for_resale) i stedet for et
+ * almindeligt .update()-kald — der findes bevidst ingen bred RLS
+ * UPDATE-policy på shifts for freelancere, da den ellers ville lade en
+ * freelancer rette vilkårlige kolonner på egen vagt (tidspunkt, jobfunktion
+ * osv.) via et direkte API-kald uden om appens UI.
+ */
+export async function putShiftForResale(shiftId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false as const, error: "Du er ikke logget ind." };
+
+  const { data, error } = await supabase.rpc("put_shift_for_resale", { p_shift_id: shiftId }).single();
+
+  if (error) {
+    console.error("putShiftForResale fejlede", error);
+    return { success: false as const, error: "Kunne ikke sætte vagten til salg. Prøv igen." };
+  }
+
+  const fields = data as { category_id: string; company_id: string };
+
+  // Samme kø til "nye ledige vagter"-notifikationen som når en vagt
+  // oprettes eller frigives — se queueOpenShiftNotifications' egen
+  // kommentar i lib/shift-notifications.ts.
+  await queueOpenShiftNotifications(fields.company_id, fields.category_id, shiftId);
+
+  revalidatePath("/");
+  revalidatePath(`/vagt/${shiftId}`);
+  return { success: true as const };
+}
+
+/**
+ * Fortryder "Sæt vagten til salg", så længe ingen anden freelancer endnu er
+ * blevet tildelt vagten — se cancel_shift_resale i databasen, som også
+ * rydder eventuelle ventende anmodninger fra andre freelancere, da de ikke
+ * længere er relevante, når vagten ikke er til salg mere.
+ */
+export async function cancelShiftResale(shiftId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false as const, error: "Du er ikke logget ind." };
+
+  const { error } = await supabase.rpc("cancel_shift_resale", { p_shift_id: shiftId });
+
+  if (error) {
+    console.error("cancelShiftResale fejlede", error);
+    return { success: false as const, error: "Kunne ikke fortryde salget. Prøv igen." };
   }
 
   revalidatePath("/");

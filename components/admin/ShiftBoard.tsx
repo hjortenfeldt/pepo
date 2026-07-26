@@ -653,11 +653,21 @@ const ShiftCard = forwardRef<
     onClick: () => void;
   }
 >(function ShiftCard({ shift, flashColor, removeStage, onClick }, ref) {
-  const rightText = shift.assignedFreelancerName
-    ? shift.assignedFreelancerName
-    : shift.interests.length > 0
-    ? `${shift.interests.length} vagtanmodning${shift.interests.length === 1 ? "" : "er"}`
-    : "";
+  // For en "til salg"-vagt hænger sælgeren (assignedFreelancerName) stadig
+  // ved som assigned_freelancer_id, selvom vagten reelt er ledig igen — så
+  // snart nogen har anmodet om den, skal antallet af anmodninger vises i
+  // stedet for sælgerens navn (ellers ville en ny anmodning aldrig kunne
+  // ses her). For en almindelig tildelt vagt vinder sælgerens/den tildeltes
+  // navn altid, uanset (der forekommer reelt aldrig anmodninger på en
+  // allerede tildelt vagt).
+  const rightText =
+    shift.status === "for_resale" && shift.interests.length > 0
+      ? `${shift.interests.length} vagtanmodning${shift.interests.length === 1 ? "" : "er"}`
+      : shift.assignedFreelancerName
+      ? shift.assignedFreelancerName
+      : shift.interests.length > 0
+      ? `${shift.interests.length} vagtanmodning${shift.interests.length === 1 ? "" : "er"}`
+      : "";
   const flashClass =
     removeStage === "flash"
       ? " pepo-flash-purple"

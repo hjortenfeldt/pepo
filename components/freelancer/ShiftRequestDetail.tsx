@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/Icon";
-import { requestShift, withdrawShiftRequest } from "@/app/freelancer/(protected)/actions";
+import {
+  requestShift,
+  withdrawShiftRequest,
+  putShiftForResale,
+  cancelShiftResale,
+} from "@/app/freelancer/(protected)/actions";
 import { formatEventDate, formatTimeRange, hoursBetween } from "@/lib/format";
 import { PullToRefreshHeader, PullToRefreshFooter } from "@/components/freelancer/PullToRefresh";
 
@@ -85,6 +90,11 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
   const router = useRouter();
 
   const requestable = shift.status === "open" || shift.status === "for_resale";
+  // Den, der har sat SIN EGEN vagt til salg, ser ikke "Anmod om vagt" for
+  // den (selvom `requestable` teknisk er true for for_resale-vagter) —
+  // de skal i stedet kunne følge/fortryde deres eget salg. Se footeren
+  // nedenfor for prioriteringen.
+  const isSellerListing = shift.status === "for_resale" && shift.isMine;
   const otherShifts = shift.siblingShifts.filter((s) => !s.isCurrent);
 
   function handleRequest() {
@@ -109,6 +119,30 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
         return;
       }
       setAlreadyApplied(false);
+      router.refresh();
+    });
+  }
+
+  function handlePutForResale() {
+    setError(null);
+    startTransition(async () => {
+      const res = await putShiftForResale(shift.id);
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function handleCancelResale() {
+    setError(null);
+    startTransition(async () => {
+      const res = await cancelShiftResale(shift.id);
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
       router.refresh();
     });
   }
@@ -216,12 +250,34 @@ export default function ShiftRequestDetail({ shift }: { shift: OpenShiftDetail }
 
       <PullToRefreshFooter>
         <div className="bg-pepo-wh border-t border-pepo-bd px-[var(--page-px)] py-3.5">
-          {!requestable ? (
-            <div className="text-center text-[12.5px] text-pepo-t3 py-2.5">
-              {shift.status === "assigned" && shift.isMine
-                ? "Dette er din vagt."
-                : "Denne vagt er ikke længere ledig."}
-            </div>
+          {isSellerListing ? (
+            <>
+              <div className="text-center text-[12.5px] text-pepo-t3 py-2.5">
+                Vagten er sat til salg — den er stadig din, hvis ingen andre tager den inden vagten starter.
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelResale}
+                disabled={isPending}
+                className="w-full text-center text-[13px] text-pepo-t3 underline decoration-pepo-t3 disabled:opacity-50"
+              >
+                {isPending ? "Fortryder..." : "Fortryd salg"}
+              </button>
+            </>
+          ) : !requestable ? (
+            shift.status === "assigned" && shift.isMine ? (
+              <button
+                type="button"
+                onClick={handlePutForResale}
+                disabled={isPending}
+                className="w-full h-[46px] rounded-[10px] text-[15px] font-semibold bg-pepo-wh text-pepo-t2 border border-pepo-bds flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
+              >
+                <Icon name="arrows-exchange" size={18} />
+                {isPending ? "Sætter til salg..." : "Sæt vagten til salg"}
+              </button>
+            ) : (
+              <div className="text-center text-[12.5px] text-pepo-t3 py-2.5">Denne vagt er ikke længere ledig.</div>
+            )
           ) : alreadyApplied ? (
             <>
               <button

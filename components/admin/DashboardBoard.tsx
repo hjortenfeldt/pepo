@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { DashboardEventItem, MonthlyFinancials } from "@/lib/admin-types";
-import { eventFullyStaffed } from "@/lib/dashboard";
+import { eventStaffingStatus } from "@/lib/dashboard";
 import { formatDateDisplay, relativeDateLabel } from "@/lib/format";
 import Icon from "@/components/Icon";
 
@@ -262,11 +262,18 @@ function EventListCard({
 }
 
 function EventRow({ event, variant }: { event: DashboardEventItem; variant: "upcoming" | "recent" }) {
-  // Lysere/mere mættede farver end de "dæmpede" grøn/rød der ellers bruges
-  // til badges/tekst i appen (fx STATUS_BADGE_CLASS i ShiftBoard.tsx) — som
-  // små 9px-prikker har de dæmpede toner en tendens til at drukne, så disse
-  // to er bevidst kun brugt HER, ikke rettet globalt.
-  const dot = eventFullyStaffed(event.roles) ? "bg-[#34C759]" : "bg-[#FF3B30]";
+  // Lysere/mere mættede farver end de "dæmpede" grøn/rød/amber der ellers
+  // bruges til badges/tekst i appen (fx STATUS_BADGE_CLASS i ShiftBoard.tsx)
+  // — som små 9px-prikker har de dæmpede toner en tendens til at drukne, så
+  // disse tre er bevidst kun brugt HER, ikke rettet globalt. Amber (kun en
+  // vagt til salg, ellers fuldt bemandet) vejer mindre alvorligt end rød
+  // (en reelt ubesat vagt) — se eventStaffingStatus.
+  const dotColor: Record<"green" | "amber" | "red", string> = {
+    green: "bg-[#34C759]",
+    amber: "bg-[#FF9F0A]",
+    red: "bg-[#FF3B30]",
+  };
+  const dot = dotColor[eventStaffingStatus(event.roles)];
   return (
     <Link
       href={`/shifts/event/${event.id}`}

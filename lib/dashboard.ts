@@ -93,8 +93,16 @@ function computeRoles(shifts: DashboardShift[]): DashboardEventRole[] {
   return [...byCategory.values()];
 }
 
-export function eventFullyStaffed(roles: DashboardEventRole[]): boolean {
-  return roles.every((r) => r.open === 0 && r.forResale === 0);
+/**
+ * Bemandingsstatus for ét event til "Kommende events"-prikken på Dashboard —
+ * rød hvis der er en reelt ubesat ("mangler") vagt, ellers gul/amber hvis
+ * der (kun) er en vagt sat til salg (stadig bemandet af sælgeren, indtil en
+ * anden evt. tager den), ellers grøn hvis alt er tildelt.
+ */
+export function eventStaffingStatus(roles: DashboardEventRole[]): "green" | "amber" | "red" {
+  if (roles.some((r) => r.open > 0)) return "red";
+  if (roles.some((r) => r.forResale > 0)) return "amber";
+  return "green";
 }
 
 /**
