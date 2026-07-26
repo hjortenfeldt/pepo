@@ -26,6 +26,11 @@ export type UpcomingShift = {
   venueLat: number | null;
   venueLng: number | null;
   isToday: boolean;
+  // Vist som et amber "Til salg"-badge ved siden af jobfunktions-badge'en —
+  // se [[project_shift_resale_feature]]. Vagten bliver i "Mine vagter" hos
+  // sælgeren selv (fjernes fra "Ledige vagter" hos netop dem), indtil en
+  // anden freelancer reelt overtager den.
+  isForResale: boolean;
 };
 
 // Resultatet af geofence-tjekket, der afgør om "Start vagt" må aktiveres.
@@ -347,17 +352,27 @@ export default function OverviewClient({
                 className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
                 style={{ animationDelay: `${i * 0.05}s` }}
               >
-                <div className="bg-pepo-pl rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
-                  <div className="text-[9.5px] font-semibold text-pepo-p uppercase">{badge.month}</div>
-                  <div className="text-[15px] font-bold text-pepo-p">{badge.day}</div>
+                <div className="bg-[#eaf3de] rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
+                  <div className="text-[9.5px] font-semibold text-[#3b6d11] uppercase">{badge.month}</div>
+                  <div className="text-[15px] font-bold text-[#3b6d11]">{badge.day}</div>
                 </div>
                 <div className="flex-1 min-w-0">
                   {/* Samme badge-stil som kategori-pillen øverst på
                       Vagtdetaljer (ShiftRequestDetail.tsx) — genkendeligt
-                      samme "hvilken jobfunktion"-signal begge steder. */}
-                  <span className="inline-flex bg-pepo-pl text-pepo-p rounded-full px-2.5 py-1 text-[12px] font-semibold mb-1">
-                    {shift.categoryName}
-                  </span>
+                      samme "hvilken jobfunktion"-signal begge steder. "Til
+                      salg"-badge'en (samme amber som resten af appen, se
+                      [[project_shift_resale_feature]]) står ved siden af på
+                      samme linje, ikke under. */}
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="inline-flex bg-pepo-pl text-pepo-p rounded-full px-2.5 py-1 text-[12px] font-semibold">
+                      {shift.categoryName}
+                    </span>
+                    {shift.isForResale && (
+                      <span className="inline-flex bg-[#FEF3E2] text-[#9A5F00] rounded-full px-2.5 py-1 text-[12px] font-semibold">
+                        Til salg
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[13.5px] font-semibold text-pepo-t1 truncate">{shift.title}</div>
                   <div className="text-[12px] text-pepo-t2 mt-0.5 truncate">
                     {shift.startTime}–{shift.endTime}
@@ -405,9 +420,9 @@ function OpenShiftsList({ promise }: { promise: Promise<OpenShift[]> }) {
             className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
             style={{ animationDelay: `${i * 0.05}s` }}
           >
-            <div className="bg-[#eaf3de] rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
-              <div className="text-[9.5px] font-semibold text-[#3b6d11] uppercase">{badge.month}</div>
-              <div className="text-[15px] font-bold text-[#3b6d11]">{badge.day}</div>
+            <div className="bg-pepo-pl rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
+              <div className="text-[9.5px] font-semibold text-pepo-p uppercase">{badge.month}</div>
+              <div className="text-[15px] font-bold text-pepo-p">{badge.day}</div>
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[13.5px] font-semibold text-pepo-t1 truncate">{shift.categoryName}</div>

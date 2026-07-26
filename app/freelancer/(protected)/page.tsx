@@ -23,6 +23,7 @@ type RawShiftRow = {
   start_time: string;
   end_time: string;
   status: "open" | "for_resale" | "assigned" | "completed" | "cancelled";
+  assigned_freelancer_id: string | null;
   events: RawEventRef | RawEventRef[] | null;
   client_venues: RawVenueRef | RawVenueRef[] | null;
   work_categories: RawCategoryRef | RawCategoryRef[] | null;
@@ -73,7 +74,10 @@ export default async function FreelancerOverviewPage() {
         "id, shift_date, start_time, end_time, status, events(title), client_venues(name, address, postal_code, city, latitude, longitude), work_categories(name)"
       )
       .eq("assigned_freelancer_id", user.id)
-      .eq("status", "assigned")
+      // "for_resale" hører stadig til her — freelanceren beholder vagten
+      // (og skal kunne se/fortryde salget), indtil en anden reelt tager den
+      // (se [[project_shift_resale_feature]]).
+      .in("status", ["assigned", "for_resale"])
       .eq("company_id", companyId)
       .gte("shift_date", today)
       .order("shift_date")
@@ -136,6 +140,10 @@ export default async function FreelancerOverviewPage() {
         // Kan stemples ind på fra i dag og frem — knappen i UI'en styrer
         // selv om det giver mening (kun vist for i dag).
         isToday: s.shift_date === today,
+        // Viser et "Til salg"-badge ved siden af jobfunktions-badge'en, så
+        // freelanceren kan se at DERES vagt er sat til salg (den ligger
+        // stadig i "Mine vagter", ikke kun i "Ledige vagter" hos andre).
+        isForResale: s.status === "for_resale",
       };
     });
 
@@ -166,7 +174,7 @@ async function getOpenShifts(
 ): Promise<OpenShift[]> {
   const { data: openShiftsData } = await supabase
     .from("shifts")
-    .select("id, shift_date, start_time, end_time, status, work_categories(name)")
+    .select("id, shift_date, start_time, end_time, status, assigned_freelancer_id, work_categories(name)")
     .eq("company_id", companyId)
     .in("status", ["open", "for_resale"])
     .gte("shift_date", today)
@@ -174,7 +182,13 @@ async function getOpenShifts(
     .order("start_time")
     .limit(6);
 
-  const openShiftsRaw = (openShiftsData ?? []) as unknown as RawShiftRow[];
+  // En "til salg"-vagt hænger stadig ved sælgeren (assigned_freelancer_id),
+  // så uden dette filter ville sælgeren se sin egen vagt optræde i "Ledige
+  // vagter" ved siden af "Mine vagter" — den skal kun stå ét sted for dem,
+  // mens alle ANDRE freelancere fortsat ser den normalt her.
+  const openShiftsRaw = ((openShiftsData ?? []) as unknown as RawShiftRow[]).filter(
+    (s) => s.assigned_freelancer_id !== freelancerId
+  );
 
   let existingInterestShiftIds: string[] = [];
   if (openShiftsRaw.length > 0) {
