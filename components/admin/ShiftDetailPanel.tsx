@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CategoryOption, ClientOption, EventListItem, FreelancerOption, ShiftListItem } from "@/lib/admin-types";
 import { formatEventDate, formatTimeRange } from "@/lib/format";
@@ -22,6 +22,8 @@ import { TimeField } from "./ShiftFormFields";
 import ClientVenueField from "./ClientVenueField";
 import Icon from "@/components/Icon";
 import { useSlidePanel } from "./useSlidePanel";
+import FreelancerAssignDropdown from "./FreelancerAssignDropdown";
+import { findConflictFreelancerIds, type BusyShift } from "@/lib/shift-conflicts";
 
 // Konverterer en gemt stempel-tid (ISO-timestamp) til et "HH:MM"-tekstfelt i
 // browserens lokale tid — matcher hvordan OverviewClient.tsx's "elapsed()"
@@ -33,21 +35,13 @@ function isoToHHMM(iso: string | null): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function initials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
-
 export default function ShiftDetailPanel({
   shift,
   event,
   clients,
   categories,
   freelancers,
+  busyShifts,
   onClose,
   onAssigned,
   onReleased,
@@ -59,6 +53,11 @@ export default function ShiftDetailPanel({
   clients: ClientOption[];
   categories: CategoryOption[];
   freelancers: FreelancerOption[];
+  // Alle virksomhedens tildelte/til-salg-vagter (på tværs af events) — brugt
+  // til at beregne "Utilgængelig"-mærkatet i FreelancerAssignDropdown, se
+  // lib/shift-conflicts.ts. Udledes én gang i ShiftBoard.tsx/
+  // EventDeepLinkView.tsx/UnfilledShiftsView.tsx via useMemo over `events`.
+  busyShifts: BusyShift[];
   onClose: () => void;
   onAssigned?: (shiftId: string) => void;
   // Kaldes efter en vellykket "Frigiv vagt" — samme flash-mekanisme som
@@ -146,14 +145,23 @@ export default function ShiftDetailPanel({
     eventForm.venueId !== event.venueId;
   const dirty = shiftDirty || eventDirty || clockDirty;
 
-  // "Tildel manuelt" viser kun godkendte freelancere, der reelt matcher den
-  // (evt. lige nu redigerede) jobfunktion for DENNE vagt — FreelancerOption.
-  // categories er en liste af jobfunktions-NAVNE (ikke id'er, se
-  // lib/shifts-data.ts), så vi slår den valgte kategoris navn op via id'et.
+  // "Tildel vagt"-dropdownet viser kun godkendte freelancere, der reelt
+  // matcher den (evt. lige nu redigerede) jobfunktion for DENNE vagt —
+  // FreelancerOption.categories er en liste af jobfunktions-NAVNE (ikke
+  // id'er, se lib/shifts-data.ts), så vi slår den valgte kategoris navn op
+  // via id'et.
   const selectedCategoryName = categories.find((c) => c.id === row.categoryId)?.name ?? "";
   const matchingFreelancers = freelancers
     .filter((f) => f.categories.includes(selectedCategoryName))
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "da"));
+
+  // Genberegnes reaktivt når admin ændrer start-/sluttid FØR de gemmer —
+  // dato er ikke redigerbar her (se eventDirty-kommentaren ovenfor), så
+  // event.eventDate er stabil.
+  const conflictFreelancerIds = useMemo(
+    () => findConflictFreelancerIds(busyShifts, event.eventDate, row.startTime, row.endTime, shift.id),
+    [busyShifts, event.eventDate, row.startTime, row.endTime, shift.id]
+  );
 
   function run(
     action: () => Promise<{ success: boolean; error?: string }>,
@@ -318,91 +326,32 @@ export default function ShiftDetailPanel({
 
               <div className="border-t border-pepo-bd my-5" />
 
-              {shift.assignedFreelancerName && (
-                <div className="flex items-center gap-2.5 py-2.5 border-b border-pepo-bd">
-                  <div className="flex-1">
-                    <div className="text-[11px] text-pepo-t3 uppercase tracking-wide">Tildelt</div>
-                    <div className="text-[13.5px] text-pepo-t1 mt-px">{shift.assignedFreelancerName}</div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (confirm(`Frigiv vagten fra ${shift.assignedFreelancerName}? Vagten bliver åben igen.`)) {
-                        run(() => releaseShift(shift.id), {
-                          closeOnSuccess: true,
-                          onSuccess: () => onReleased?.(shift.id),
-                        });
-                      }
-                    }}
-                    disabled={isPending}
-                    className="h-[30px] px-3 rounded-[7px] bg-pepo-wh text-[#C0021A] border border-[#F3C9C9] text-xs font-medium"
-                  >
-                    Frigiv vagt
-                  </button>
-                </div>
-              )}
-
-              {/* Skjules helt når ingen har anmodet — ingen grund til at vise
-                  en tom "Anmodet"-sektion med kun en "ingen interesse endnu"-
-                  linje. */}
-              {shift.interests.length > 0 && (
-                <>
-                  <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2 mt-5">
-                    Anmodet
-                  </div>
-                  <div className="flex flex-col gap-2 mb-1">
-                    {shift.interests.map((i) => (
-                      <div
-                        key={i.freelancerId}
-                        className="flex items-center gap-2.5 border border-pepo-bd rounded-[10px] px-2.5 py-2"
-                      >
-                        <div className="w-[30px] h-[30px] rounded-full bg-pepo-pl text-pepo-p text-[11px] font-medium flex items-center justify-center flex-shrink-0">
-                          {initials(i.freelancerName)}
-                        </div>
-                        <span className="text-[13px] font-medium text-pepo-t1 flex-1">{i.freelancerName}</span>
-                        {shift.assignedFreelancerId === i.freelancerId ? (
-                          <span className="badge bg-[#EAF6EE] text-[#1A7A34]">Tildelt</span>
-                        ) : (
-                          <button
-                            onClick={() =>
-                              run(() => assignFreelancer(shift.id, i.freelancerId), {
-                                closeOnSuccess: true,
-                                onSuccess: () => onAssigned?.(shift.id),
-                              })
-                            }
-                            disabled={isPending}
-                            className="h-[30px] px-3 rounded-[7px] bg-pepo-p text-white text-[12px] font-medium"
-                          >
-                            Tildel
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2 mt-5">
-                Tildel manuelt
-              </div>
-              <select
-                value=""
-                onChange={(e) =>
-                  e.target.value &&
-                  run(() => assignFreelancer(shift.id, e.target.value), {
-                    closeOnSuccess: true,
-                    onSuccess: () => onAssigned?.(shift.id),
-                  })
-                }
+              <FreelancerAssignDropdown
+                freelancers={matchingFreelancers}
+                selectedFreelancerId={shift.assignedFreelancerId}
+                selectedFreelancerName={shift.assignedFreelancerName}
+                interests={shift.interests}
+                isForResale={shift.status === "for_resale"}
+                conflictFreelancerIds={conflictFreelancerIds}
                 disabled={isPending}
-                className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p bg-pepo-wh"
-              >
-                <option value="">Vælg en godkendt freelancer...</option>
-                {matchingFreelancers.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.fullName} ({selectedCategoryName})
-                  </option>
-                ))}
-              </select>
+                onSelect={(freelancerId) => {
+                  // Uændret valg (inkl. "Ledig vagt" på en allerede-ledig
+                  // vagt) — luk bare menuen, ingen grund til et API-kald.
+                  if (freelancerId === shift.assignedFreelancerId) return;
+                  if (freelancerId === null) {
+                    if (!confirm(`Frigiv vagten fra ${shift.assignedFreelancerName}? Vagten bliver åben igen.`)) return;
+                    run(() => releaseShift(shift.id), {
+                      closeOnSuccess: true,
+                      onSuccess: () => onReleased?.(shift.id),
+                    });
+                  } else {
+                    run(() => assignFreelancer(shift.id, freelancerId), {
+                      closeOnSuccess: true,
+                      onSuccess: () => onAssigned?.(shift.id),
+                    });
+                  }
+                }}
+              />
 
               <div className="border-t border-pepo-bd my-6" />
             </>

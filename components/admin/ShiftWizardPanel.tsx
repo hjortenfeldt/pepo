@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { CategoryOption, ClientOption, EventListItem } from "@/lib/admin-types";
+import type { CategoryOption, ClientOption, EventListItem, FreelancerOption } from "@/lib/admin-types";
 import {
   createEventWithShifts,
   createEventOnly,
@@ -12,11 +12,14 @@ import {
   removeAttachment,
   type EventFormInput,
   type ShiftRowInput,
+  type ShiftCreateRowInput,
 } from "@/app/tenant/(protected)/shifts/actions";
 import ClientVenueField from "./ClientVenueField";
 import { DateField, TimeField } from "./ShiftFormFields";
 import Icon from "@/components/Icon";
 import { useSlidePanel } from "./useSlidePanel";
+import FreelancerAssignDropdown from "./FreelancerAssignDropdown";
+import { findConflictFreelancerIds, type BusyShift } from "@/lib/shift-conflicts";
 
 export type WizardState =
   | { mode: "new"; presetDate?: string }
@@ -29,21 +32,30 @@ function nextRowKey() {
   return `row-${rowKeySeq}`;
 }
 
-type RowState = ShiftRowInput & { key: string };
+// freelancerId holdes lokalt pr. række, indtil "Gem vagter" kaldes — se
+// FreelancerAssignDropdown i step 2 nedenfor. null = "Ledig vagt" (vagten
+// oprettes almindeligt åben, ligesom hidtil).
+type RowState = ShiftRowInput & { key: string; freelancerId: string | null };
 
 function blankRow(): RowState {
-  return { key: nextRowKey(), id: null, categoryId: "", startTime: "10:00", endTime: "18:00" };
+  return { key: nextRowKey(), id: null, categoryId: "", startTime: "10:00", endTime: "18:00", freelancerId: null };
 }
 
 export default function ShiftWizardPanel({
   state,
   clients,
   categories,
+  freelancers,
+  busyShifts,
   onClose,
 }: {
   state: WizardState;
   clients: ClientOption[];
   categories: CategoryOption[];
+  freelancers: FreelancerOption[];
+  // Se samme prop i ShiftDetailPanel.tsx — udledes én gang i ShiftBoard.tsx/
+  // EventDeepLinkView.tsx/UnfilledShiftsView.tsx.
+  busyShifts: BusyShift[];
   onClose: () => void;
 }) {
   const isAddShiftOnly = state.mode === "addShift";
@@ -89,7 +101,7 @@ export default function ShiftWizardPanel({
     setStep(2);
   }
 
-  function updateRow(key: string, patch: Partial<ShiftRowInput>) {
+  function updateRow(key: string, patch: Partial<RowState>) {
     setRows((r) => r.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   }
 
@@ -160,11 +172,12 @@ export default function ShiftWizardPanel({
   }
 
   function saveShifts() {
-    const rowInputs: ShiftRowInput[] = rows.map((row) => ({
+    const rowInputs: ShiftCreateRowInput[] = rows.map((row) => ({
       id: row.id,
       categoryId: row.categoryId,
       startTime: row.startTime,
       endTime: row.endTime,
+      freelancerId: row.freelancerId,
     }));
     if (rowInputs.length === 0) {
       setError("Tilføj mindst én vagt.");
@@ -362,6 +375,41 @@ export default function ShiftWizardPanel({
                       <TimeField value={row.endTime} onChange={(v) => updateRow(row.key, { endTime: v })} />
                     </div>
                   </div>
+
+                  {row.categoryId ? (
+                    (() => {
+                      const categoryName = categories.find((c) => c.id === row.categoryId)?.name ?? "";
+                      const rowFreelancers = freelancers
+                        .filter((f) => f.categories.includes(categoryName))
+                        .sort((a, b) => a.fullName.localeCompare(b.fullName, "da"));
+                      const rowConflicts = findConflictFreelancerIds(
+                        busyShifts,
+                        form.eventDate,
+                        row.startTime,
+                        row.endTime,
+                        null
+                      );
+                      return (
+                        <div className="mb-4">
+                          <FreelancerAssignDropdown
+                            freelancers={rowFreelancers}
+                            selectedFreelancerId={row.freelancerId}
+                            selectedFreelancerName={
+                              rowFreelancers.find((f) => f.id === row.freelancerId)?.fullName ?? null
+                            }
+                            interests={[]}
+                            isForResale={false}
+                            conflictFreelancerIds={rowConflicts}
+                            onSelect={(freelancerId) => updateRow(row.key, { freelancerId })}
+                          />
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="mb-4 text-[12.5px] text-pepo-t3">
+                      Vælg jobfunktion for at kunne tildele en freelancer med det samme.
+                    </div>
+                  )}
                 </div>
               ))}
               <button

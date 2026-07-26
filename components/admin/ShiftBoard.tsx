@@ -12,6 +12,7 @@ import type {
 } from "@/lib/admin-types";
 import { formatDayHeading, formatTimeRange, todayIso } from "@/lib/format";
 import { hasPendingShiftRequest, countPendingShiftRequests } from "@/lib/shift-request-utils";
+import type { BusyShift } from "@/lib/shift-conflicts";
 import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
 import ExpandingSearchButton from "./ExpandingSearchButton";
@@ -191,6 +192,26 @@ export default function ShiftBoard({
   // "Vagtanmodninger"-fanen, samme stil som "Ansøgninger"-fanen på
   // Freelancere-siden (FreelancerBoard.tsx).
   const requestsCount = useMemo(() => countPendingShiftRequests(events, now), [events, now]);
+
+  // Udledt af den samme company-wide `events`-liste (allerede hentet uden
+  // paginering, se getShiftsBoardData) — bruges af FreelancerAssignDropdown
+  // i ShiftDetailPanel/ShiftWizardPanel til "Utilgængelig"-mærkatet, se
+  // lib/shift-conflicts.ts. Ingen ny forespørgsel nødvendig.
+  const busyShifts = useMemo<BusyShift[]>(
+    () =>
+      events.flatMap((e) =>
+        e.shifts
+          .filter((s) => s.assignedFreelancerId && (s.status === "assigned" || s.status === "for_resale"))
+          .map((s) => ({
+            shiftId: s.id,
+            freelancerId: s.assignedFreelancerId as string,
+            date: s.shiftDate,
+            startTime: s.startTime,
+            endTime: s.endTime,
+          }))
+      ),
+    [events]
+  );
 
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
@@ -431,6 +452,8 @@ export default function ShiftBoard({
           state={wizard}
           clients={clients}
           categories={categories}
+          freelancers={freelancers}
+          busyShifts={busyShifts}
           onClose={() => setWizard(null)}
         />
       )}
@@ -442,6 +465,7 @@ export default function ShiftBoard({
           clients={clients}
           categories={categories}
           freelancers={freelancers}
+          busyShifts={busyShifts}
           onClose={() => setOpenShift(null)}
           onAssigned={flashShift}
           onReleased={(shiftId) => flashShift(shiftId, "red")}

@@ -43,6 +43,12 @@ export default async function EventDeepLinkPage({ params }: { params: Promise<{ 
   if (!event) notFound();
 
   return (
-    <EventDeepLinkView event={event} clients={clients} categories={categories} freelancers={freelancers} />
+    <EventDeepLinkView
+      event={event}
+      allEvents={events}
+      clients={clients}
+      categories={categories}
+      freelancers={freelancers}
+    />
   );
 }

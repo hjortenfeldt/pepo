@@ -1,0 +1,170 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Icon from "@/components/Icon";
+import type { FreelancerOption, ShiftInterestItem } from "@/lib/admin-types";
+
+// Samler "Tildelt"/"Frigiv vagt", "Anmodet"-listen og "Tildel manuelt"-
+// selecten (se tidligere ShiftDetailPanel.tsx) i ét overlay-menu-drevet
+// dropdown — ikke en native <select>, men samme visuelle mønster som
+// AdminTopBar.tsx's bruger-/hovedmenu (relativ trigger + absolut panel med
+// afrunding/skygge), blot med et scrollbart, kapslet listevindue (se
+// AdminTopBar's mobilnav for samme max-height+overflow-mønster).
+//
+// [[project_unified_assign_dropdown]] for baggrund/beslutninger.
+export type FreelancerBadgeKind = "anmodet" | "til-salg" | "utilgaengelig";
+
+const BADGE_LABEL: Record<FreelancerBadgeKind, string> = {
+  anmodet: "Anmodet",
+  "til-salg": "Til salg",
+  utilgaengelig: "Utilgængelig",
+};
+
+const BADGE_CLASS: Record<FreelancerBadgeKind, string> = {
+  anmodet: "bg-[#EAF6EE] text-[#1A7A34]",
+  "til-salg": "bg-[#FEF3E2] text-[#9A5F00]",
+  utilgaengelig: "bg-[#FDECEA] text-[#C0021A]",
+};
+
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
+export default function FreelancerAssignDropdown({
+  freelancers,
+  selectedFreelancerId,
+  selectedFreelancerName,
+  interests,
+  isForResale,
+  conflictFreelancerIds,
+  onSelect,
+  disabled,
+}: {
+  /** Allerede filtreret til den (evt. lige nu redigerede) jobfunktion. */
+  freelancers: FreelancerOption[];
+  selectedFreelancerId: string | null;
+  selectedFreelancerName: string | null;
+  /** Tom for en vagt der endnu ikke er oprettet (kan ikke have anmodninger). */
+  interests: ShiftInterestItem[];
+  /** Sat hvis DENNE vagt selv har status "for_resale" — viser "Til salg" ud
+   * for sælgerens (= selectedFreelancerId's) eget navn i listen. */
+  isForResale: boolean;
+  conflictFreelancerIds: Set<string>;
+  /** null = "Ledig vagt" valgt (frigiv/lad stå ledig). */
+  onSelect: (freelancerId: string | null) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [open]);
+
+  const interestedIds = new Set(interests.map((i) => i.freelancerId));
+
+  function badgesFor(freelancerId: string): FreelancerBadgeKind[] {
+    const badges: FreelancerBadgeKind[] = [];
+    if (interestedIds.has(freelancerId)) badges.push("anmodet");
+    if (isForResale && freelancerId === selectedFreelancerId) badges.push("til-salg");
+    if (conflictFreelancerIds.has(freelancerId)) badges.push("utilgaengelig");
+    return badges;
+  }
+
+  function select(freelancerId: string | null) {
+    setOpen(false);
+    onSelect(freelancerId);
+  }
+
+  const requestCount = interests.length;
+
+  return (
+    <div>
+      <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2">Tildel vagt</div>
+
+      <div className="relative" ref={wrapperRef}>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          disabled={disabled}
+          className="w-full flex items-center gap-2.5 border border-pepo-bds rounded-[10px] px-2.5 py-2 text-left bg-pepo-wh disabled:opacity-50"
+        >
+          {selectedFreelancerId && selectedFreelancerName ? (
+            <>
+              <div className="w-[30px] h-[30px] rounded-full bg-pepo-pl text-pepo-p text-[11px] font-medium flex items-center justify-center flex-shrink-0">
+                {initials(selectedFreelancerName)}
+              </div>
+              <span className="text-[13.5px] font-medium text-pepo-t1 flex-1 truncate">{selectedFreelancerName}</span>
+            </>
+          ) : (
+            <span className="text-[13.5px] text-pepo-t2 flex-1">Ledig vagt</span>
+          )}
+          <Icon
+            name="chevron-down"
+            size={18}
+            className={"text-pepo-t2 flex-shrink-0 transition-transform " + (open ? "rotate-180" : "")}
+          />
+        </button>
+
+        {open && (
+          <div className="absolute left-0 right-0 top-[calc(100%+6px)] bg-pepo-wh rounded-[14px] shadow-[0_12px_40px_rgba(29,29,31,0.18)] p-1.5 z-30 max-h-[280px] overflow-y-auto overscroll-contain">
+            <button
+              type="button"
+              onClick={() => select(null)}
+              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[9px] text-[13.5px] font-medium text-pepo-t1 hover:bg-pepo-su transition-colors"
+            >
+              <span className="flex-1 text-left">Ledig vagt</span>
+              {selectedFreelancerId === null && <Icon name="check" size={16} className="text-pepo-p flex-shrink-0" />}
+            </button>
+
+            {freelancers.length > 0 && <div className="h-px bg-pepo-bd my-1" />}
+
+            {freelancers.length === 0 && (
+              <div className="px-2.5 py-2 text-[12.5px] text-pepo-t3">Ingen godkendte freelancere i denne jobfunktion.</div>
+            )}
+
+            {freelancers.map((f) => {
+              const badges = badgesFor(f.id);
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => select(f.id)}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[9px] text-[13.5px] font-medium text-pepo-t1 hover:bg-pepo-su transition-colors"
+                >
+                  <span className="flex-1 text-left truncate">{f.fullName}</span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {badges.map((b) => (
+                      <span key={b} className={"rounded-full px-2 py-0.5 text-[11px] font-semibold " + BADGE_CLASS[b]}>
+                        {BADGE_LABEL[b]}
+                      </span>
+                    ))}
+                    {f.id === selectedFreelancerId && <Icon name="check" size={16} className="text-pepo-p flex-shrink-0" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {requestCount > 0 && (
+        <div className="text-[12px] text-pepo-t2 mt-1.5">
+          {requestCount} {requestCount === 1 ? "anmodning" : "anmodninger"}
+        </div>
+      )}
+    </div>
+  );
+}

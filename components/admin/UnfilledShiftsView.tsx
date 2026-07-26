@@ -5,6 +5,7 @@ import Link from "next/link";
 import Icon from "@/components/Icon";
 import type { CategoryOption, ClientOption, EventListItem, FreelancerOption, ShiftListItem } from "@/lib/admin-types";
 import { formatDayHeading } from "@/lib/format";
+import type { BusyShift } from "@/lib/shift-conflicts";
 import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
 import { EventCard } from "./ShiftBoard";
@@ -20,11 +21,18 @@ import { EventCard } from "./ShiftBoard";
  */
 export default function UnfilledShiftsView({
   events,
+  allEvents,
   clients,
   categories,
   freelancers,
 }: {
   events: EventListItem[];
+  // Virksomhedens FULDE eventliste (før 7-dages-filteret) — se samme prop i
+  // EventDeepLinkView.tsx for hvorfor: kun brugt til at udlede busyShifts,
+  // så "Utilgængelig" også fanger overlap mod vagter UDENFOR de næste 7
+  // dage eller på fuldt bemandede events (som ellers ikke er en del af
+  // `events` her).
+  allEvents: EventListItem[];
   clients: ClientOption[];
   categories: CategoryOption[];
   freelancers: FreelancerOption[];
@@ -70,6 +78,23 @@ export default function UnfilledShiftsView({
       }, 1300)
     );
   }
+
+  // Samme udledning som ShiftBoard.tsx's busyShifts — se dens kommentar.
+  const busyShifts = useMemo<BusyShift[]>(
+    () =>
+      allEvents.flatMap((e) =>
+        e.shifts
+          .filter((s) => s.assignedFreelancerId && (s.status === "assigned" || s.status === "for_resale"))
+          .map((s) => ({
+            shiftId: s.id,
+            freelancerId: s.assignedFreelancerId as string,
+            date: s.shiftDate,
+            startTime: s.startTime,
+            endTime: s.endTime,
+          }))
+      ),
+    [allEvents]
+  );
 
   // Samme sortering (næste event øverst) og gruppering pr. dato som
   // ShiftBoard's listevisning.
@@ -132,7 +157,14 @@ export default function UnfilledShiftsView({
       </div>
 
       {wizard && (
-        <ShiftWizardPanel state={wizard} clients={clients} categories={categories} onClose={() => setWizard(null)} />
+        <ShiftWizardPanel
+          state={wizard}
+          clients={clients}
+          categories={categories}
+          freelancers={freelancers}
+          busyShifts={busyShifts}
+          onClose={() => setWizard(null)}
+        />
       )}
 
       {openShift && (
@@ -142,6 +174,7 @@ export default function UnfilledShiftsView({
           clients={clients}
           categories={categories}
           freelancers={freelancers}
+          busyShifts={busyShifts}
           onClose={() => setOpenShift(null)}
           onAssigned={flashShift}
           onReleased={(shiftId) => flashShift(shiftId, "red")}

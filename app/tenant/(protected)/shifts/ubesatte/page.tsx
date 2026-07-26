@@ -25,6 +25,7 @@ export default async function UnfilledShiftsPage() {
   return (
     <UnfilledShiftsView
       events={unfilledEvents}
+      allEvents={events}
       clients={clients}
       categories={categories}
       freelancers={freelancers}

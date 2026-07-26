@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import type { CategoryOption, ClientOption, EventListItem, FreelancerOption, ShiftListItem } from "@/lib/admin-types";
 import { formatDayHeading } from "@/lib/format";
+import type { BusyShift } from "@/lib/shift-conflicts";
 import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
 import { EventCard } from "./ShiftBoard";
@@ -30,11 +31,17 @@ import { EventCard } from "./ShiftBoard";
  */
 export default function EventDeepLinkView({
   event,
+  allEvents,
   clients,
   categories,
   freelancers,
 }: {
   event: EventListItem;
+  // Virksomhedens FULDE, ikke-paginerede eventliste (samme data som
+  // ShiftBoard.tsx modtager) — kun brugt til at udlede busyShifts nedenfor,
+  // så "Utilgængelig"-tjekket i FreelancerAssignDropdown også fanger
+  // overlap med vagter på ANDRE events end netop dette ene.
+  allEvents: EventListItem[];
   clients: ClientOption[];
   categories: CategoryOption[];
   freelancers: FreelancerOption[];
@@ -48,6 +55,23 @@ export default function EventDeepLinkView({
   const [removingShiftId, setRemovingShiftId] = useState<string | null>(null);
   const [removeStage, setRemoveStage] = useState<"flash" | "fade" | "collapse" | null>(null);
   const removeTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Samme udledning som ShiftBoard.tsx's busyShifts — se dens kommentar.
+  const busyShifts = useMemo<BusyShift[]>(
+    () =>
+      allEvents.flatMap((e) =>
+        e.shifts
+          .filter((s) => s.assignedFreelancerId && (s.status === "assigned" || s.status === "for_resale"))
+          .map((s) => ({
+            shiftId: s.id,
+            freelancerId: s.assignedFreelancerId as string,
+            date: s.shiftDate,
+            startTime: s.startTime,
+            endTime: s.endTime,
+          }))
+      ),
+    [allEvents]
+  );
 
   // Samme mønster som ShiftBoard.tsx — se dens kommentar for hvorfor 1300ms
   // og for grøn (tildeling)/rød (frigivelse)/lilla (gem ændringer) farvevalget.
@@ -108,7 +132,14 @@ export default function EventDeepLinkView({
       </div>
 
       {wizard && (
-        <ShiftWizardPanel state={wizard} clients={clients} categories={categories} onClose={() => setWizard(null)} />
+        <ShiftWizardPanel
+          state={wizard}
+          clients={clients}
+          categories={categories}
+          freelancers={freelancers}
+          busyShifts={busyShifts}
+          onClose={() => setWizard(null)}
+        />
       )}
 
       {openShift && (
@@ -118,6 +149,7 @@ export default function EventDeepLinkView({
           clients={clients}
           categories={categories}
           freelancers={freelancers}
+          busyShifts={busyShifts}
           onClose={() => setOpenShift(null)}
           onAssigned={flashShift}
           onReleased={(shiftId) => flashShift(shiftId, "red")}

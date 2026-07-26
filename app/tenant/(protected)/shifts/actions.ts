@@ -81,6 +81,16 @@ export type ShiftRowInput = {
   endTime: string;
 };
 
+// Bruges kun ved OPRETTELSE af nye vagter (ShiftWizardPanel.tsx's
+// "Tildel vagt"-dropdown pr. række) — ikke af updateShift, som redigerer en
+// allerede eksisterende vagt og håndterer tildeling separat (assignFreelancer/
+// releaseShift, kaldt direkte fra ShiftDetailPanel.tsx). Sat til null hvis
+// admin lod rækken stå på "Ledig vagt" — vagten oprettes da almindeligt åben,
+// som hidtil.
+export type ShiftCreateRowInput = ShiftRowInput & {
+  freelancerId: string | null;
+};
+
 export type VenueFormInput = {
   name: string;
   address: string;
@@ -118,7 +128,7 @@ function eventFieldsForShift(input: EventFormInput) {
   };
 }
 
-export async function createEventWithShifts(input: EventFormInput, rows: ShiftRowInput[]) {
+export async function createEventWithShifts(input: EventFormInput, rows: ShiftCreateRowInput[]) {
   const validationError = validateEvent(input) || validateRows(rows);
   if (validationError) return { success: false as const, error: validationError };
 
@@ -155,7 +165,8 @@ export async function createEventWithShifts(input: EventFormInput, rows: ShiftRo
         category_id: r.categoryId,
         start_time: r.startTime,
         end_time: r.endTime,
-        status: "open" as ShiftStatus,
+        status: (r.freelancerId ? "assigned" : "open") as ShiftStatus,
+        assigned_freelancer_id: r.freelancerId,
         ...shiftFields,
       }))
     )
@@ -168,13 +179,22 @@ export async function createEventWithShifts(input: EventFormInput, rows: ShiftRo
     return { success: false as const, error: "Kunne ikke oprette vagterne. Prøv igen." };
   }
 
-  // #5 Ny(e) ledig(e) vagt(er) — se queueOpenShiftNotifications for hvorfor
-  // dette ikke sender en push direkte (grupperes af cron-jobbet). Afventes
-  // bevidst (se samme begrundelse som i messages/actions.ts sendMessage) —
-  // Vercels serverless-runtime kan afbryde baggrundsarbejde uden await, så
-  // snart funktionen returnerer.
+  // #5 Ny(e) ledig(e) vagt(er) for rækker uden en valgt freelancer — se
+  // queueOpenShiftNotifications for hvorfor dette ikke sender en push
+  // direkte (grupperes af cron-jobbet). Rækker, hvor admin allerede valgte
+  // en freelancer i "Tildel vagt"-dropdownet, får i stedet en almindelig
+  // #1 "Vagt tildelt"-push til netop DEN freelancer — de skal ikke ALSO
+  // ind i køen af "ny ledig vagt"-notifikationer, da vagten aldrig var ledig.
+  // Antager at insertedShifts kommer tilbage i samme rækkefølge som rows
+  // blev indsat i (én multi-row INSERT...RETURNING, ingen ORDER BY) — samme
+  // antagelse koden allerede gjorde her før dette.
   await Promise.all(
-    (insertedShifts ?? []).map((s) => queueOpenShiftNotifications(company.id, s.category_id as string, s.id as string))
+    (insertedShifts ?? []).map((s, i) => {
+      const freelancerId = rows[i]?.freelancerId;
+      return freelancerId
+        ? pushShiftAssigned(s.id as string, freelancerId)
+        : queueOpenShiftNotifications(company.id, s.category_id as string, s.id as string);
+    })
   );
 
   revalidatePath("/shifts");
@@ -286,7 +306,7 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
   return { success: true };
 }
 
-export async function addShiftsToEvent(eventId: string, rows: ShiftRowInput[]) {
+export async function addShiftsToEvent(eventId: string, rows: ShiftCreateRowInput[]) {
   const validationError = validateRows(rows);
   if (validationError) return { success: false, error: validationError };
 
@@ -316,7 +336,8 @@ export async function addShiftsToEvent(eventId: string, rows: ShiftRowInput[]) {
         category_id: r.categoryId,
         start_time: r.startTime,
         end_time: r.endTime,
-        status: "open" as ShiftStatus,
+        status: (r.freelancerId ? "assigned" : "open") as ShiftStatus,
+        assigned_freelancer_id: r.freelancerId,
         title: event.title,
         description: event.description,
         shift_date: event.event_date,
@@ -331,8 +352,14 @@ export async function addShiftsToEvent(eventId: string, rows: ShiftRowInput[]) {
     return { success: false, error: "Kunne ikke tilføje vagterne. Prøv igen." };
   }
 
+  // Se samme forklaring i createEventWithShifts ovenfor.
   await Promise.all(
-    (insertedShifts ?? []).map((s) => queueOpenShiftNotifications(company.id, s.category_id as string, s.id as string))
+    (insertedShifts ?? []).map((s, i) => {
+      const freelancerId = rows[i]?.freelancerId;
+      return freelancerId
+        ? pushShiftAssigned(s.id as string, freelancerId)
+        : queueOpenShiftNotifications(company.id, s.category_id as string, s.id as string);
+    })
   );
 
   revalidatePath("/shifts");
