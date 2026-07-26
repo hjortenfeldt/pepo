@@ -50,7 +50,9 @@ export type OpenShift = {
   date: string;
   startTime: string;
   endTime: string;
+  title: string;
   categoryName: string;
+  venue: string | null;
   alreadyApplied: boolean;
 };
 
@@ -358,13 +360,17 @@ export default function OverviewClient({
                 </div>
                 <div className="flex-1 min-w-0">
                   {/* Samme badge-stil som kategori-pillen øverst på
-                      Vagtdetaljer (ShiftRequestDetail.tsx) — genkendeligt
-                      samme "hvilken jobfunktion"-signal begge steder. "Til
-                      salg"-badge'en (samme amber som resten af appen, se
+                      Vagtdetaljer (ShiftRequestDetail.tsx), men i samme
+                      grønne farve som dato-badgen til venstre — "Mine
+                      vagter" er bevidst grøn hele vejen igennem, "Ledige
+                      vagter" (nedenfor) tilsvarende lilla hele vejen
+                      igennem, så de to sektioner er lette at kende fra
+                      hinanden på farve alene. "Til salg"-badge'en (samme
+                      amber som resten af appen, se
                       [[project_shift_resale_feature]]) står ved siden af på
                       samme linje, ikke under. */}
                   <div className="flex items-center gap-1.5 mb-1">
-                    <span className="inline-flex bg-pepo-pl text-pepo-p rounded-full px-2.5 py-1 text-[12px] font-semibold">
+                    <span className="inline-flex bg-[#eaf3de] text-[#3b6d11] rounded-full px-2.5 py-1 text-[12px] font-semibold">
                       {shift.categoryName}
                     </span>
                     {shift.isForResale && (
@@ -420,23 +426,35 @@ function OpenShiftsList({ promise }: { promise: Promise<OpenShift[]> }) {
             className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
             style={{ animationDelay: `${i * 0.05}s` }}
           >
+            {/* Samme opbygning/informationer som "Mine vagter" ovenfor —
+                kun dato- og jobfunktions-badgen er lilla i stedet for grøn,
+                så de to sektioner er lette at kende fra hinanden på farve
+                alene. "Anmodet" står ved siden af jobfunktions-badge'en på
+                samme linje, ligesom "Til salg" gør i "Mine vagter" — ikke
+                som et separat højre-element, så højre side altid bare er
+                en pil ind til Vagtdetaljer. */}
             <div className="bg-pepo-pl rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
               <div className="text-[9.5px] font-semibold text-pepo-p uppercase">{badge.month}</div>
               <div className="text-[15px] font-bold text-pepo-p">{badge.day}</div>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[13.5px] font-semibold text-pepo-t1 truncate">{shift.categoryName}</div>
-              <div className="text-[12px] text-pepo-t2 mt-0.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="inline-flex bg-pepo-pl text-pepo-p rounded-full px-2.5 py-1 text-[12px] font-semibold">
+                  {shift.categoryName}
+                </span>
+                {shift.alreadyApplied && (
+                  <span className="inline-flex bg-[#FEF3E2] text-[#9A5F00] rounded-full px-2.5 py-1 text-[12px] font-semibold">
+                    Anmodet
+                  </span>
+                )}
+              </div>
+              <div className="text-[13.5px] font-semibold text-pepo-t1 truncate">{shift.title}</div>
+              <div className="text-[12px] text-pepo-t2 mt-0.5 truncate">
                 {shift.startTime}–{shift.endTime}
+                {shift.venue ? ` · ${shift.venue}` : ""}
               </div>
             </div>
-            {shift.alreadyApplied ? (
-              <span className="flex-shrink-0 bg-[#FEF3E2] text-[#9A5F00] rounded-[16px] px-3 py-1.5 text-[12px] font-semibold">
-                Anmodet
-              </span>
-            ) : (
-              <Icon name="chevron-right" size={24} className="text-pepo-t2 flex-shrink-0" />
-            )}
+            <Icon name="chevron-right" size={24} className="text-pepo-t2 flex-shrink-0" />
           </Link>
         );
       })}

@@ -174,7 +174,9 @@ async function getOpenShifts(
 ): Promise<OpenShift[]> {
   const { data: openShiftsData } = await supabase
     .from("shifts")
-    .select("id, shift_date, start_time, end_time, status, assigned_freelancer_id, work_categories(name)")
+    .select(
+      "id, shift_date, start_time, end_time, status, assigned_freelancer_id, events(title), client_venues(name, address, postal_code, city), work_categories(name)"
+    )
     .eq("company_id", companyId)
     .in("status", ["open", "for_resale"])
     .gte("shift_date", today)
@@ -203,12 +205,17 @@ async function getOpenShifts(
     existingInterestShiftIds = (interests ?? []).map((i) => i.shift_id as string);
   }
 
-  return openShiftsRaw.map((s) => ({
-    id: s.id,
-    date: s.shift_date,
-    startTime: hhmm(s.start_time),
-    endTime: hhmm(s.end_time),
-    categoryName: one(s.work_categories)?.name ?? "Ukendt kategori",
-    alreadyApplied: existingInterestShiftIds.includes(s.id),
-  }));
+  return openShiftsRaw.map((s) => {
+    const venue = one(s.client_venues);
+    return {
+      id: s.id,
+      date: s.shift_date,
+      startTime: hhmm(s.start_time),
+      endTime: hhmm(s.end_time),
+      title: one(s.events)?.title ?? "Vagt",
+      categoryName: one(s.work_categories)?.name ?? "Ukendt kategori",
+      venue: venue?.name ?? null,
+      alreadyApplied: existingInterestShiftIds.includes(s.id),
+    };
+  });
 }
