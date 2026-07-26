@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { pushNewShiftRequestToAdmins, queueOpenShiftNotifications } from "@/lib/shift-notifications";
+import { loadOpenShiftDetail } from "@/lib/freelancer-shift-detail";
+import type { OpenShiftDetail } from "@/components/freelancer/ShiftRequestDetail";
 
 /**
  * Stempel-ur: starter en ny time_clock_entries-række for den indloggede
@@ -234,4 +236,21 @@ export async function removePushSubscription(endpoint: string) {
   const supabase = await createClient();
   await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
   return { success: true as const };
+}
+
+/**
+ * Henter data til Vagtdetaljer-overlay-panelet (ShiftDetailPanel.tsx) fra
+ * Overblik-sidens "Mine vagter"/"Ledige vagter" — samme datahentning som
+ * den fulde side på /vagt/[id], men uden redirect: panelet viser i stedet
+ * en "ikke fundet"-besked hvis der returneres null, da et redirect ikke
+ * giver mening midt i et åbent overlay.
+ */
+export async function getShiftDetail(shiftId: string): Promise<OpenShiftDetail | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  return loadOpenShiftDetail(supabase, user.id, shiftId);
 }

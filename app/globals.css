@@ -192,6 +192,30 @@ select {
   animation: pepo-flash-purple 1.3s ease-out;
 }
 
+/* Samme "blink"-mønster igen, men amber/orange (#9A5F00, samme farve som
+   "Til salg"-badgen andre steder i appen) — bruges i Freelancer Appen på
+   Overblik-siden, når man lukker Vagtdetaljer-panelet efter "Sæt vagten til
+   salg"/"Fortryd salg"/"Anmod om vagt"/"Annuller anmodning". Kun ÉN farve
+   her (i modsætning til admin-systemets grøn/rød/lilla), da alle fire
+   handlinger i freelancer-appen skal blinke ens. */
+@keyframes pepo-flash-amber {
+  0%, 100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(154, 95, 0, 0);
+  }
+  20%, 60% {
+    background-color: #fef3e2;
+    box-shadow: 0 0 0 3px rgba(154, 95, 0, 0.25);
+  }
+  40% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(154, 95, 0, 0);
+  }
+}
+.pepo-flash-amber {
+  animation: pepo-flash-amber 1.3s ease-out;
+}
+
 /* Splash-skærmens logo (components/freelancer/SplashScreen.tsx) — toner frem
    imens det vokser, og bounder let tilbage i størrelse mod slutningen
    (ease-out). Varer præcis 2 sek., magen til SplashScreen's MIN_VISIBLE_MS —

@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, use, useEffect, useState, useTransition } from "react";
+import { Suspense, use, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import { startShift, stopShift } from "@/app/freelancer/(protected)/actions";
 import { haversineMeters } from "@/lib/geo";
 import { PullToRefreshHeader } from "@/components/freelancer/PullToRefresh";
+import ShiftDetailPanel from "@/components/freelancer/ShiftDetailPanel";
 
 export type ActiveShift = {
   entryId: string;
@@ -106,6 +107,30 @@ export default function OverviewClient({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [geoCheck, setGeoCheck] = useState<GeoCheck>({ status: "skipped" });
+
+  // Vagtdetaljer-overlay-panelet (ShiftDetailPanel.tsx), åbnet fra en række i
+  // "Mine vagter" eller "Ledige vagter" herunder — se panelets egen
+  // doc-kommentar for hvorfor det er et rigtigt overlay og ikke en
+  // side-navigation til /vagt/[id].
+  const [openShiftId, setOpenShiftId] = useState<string | null>(null);
+  // Amber-blink på det kort, brugeren lige har ændret status på inde i
+  // panelet (sæt/fortryd til salg, anmod/annuller anmodning) — samme
+  // engangs-timeout-mønster som adminsystemets flashShift i ShiftBoard.tsx,
+  // blot altid ÉN farve her (se pepo-flash-amber i globals.css).
+  const [flash, setFlash] = useState<string | null>(null);
+  const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function flashShift(shiftId: string) {
+    if (flashTimeout.current) clearTimeout(flashTimeout.current);
+    setFlash(shiftId);
+    flashTimeout.current = setTimeout(() => setFlash(null), 1300);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (flashTimeout.current) clearTimeout(flashTimeout.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeShift) return;
@@ -348,10 +373,14 @@ export default function OverviewClient({
           {upcomingShifts.map((shift, i) => {
             const badge = dateBadge(shift.date);
             return (
-              <Link
+              <button
+                type="button"
                 key={shift.id}
-                href={`/vagt/${shift.id}`}
-                className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
+                onClick={() => setOpenShiftId(shift.id)}
+                className={
+                  "w-full text-left pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity " +
+                  (flash === shift.id ? "pepo-flash-amber" : "")
+                }
                 style={{ animationDelay: `${i * 0.05}s` }}
               >
                 <div className="bg-[#eaf3de] rounded-[10px] px-2 py-1.5 text-center min-w-[42px] flex-shrink-0">
@@ -386,7 +415,7 @@ export default function OverviewClient({
                   </div>
                 </div>
                 <Icon name="chevron-right" size={24} className="text-pepo-t2 flex-shrink-0" />
-              </Link>
+              </button>
             );
           })}
         </div>
@@ -401,14 +430,26 @@ export default function OverviewClient({
           liste popper ind for sig selv når den er klar, med en skeleton der
           matcher varigheden af de rigtige rækker i mellemtiden. */}
       <Suspense fallback={<OpenShiftsSkeleton />}>
-        <OpenShiftsList promise={openShiftsPromise} />
+        <OpenShiftsList promise={openShiftsPromise} onOpen={setOpenShiftId} flash={flash} />
       </Suspense>
       </div>
+
+      {openShiftId && (
+        <ShiftDetailPanel shiftId={openShiftId} onClose={() => setOpenShiftId(null)} onChanged={flashShift} />
+      )}
     </div>
   );
 }
 
-function OpenShiftsList({ promise }: { promise: Promise<OpenShift[]> }) {
+function OpenShiftsList({
+  promise,
+  onOpen,
+  flash,
+}: {
+  promise: Promise<OpenShift[]>;
+  onOpen: (shiftId: string) => void;
+  flash: string | null;
+}) {
   const openShifts = use(promise);
 
   if (openShifts.length === 0) {
@@ -420,10 +461,14 @@ function OpenShiftsList({ promise }: { promise: Promise<OpenShift[]> }) {
       {openShifts.map((shift, i) => {
         const badge = dateBadge(shift.date);
         return (
-          <Link
+          <button
+            type="button"
             key={shift.id}
-            href={`/vagt/${shift.id}`}
-            className="pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity"
+            onClick={() => onOpen(shift.id)}
+            className={
+              "w-full text-left pepo-rise bg-pepo-wh border border-pepo-bd rounded-[14px] p-3 flex items-center gap-3 active:opacity-80 transition-opacity " +
+              (flash === shift.id ? "pepo-flash-amber" : "")
+            }
             style={{ animationDelay: `${i * 0.05}s` }}
           >
             {/* Samme opbygning/informationer som "Mine vagter" ovenfor —
@@ -455,7 +500,7 @@ function OpenShiftsList({ promise }: { promise: Promise<OpenShift[]> }) {
               </div>
             </div>
             <Icon name="chevron-right" size={24} className="text-pepo-t2 flex-shrink-0" />
-          </Link>
+          </button>
         );
       })}
     </div>
