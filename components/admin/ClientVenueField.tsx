@@ -72,7 +72,35 @@ export default function ClientVenueField({
 
   return (
     <div className="mb-4">
-      <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">Kunde &amp; sted</label>
+      {/* "Arbejdssted" (vagtens venue) står nu ØVERST, "Kundeoplysninger"
+          (kunde-søgning/-detaljer) NEDENUNDER, med luft imellem og hver sin
+          egen label — omvendt af den oprindelige rækkefølge, men samme
+          underliggende afhængighed: venue-listen kommer stadig fra den valgte
+          kunde, så denne sektion vises kun når en kunde (med mindst ét
+          arbejdssted) reelt er valgt nedenfor. */}
+      {selectedClient && selectedClient.venues.length > 0 && (
+        <div className="mb-5">
+          <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+            Arbejdssted
+          </label>
+          <select
+            value={venueId ?? ""}
+            onChange={(e) => onChange(clientId, e.target.value || null)}
+            className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p bg-pepo-wh"
+          >
+            {selectedClient.venues.length > 1 && <option value="">Vælg arbejdssted/venue</option>}
+            {selectedClient.venues.map((v) => (
+              <option key={v.id} value={v.id}>
+                {formatVenueLabel(v)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+        Kundeoplysninger
+      </label>
       <div className="relative">
         <div className="flex gap-2">
           <input
@@ -132,21 +160,6 @@ export default function ClientVenueField({
           </div>
         )}
       </div>
-
-      {selectedClient && selectedClient.venues.length > 0 && (
-        <select
-          value={venueId ?? ""}
-          onChange={(e) => onChange(clientId, e.target.value || null)}
-          className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p bg-pepo-wh mt-2"
-        >
-          {selectedClient.venues.length > 1 && <option value="">Vælg arbejdssted/venue</option>}
-          {selectedClient.venues.map((v) => (
-            <option key={v.id} value={v.id}>
-              {formatVenueLabel(v)}
-            </option>
-          ))}
-        </select>
-      )}
 
       {expandOpen && selectedClient && (
         <div className="mt-2.5 border border-pepo-bd rounded-[10px] p-3.5">
