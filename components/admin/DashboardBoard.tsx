@@ -16,7 +16,10 @@ const MAX_OFFSET = 12;
 const MIN_OFFSET = 3;
 
 const numberFmt = new Intl.NumberFormat("da-DK");
-const hourFmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 1 });
+// Rundet til nærmeste hele time — ingen decimaler i "Timer arbejdet"/"Timer
+// planlagt" i Statistik-kortet (ønsket af Hjorth 2026-07-27, tidligere viste
+// den op til 1 decimal).
+const hourFmt = new Intl.NumberFormat("da-DK", { maximumFractionDigits: 0 });
 
 function computeBarMetrics(colWidth: number) {
   const available = colWidth * 0.82;
