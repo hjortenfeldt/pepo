@@ -122,6 +122,7 @@ export default function EventDeepLinkView({
 
         <EventCard
           event={event}
+          freelancers={freelancers}
           flash={flash}
           removingShiftId={removingShiftId}
           removeStage={removeStage}

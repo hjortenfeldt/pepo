@@ -51,3 +51,28 @@ export function countPendingShiftRequests(events: PendingRequestEvent[], today: 
   }
   return count;
 }
+
+export type PendingRequestFreelancer = { id: string; categories: string[] };
+
+/**
+ * Antal "pending" anmodninger til DENNE vagt, men KUN fra freelancere der
+ * rent faktisk matcher vagtens jobfunktion lige nu — ikke rå
+ * `shift.interests.length`/`.filter(pending).length`. Uden dette kan en
+ * anmodning fra en freelancer, der ikke (længere) har jobfunktionen (fx
+ * ændret senere, eller en forældet anmodning fra før shift_interests'
+ * status blev holdt i sync med tildeling/frigivelse, se
+ * [[project_shift_detail_panel_deferred_save]]), tælles med her uden at
+ * kunne vises som et "Anmodet"-mærkat i FreelancerAssignDropdown.tsx (som
+ * KUN viser mærkater for freelancere der matcher jobfunktionen) — dette var
+ * netop den uoverensstemmelse Hjorth rapporterede 2026-07-27 (ShiftCard
+ * viste "2 vagtanmodninger", dropdownet viste kun ét "Anmodet"-mærkat).
+ * Delt her så ShiftCard (ShiftBoard.tsx) og FreelancerAssignDropdown.tsx's
+ * tilsvarende beregning bygger på samme regel.
+ */
+export function countMatchingPendingRequests(
+  shift: { category: string; interests: { freelancerId: string; status: InterestStatus }[] },
+  freelancers: PendingRequestFreelancer[]
+): number {
+  const pendingIds = new Set(shift.interests.filter((i) => i.status === "pending").map((i) => i.freelancerId));
+  return freelancers.filter((f) => pendingIds.has(f.id) && f.categories.includes(shift.category)).length;
+}

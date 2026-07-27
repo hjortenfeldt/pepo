@@ -11,7 +11,7 @@ import type {
   ShiftStatus,
 } from "@/lib/admin-types";
 import { formatDayHeading, formatTimeRange, todayIso } from "@/lib/format";
-import { hasPendingShiftRequest, countPendingShiftRequests } from "@/lib/shift-request-utils";
+import { hasPendingShiftRequest, countPendingShiftRequests, countMatchingPendingRequests } from "@/lib/shift-request-utils";
 import type { BusyShift } from "@/lib/shift-conflicts";
 import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
@@ -378,6 +378,7 @@ export default function ShiftBoard({
                       <EventCard
                         key={event.id}
                         event={event}
+                        freelancers={freelancers}
                         flash={flash}
                         removingShiftId={removingShiftId}
                         removeStage={removeStage}
@@ -433,6 +434,7 @@ export default function ShiftBoard({
                   <EventCard
                     key={event.id}
                     event={event}
+                    freelancers={freelancers}
                     flash={flash}
                     removingShiftId={removingShiftId}
                     removeStage={removeStage}
@@ -482,6 +484,7 @@ export default function ShiftBoard({
 // kort-visningen ikke skal duplikeres.
 export function EventCard({
   event,
+  freelancers,
   flash,
   removingShiftId,
   removeStage,
@@ -490,6 +493,11 @@ export function EventCard({
   onOpenShift,
 }: {
   event: EventListItem;
+  // Virksomhedens fulde freelancerliste — kun brugt til at udregne et
+  // korrekt "X vagtanmodninger"-tal pr. vagt (se ShiftCard's
+  // pendingRequestCount nedenfor), IKKE til selve tildelingen (den sker i
+  // ShiftDetailPanel/ShiftWizardPanel).
+  freelancers: FreelancerOption[];
   flash: { shiftId: string; color: "green" | "red" | "purple" } | null;
   // Vagten der lige nu kører "Slet vagt"-animationen (se ShiftCard) — holdes
   // midlertidigt i activeShifts nedenfor, selvom dens status allerede er
@@ -644,6 +652,7 @@ export function EventCard({
                   cardRefs.current[i] = el;
                 }}
                 shift={shift}
+                pendingRequestCount={countMatchingPendingRequests(shift, freelancers)}
                 flashColor={shift.id === flash?.shiftId ? flash.color : null}
                 removeStage={shift.id === removingShiftId ? removeStage ?? null : null}
                 onClick={() => onOpenShift(shift)}
@@ -660,6 +669,13 @@ const ShiftCard = forwardRef<
   HTMLDivElement,
   {
     shift: ShiftListItem;
+    // Antal "pending" anmodninger fra freelancere der rent faktisk matcher
+    // vagtens jobfunktion — udregnet af forælderen (EventCard) via
+    // countMatchingPendingRequests(), IKKE shift.interests.length/rå
+    // status-filtrering, som kunne tælle en anmodning med der slet ikke kan
+    // vises som et "Anmodet"-mærkat i FreelancerAssignDropdown.tsx (se
+    // [[project_shift_detail_panel_deferred_save]]).
+    pendingRequestCount: number;
     // null = ikke ved at blinke. "green" efter en tildeling, "red" efter en
     // frigivelse, "purple" efter en almindelig "Gem ændringer"/"Duplikér
     // vagt" — se flashShift i ShiftBoard.tsx/EventDeepLinkView.tsx/
@@ -684,7 +700,7 @@ const ShiftCard = forwardRef<
     removeStage: "flash" | "fade" | "collapse" | null;
     onClick: () => void;
   }
->(function ShiftCard({ shift, flashColor, removeStage, onClick }, ref) {
+>(function ShiftCard({ shift, pendingRequestCount, flashColor, removeStage, onClick }, ref) {
   // For en "til salg"-vagt hænger sælgeren (assignedFreelancerName) stadig
   // ved som assigned_freelancer_id, selvom vagten reelt er ledig igen — så
   // snart nogen har anmodet om den, skal antallet af anmodninger vises i
@@ -693,12 +709,12 @@ const ShiftCard = forwardRef<
   // navn altid, uanset (der forekommer reelt aldrig anmodninger på en
   // allerede tildelt vagt).
   const rightText =
-    shift.status === "for_resale" && shift.interests.length > 0
-      ? `${shift.interests.length} vagtanmodning${shift.interests.length === 1 ? "" : "er"}`
+    shift.status === "for_resale" && pendingRequestCount > 0
+      ? `${pendingRequestCount} vagtanmodning${pendingRequestCount === 1 ? "" : "er"}`
       : shift.assignedFreelancerName
       ? shift.assignedFreelancerName
-      : shift.interests.length > 0
-      ? `${shift.interests.length} vagtanmodning${shift.interests.length === 1 ? "" : "er"}`
+      : pendingRequestCount > 0
+      ? `${pendingRequestCount} vagtanmodning${pendingRequestCount === 1 ? "" : "er"}`
       : "";
   const flashClass =
     removeStage === "flash"

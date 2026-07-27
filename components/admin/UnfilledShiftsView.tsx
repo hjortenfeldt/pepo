@@ -141,6 +141,7 @@ export default function UnfilledShiftsView({
                     <EventCard
                       key={event.id}
                       event={event}
+                      freelancers={freelancers}
                       flash={flash}
                       removingShiftId={removingShiftId}
                       removeStage={removeStage}
