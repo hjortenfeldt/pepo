@@ -23,7 +23,7 @@ export type FreelancerBadgeKind = "anmodet" | "til-salg" | "utilgaengelig";
 const BADGE_LABEL: Record<FreelancerBadgeKind, string> = {
   anmodet: "Anmodet",
   "til-salg": "Til salg",
-  utilgaengelig: "Utilgængelig",
+  utilgaengelig: "Konflikt",
 };
 
 const BADGE_CLASS: Record<FreelancerBadgeKind, string> = {
