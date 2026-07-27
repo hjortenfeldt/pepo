@@ -266,12 +266,12 @@ export default function ShiftRequestDetail({
     </div>
   );
 
-  // pb-7 (dobbelt af pt-3.5) i stedet for ens py-3.5 hele vejen rundt —
+  // pb-10 (pt-3.5 uændret) i stedet for ens py-3.5 hele vejen rundt —
   // knapperne heri sad for tæt på bunden af skærmen og blev delvist skjult
   // bag iPhonens afrundede hjørner/home-indicator-området (ønsket af Hjorth
-  // 2026-07-27: dobbelt så meget luft under knapperne som før).
+  // 2026-07-27, først forsøgt med pb-7, som stadig ikke var nok).
   const footerContent = (
-    <div className={embedded ? "bg-pepo-wh border-t border-pepo-bd px-[var(--page-px)] pt-3.5 pb-7 flex-shrink-0" : "bg-pepo-wh border-t border-pepo-bd px-[var(--page-px)] pt-3.5 pb-7"}>
+    <div className={embedded ? "bg-pepo-wh border-t border-pepo-bd px-[var(--page-px)] pt-3.5 pb-10 flex-shrink-0" : "bg-pepo-wh border-t border-pepo-bd px-[var(--page-px)] pt-3.5 pb-10"}>
       {isSellerListing ? (
         <>
           <div className="text-center text-[12.5px] text-pepo-t3 py-2.5">
