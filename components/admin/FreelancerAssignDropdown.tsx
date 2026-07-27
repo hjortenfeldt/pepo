@@ -11,6 +11,11 @@ import type { FreelancerOption, ShiftInterestItem } from "@/lib/admin-types";
 // afrunding/skygge), blot med et scrollbart, kapslet listevindue (se
 // AdminTopBar's mobilnav for samme max-height+overflow-mønster).
 //
+// Triggeren (lukket tilstand) og hver række i den åbne liste deler samme
+// visuelle opbygning (avatar/ikon + navn + evt. mærkater) via RowAvatar/
+// RowBadges nedenfor — den valgte freelancer skal se identisk ud, uanset om
+// den vises lukket eller inde i selve listen.
+//
 // [[project_unified_assign_dropdown]] for baggrund/beslutninger.
 export type FreelancerBadgeKind = "anmodet" | "til-salg" | "utilgaengelig";
 
@@ -35,6 +40,37 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+// null = "Ledig vagt" — rødt spørgsmålstegn-ikon i stedet for et
+// initial-badge, samme røde farve som "Mangler"-status andre steder i
+// systemet (fx ShiftBoard.tsx's STATUS_BADGE_CLASS.open).
+function RowAvatar({ freelancerId, name }: { freelancerId: string | null; name: string }) {
+  if (freelancerId === null) {
+    return (
+      <div className="w-[30px] h-[30px] rounded-full bg-[#FDECEA] text-[#C0021A] flex items-center justify-center flex-shrink-0">
+        <Icon name="question-mark" size={16} />
+      </div>
+    );
+  }
+  return (
+    <div className="w-[30px] h-[30px] rounded-full bg-pepo-pl text-pepo-p text-[11px] font-medium flex items-center justify-center flex-shrink-0">
+      {initials(name)}
+    </div>
+  );
+}
+
+function RowBadges({ badges }: { badges: FreelancerBadgeKind[] }) {
+  if (badges.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1.5 flex-shrink-0">
+      {badges.map((b) => (
+        <span key={b} className={"rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap " + BADGE_CLASS[b]}>
+          {BADGE_LABEL[b]}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function FreelancerAssignDropdown({
   freelancers,
   selectedFreelancerId,
@@ -52,7 +88,7 @@ export default function FreelancerAssignDropdown({
   /** Tom for en vagt der endnu ikke er oprettet (kan ikke have anmodninger). */
   interests: ShiftInterestItem[];
   /** Sat hvis DENNE vagt selv har status "for_resale" — viser "Til salg" ud
-   * for sælgerens (= selectedFreelancerId's) eget navn i listen. */
+   * for sælgerens (= selectedFreelancerId's) eget navn. */
   isForResale: boolean;
   conflictFreelancerIds: Set<string>;
   /** null = "Ledig vagt" valgt (frigiv/lad stå ledig). */
@@ -89,6 +125,7 @@ export default function FreelancerAssignDropdown({
   }
 
   const requestCount = interests.length;
+  const selectedBadges = selectedFreelancerId ? badgesFor(selectedFreelancerId) : [];
 
   return (
     <div>
@@ -101,16 +138,11 @@ export default function FreelancerAssignDropdown({
           disabled={disabled}
           className="w-full flex items-center gap-2.5 border border-pepo-bds rounded-[10px] px-2.5 py-2 text-left bg-pepo-wh disabled:opacity-50"
         >
-          {selectedFreelancerId && selectedFreelancerName ? (
-            <>
-              <div className="w-[30px] h-[30px] rounded-full bg-pepo-pl text-pepo-p text-[11px] font-medium flex items-center justify-center flex-shrink-0">
-                {initials(selectedFreelancerName)}
-              </div>
-              <span className="text-[13.5px] font-medium text-pepo-t1 flex-1 truncate">{selectedFreelancerName}</span>
-            </>
-          ) : (
-            <span className="text-[13.5px] text-pepo-t2 flex-1">Ledig vagt</span>
-          )}
+          <RowAvatar freelancerId={selectedFreelancerId} name={selectedFreelancerName ?? ""} />
+          <span className="text-[13.5px] font-medium text-pepo-t1 flex-1 truncate">
+            {selectedFreelancerId && selectedFreelancerName ? selectedFreelancerName : "Ledig vagt"}
+          </span>
+          <RowBadges badges={selectedBadges} />
           <Icon
             name="chevron-down"
             size={18}
@@ -123,9 +155,10 @@ export default function FreelancerAssignDropdown({
             <button
               type="button"
               onClick={() => select(null)}
-              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[9px] text-[13.5px] font-medium text-pepo-t1 hover:bg-pepo-su transition-colors"
+              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[9px] hover:bg-pepo-su transition-colors"
             >
-              <span className="flex-1 text-left">Ledig vagt</span>
+              <RowAvatar freelancerId={null} name="" />
+              <span className="text-[13.5px] font-medium text-pepo-t1 flex-1 text-left truncate">Ledig vagt</span>
               {selectedFreelancerId === null && <Icon name="check" size={16} className="text-pepo-p flex-shrink-0" />}
             </button>
 
@@ -142,17 +175,12 @@ export default function FreelancerAssignDropdown({
                   key={f.id}
                   type="button"
                   onClick={() => select(f.id)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[9px] text-[13.5px] font-medium text-pepo-t1 hover:bg-pepo-su transition-colors"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[9px] hover:bg-pepo-su transition-colors"
                 >
-                  <span className="flex-1 text-left truncate">{f.fullName}</span>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {badges.map((b) => (
-                      <span key={b} className={"rounded-full px-2 py-0.5 text-[11px] font-semibold " + BADGE_CLASS[b]}>
-                        {BADGE_LABEL[b]}
-                      </span>
-                    ))}
-                    {f.id === selectedFreelancerId && <Icon name="check" size={16} className="text-pepo-p flex-shrink-0" />}
-                  </div>
+                  <RowAvatar freelancerId={f.id} name={f.fullName} />
+                  <span className="text-[13.5px] font-medium text-pepo-t1 flex-1 text-left truncate">{f.fullName}</span>
+                  <RowBadges badges={badges} />
+                  {f.id === selectedFreelancerId && <Icon name="check" size={16} className="text-pepo-p flex-shrink-0" />}
                 </button>
               );
             })}
