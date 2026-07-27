@@ -576,43 +576,50 @@ export function EventCard({
     <div className="flex flex-col gap-2">
       <div
         onClick={onEditEvent}
-        className="bg-pepo-wh border border-pepo-bd rounded-xl px-[15px] py-[13px] cursor-pointer hover:border-pepo-pm hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] transition-colors flex items-center justify-between gap-2.5"
+        className="bg-pepo-wh border border-pepo-bd rounded-xl px-[15px] py-[13px] cursor-pointer hover:border-pepo-pm hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] transition-colors"
       >
-        <div className="min-w-0 flex-1">
-          <div className="text-[13.5px] font-semibold text-pepo-t1 py-px">{event.title}</div>
-          <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-            <Icon name="building-store" size={14} className="text-pepo-t3 flex-shrink-0" />
-            {event.clientName}
-          </div>
-          {event.venueLabel && (
-            <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-              <Icon name="map-pin" size={14} className="text-pepo-t3 flex-shrink-0" />
-              {event.venueLabel}
-            </div>
-          )}
-          {event.venueDistanceKm != null && (
-            <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-              <Icon name="route" size={14} className="text-pepo-t3 flex-shrink-0" />
-              Afstand: {kmFmt.format(event.venueDistanceKm)} km.
-            </div>
-          )}
-          {event.transportSurchargeKr != null && (
-            <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-              <Icon name="car" size={14} className="text-pepo-t3 flex-shrink-0" />
-              Transporttillæg (t/r): {krFmt.format(event.transportSurchargeKr)} kr.
-            </div>
-          )}
+        {/* Titel + knap på samme linje, knappen topjusteret (matcher
+            titlens linje), så resten af kort-infoen nedenfor kan bruge hele
+            kortets bredde i stedet for at dele den med en knap ved siden af
+            sig — ønsket af Hjorth 2026-07-27. */}
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="min-w-0 flex-1 text-[13.5px] font-semibold text-pepo-t1 py-px">{event.title}</div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddShift();
+            }}
+            className="flex-shrink-0 h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center whitespace-nowrap"
+          >
+            Til vagt
+          </button>
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddShift();
-          }}
-          className="flex-shrink-0 h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center gap-1.5 whitespace-nowrap"
-        >
-          <Icon name="plus" size={14} />
-          Tilføj vagt til event
-        </button>
+        <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
+          <Icon name="building-store" size={21} className="text-pepo-t2 flex-shrink-0" />
+          {event.clientName}
+        </div>
+        {event.venueLabel && (
+          // items-start (ikke items-center) så pin-ikonet altid følger
+          // toppen af venue-teksten, i stedet for at flyde midt i hele
+          // linjen når teksten wrapper til to linjer.
+          <div className="text-xs text-pepo-t2 mt-0.5 flex items-start gap-1.5">
+            <Icon name="map-pin" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
+            {event.venueLabel}
+          </div>
+        )}
+        {(event.venueDistanceKm != null || event.transportSurchargeKr != null) && (
+          // Afstand og transporttillæg slået sammen på én linje (kun ét
+          // route-ikon, bil-ikonet droppet) — ønsket af Hjorth 2026-07-27.
+          <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
+            <Icon name="route" size={21} className="text-pepo-t2 flex-shrink-0" />
+            <span>
+              {event.venueDistanceKm != null && `Afstand: ${kmFmt.format(event.venueDistanceKm)} km.`}
+              {event.venueDistanceKm != null && event.transportSurchargeKr != null && " — "}
+              {event.transportSurchargeKr != null &&
+                `Transporttillæg (t/r): ${krFmt.format(event.transportSurchargeKr)} kr.`}
+            </span>
+          </div>
+        )}
       </div>
       {activeShifts.length > 0 && (
         <div ref={containerRef} className="relative pl-6 flex flex-col gap-2">
