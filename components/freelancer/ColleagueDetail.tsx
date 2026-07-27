@@ -24,7 +24,7 @@ export default function ColleagueDetail({
         <div className="z-10 bg-pepo-wh px-4 py-3 border-b border-pepo-bd flex items-center">
           <Link href="/kontakter" className="flex items-center gap-2 text-pepo-t1 -ml-1 px-1 py-0.5">
             <Icon name="arrow-left" size={18} />
-            <span className="text-[14px] font-medium">Kontakter</span>
+            <span className="text-[14px] font-medium">Kollegaer</span>
           </Link>
         </div>
       </PullToRefreshHeader>
@@ -44,18 +44,22 @@ export default function ColleagueDetail({
         </div>
 
         <div className="flex items-center gap-8 mt-5">
-          <a href={`tel:${colleague.phone}`} className="flex flex-col items-center gap-1.5">
-            <div className="w-12 h-12 rounded-full bg-pepo-p flex items-center justify-center">
-              <Icon name="phone" size={20} className="text-white" />
-            </div>
-            <span className="text-[11.5px] font-medium text-pepo-t2">Opkald</span>
-          </a>
-          <a href={`sms:${colleague.phone}`} className="flex flex-col items-center gap-1.5">
-            <div className="w-12 h-12 rounded-full bg-pepo-p flex items-center justify-center">
-              <Icon name="message-circle" size={20} className="text-white" />
-            </div>
-            <span className="text-[11.5px] font-medium text-pepo-t2">Besked</span>
-          </a>
+          {colleague.phone && (
+            <a href={`tel:${colleague.phone}`} className="flex flex-col items-center gap-1.5">
+              <div className="w-12 h-12 rounded-full bg-pepo-p flex items-center justify-center">
+                <Icon name="phone" size={20} className="text-white" />
+              </div>
+              <span className="text-[11.5px] font-medium text-pepo-t2">Opkald</span>
+            </a>
+          )}
+          {colleague.phone && (
+            <a href={`sms:${colleague.phone}`} className="flex flex-col items-center gap-1.5">
+              <div className="w-12 h-12 rounded-full bg-pepo-p flex items-center justify-center">
+                <Icon name="message-circle" size={20} className="text-white" />
+              </div>
+              <span className="text-[11.5px] font-medium text-pepo-t2">Besked</span>
+            </a>
+          )}
           {colleague.email && (
             <a href={`mailto:${colleague.email}`} className="flex flex-col items-center gap-1.5">
               <div className="w-12 h-12 rounded-full bg-pepo-p flex items-center justify-center">
@@ -66,12 +70,19 @@ export default function ColleagueDetail({
           )}
         </div>
 
+        {/* colleague.phone/birth_date er null for virksomhedens admins
+            (admin_users har ikke disse felter) — begge rækker udelades da
+            helt i stedet for at vise en tom/forkert værdi. */}
         <div className="w-full bg-pepo-wh border border-pepo-bd rounded-[14px] mt-7 divide-y divide-pepo-bd">
           {colleague.email && (
             <InfoRow icon="mail" label="E-mailadresse" value={colleague.email} href={`mailto:${colleague.email}`} />
           )}
-          <InfoRow icon="phone" label="Telefon" value={colleague.phone} href={`tel:${colleague.phone}`} />
-          <InfoRow icon="cake" label="Fødselsdato" value={formatDateDisplay(colleague.birth_date)} />
+          {colleague.phone && (
+            <InfoRow icon="phone" label="Telefon" value={colleague.phone} href={`tel:${colleague.phone}`} />
+          )}
+          {colleague.birth_date && (
+            <InfoRow icon="cake" label="Fødselsdato" value={formatDateDisplay(colleague.birth_date)} />
+          )}
           <InfoRow
             icon="calendar-plus"
             label="Oprettelsesdato"

@@ -208,10 +208,14 @@ export const getCompanyContactInfo = cache(
 export type CompanyColleague = {
   id: string;
   full_name: string;
-  phone: string;
+  // null for virksomhedens admins (admin_users har hverken telefon eller
+  // fødselsdato) — se get_company_colleague_directory()'s UNION ALL af
+  // freelancer_profiles og admin_users, tilføjet så adminerne automatisk
+  // vises i "Kollegaer"-listen sammen med de øvrige godkendte freelancere.
+  phone: string | null;
   email: string | null;
   profile_image_url: string | null;
-  birth_date: string;
+  birth_date: string | null;
   created_at: string;
   category_names: string[];
 };

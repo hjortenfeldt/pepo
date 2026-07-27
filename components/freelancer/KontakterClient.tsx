@@ -49,7 +49,7 @@ export default function KontakterClient({
           PullToRefresh.tsx's doc-kommentar). */}
       <PullToRefreshHeader>
         <div className="z-10 bg-pepo-su px-[var(--page-px)] pt-4 pb-3 border-b border-pepo-bd pepo-rise">
-          <div className="text-[20px] font-bold text-pepo-t1 mb-3">Kontakter</div>
+          <div className="text-[20px] font-bold text-pepo-t1 mb-3">Kollegaer</div>
           <div className="flex items-center gap-2 bg-pepo-wh border border-pepo-bd rounded-[10px] px-3 py-2.5">
             <Icon name="search" size={16} className="text-pepo-t3 flex-shrink-0" />
             <input
@@ -78,12 +78,17 @@ export default function KontakterClient({
               <div className="text-[11.5px] font-semibold text-pepo-t3 uppercase tracking-wide pt-4 pb-1.5">
                 {letter}
               </div>
-              <div className="flex flex-col">
+              {/* border-t her + border-b (uden last:border-b-0) på hver
+                  række, i stedet for kun border-b, så der er en
+                  streg-adskillelse både LIGE UNDER bogstav-overskriften og
+                  EFTER sidste navn i sektionen — de manglede begge før
+                  (kun stregerne MELLEM navnene fandtes). */}
+              <div className="flex flex-col border-t border-pepo-bd">
                 {people.map((person) => (
                   <Link
                     key={person.id}
                     href={`/kontakter/${person.id}`}
-                    className="flex items-center gap-3 py-2.5 border-b border-pepo-bd last:border-b-0 active:opacity-70 transition-opacity"
+                    className="flex items-center gap-3 py-2.5 border-b border-pepo-bd active:opacity-70 transition-opacity"
                   >
                     <div className="w-10 h-10 rounded-full bg-pepo-pl text-pepo-p text-[13px] font-semibold flex items-center justify-center overflow-hidden flex-shrink-0">
                       {person.profile_image_url ? (
@@ -100,9 +105,6 @@ export default function KontakterClient({
                           <span className="text-pepo-t3 font-normal"> (dig)</span>
                         )}
                       </div>
-                      {person.category_names[0] && (
-                        <div className="text-[12px] text-pepo-t2 truncate">{person.category_names[0]}</div>
-                      )}
                     </div>
                     <Icon name="chevron-right" size={24} className="text-pepo-t2 flex-shrink-0" />
                   </Link>

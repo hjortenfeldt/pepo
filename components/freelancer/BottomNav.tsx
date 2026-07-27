@@ -11,7 +11,7 @@ export const TABS = [
   { href: "/", label: "Overblik", icon: "layout-grid" },
   { href: "/vagtplan", label: "Vagtplan", icon: "calendar" },
   { href: "/beskeder", label: "Beskeder", icon: "message-circle" },
-  { href: "/kontakter", label: "Kontakter", icon: "users" },
+  { href: "/kontakter", label: "Kollegaer", icon: "users" },
   { href: "/mere", label: "Mere", icon: "dots" },
 ] as const;
 
