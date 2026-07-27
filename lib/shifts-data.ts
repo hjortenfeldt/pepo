@@ -216,15 +216,26 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
     const client = one(e.clients);
     const venue = one(e.client_venues);
 
-    // Antal freelancere transporttillægget beregnes for: distinkte tildelte
-    // freelancere på eventets ikke-annullerede vagter. Bevidst distinkt
-    // (ikke antal vagter) — en freelancer der arbejder to vagter samme dag
-    // på samme event kører kun derud én gang.
-    const freelancerCount = new Set(
+    // Antal "ture" transporttillægget beregnes for: tælles ud fra ALLE
+    // ikke-annullerede vagter på eventet, uanset status — også "open"
+    // (endnu ikke tildelt) — så tenants kan fakturere kunden for
+    // transporttillægget FØR eventet er fuldt bemandet (ønsket af Hjorth
+    // 2026-07-27, se [[project_transport_surcharge_feature]]). For vagter
+    // der ER tildelt (assigned/for_resale/completed) tælles distinkte
+    // freelancer-id'er — en freelancer der arbejder to vagter samme dag på
+    // samme event kører kun derud én gang. For endnu-åbne vagter kender vi
+    // ikke personen, så hver åben vagt tæller som sin egen tur (bevidst
+    // forsigtigt/konservativt skøn, fremfor at antage den samme person
+    // dækker flere åbne vagter).
+    const assignedFreelancerIds = new Set(
       (e.shifts ?? [])
         .filter((s) => s.status !== "cancelled" && s.assigned_freelancer_id)
         .map((s) => s.assigned_freelancer_id)
-    ).size;
+    );
+    const openShiftCount = (e.shifts ?? []).filter(
+      (s) => s.status !== "cancelled" && !s.assigned_freelancer_id
+    ).length;
+    const freelancerCount = assignedFreelancerIds.size + openShiftCount;
     // Tur/retur: freelanceren skal jo hjem igen efter eventet, så selve
     // tillægget beregnes på den DOBBELTE afstand — mens "Afstand"-linjen på
     // kortet fortsat viser den rigtige, én-vejs køreafstand (det tal folk
