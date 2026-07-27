@@ -462,7 +462,6 @@ export default function ShiftBoard({
         <ShiftDetailPanel
           shift={openShift.shift}
           event={openShift.event}
-          clients={clients}
           categories={categories}
           freelancers={freelancers}
           busyShifts={busyShifts}

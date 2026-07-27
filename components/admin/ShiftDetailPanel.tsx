@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { CategoryOption, ClientOption, EventListItem, FreelancerOption, ShiftListItem } from "@/lib/admin-types";
+import type { CategoryOption, EventListItem, FreelancerOption, ShiftListItem } from "@/lib/admin-types";
 import { formatEventDate, formatTimeRange } from "@/lib/format";
 import {
   updateShift,
@@ -19,7 +19,6 @@ import {
   type ShiftRowInput,
 } from "@/app/tenant/(protected)/shifts/actions";
 import { TimeField } from "./ShiftFormFields";
-import ClientVenueField from "./ClientVenueField";
 import Icon from "@/components/Icon";
 import { useSlidePanel } from "./useSlidePanel";
 import FreelancerAssignDropdown from "./FreelancerAssignDropdown";
@@ -38,7 +37,6 @@ function isoToHHMM(iso: string | null): string {
 export default function ShiftDetailPanel({
   shift,
   event,
-  clients,
   categories,
   freelancers,
   busyShifts,
@@ -50,7 +48,6 @@ export default function ShiftDetailPanel({
 }: {
   shift: ShiftListItem;
   event: EventListItem;
-  clients: ClientOption[];
   categories: CategoryOption[];
   freelancers: FreelancerOption[];
   // Alle virksomhedens tildelte/til-salg-vagter (på tværs af events) — brugt
@@ -89,12 +86,18 @@ export default function ShiftDetailPanel({
     clientId: event.clientId,
     venueId: event.venueId,
   });
-  const [clientsState, setClientsState] = useState<ClientOption[]>(clients);
   const [attachments, setAttachments] = useState(event.attachments);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const { visible, close } = useSlidePanel(onClose);
+
+  // "Tildel vagt"-dropdownet skriver ikke længere direkte til databasen ved
+  // hvert valg — det holdes nu som lokal, "ikke-gemt" state ligesom de
+  // øvrige felter herunder, og indgår i den fælles "Gem ændringer"-knap
+  // (se assignDirty + saveChanges nedenfor). null = "Ledig vagt".
+  const [selectedFreelancerId, setSelectedFreelancerId] = useState<string | null>(shift.assignedFreelancerId);
+  const assignDirty = selectedFreelancerId !== shift.assignedFreelancerId;
 
   // "Stemplet ind"/"Stemplet ud" — kun redigerbare felter, ingen egen
   // dato-vælger (se ShiftClockTimesInput i actions.ts: tiderne kombineres
@@ -129,21 +132,15 @@ export default function ShiftDetailPanel({
     el.style.height = `${el.scrollHeight}px`;
   }, [eventForm.description]);
 
-  function onClientSaved(client: ClientOption) {
-    setClientsState((prev) => (prev.some((c) => c.id === client.id) ? prev.map((c) => (c.id === client.id ? client : c)) : [...prev, client]));
-  }
-
   const shiftDirty =
     row.categoryId !== shift.categoryId || row.startTime !== shift.startTime || row.endTime !== shift.endTime;
-  // title/eventDate er ikke længere redigerbare felter i dette panel (vises
-  // nu read-only øverst i headeren i stedet — se dens kommentar), så de kan
-  // aldrig afvige fra event-proppen; kun beskrivelse/kunde/sted kan gøre
-  // eventForm "dirty".
-  const eventDirty =
-    eventForm.description !== (event.description ?? "") ||
-    eventForm.clientId !== event.clientId ||
-    eventForm.venueId !== event.venueId;
-  const dirty = shiftDirty || eventDirty || clockDirty;
+  // title/eventDate/kunde/sted er ikke redigerbare felter i dette panel
+  // (vises nu read-only øverst i headeren i stedet, se "Kunde & sted"
+  // fjernet — [[project_shift_detail_panel_deferred_save]]), så de kan
+  // aldrig afvige fra event-proppen; kun beskrivelsen kan gøre eventForm
+  // "dirty".
+  const eventDirty = eventForm.description !== (event.description ?? "");
+  const dirty = shiftDirty || eventDirty || clockDirty || assignDirty;
 
   // "Tildel vagt"-dropdownet viser kun godkendte freelancere, der reelt
   // matcher den (evt. lige nu redigerede) jobfunktion for DENNE vagt —
@@ -193,6 +190,14 @@ export default function ShiftDetailPanel({
       setError("Vælg en kunde.");
       return;
     }
+    // Frigivelse er den eneste af de samlede ændringer, der stadig beder om
+    // en bekræftelse — ligesom før, blot udskudt til selve "Gem ændringer"-
+    // klikket i stedet for at ske med det samme man vælger "Ledig vagt" i
+    // dropdownet (som nu kun er en lokal, ikke-gemt staging af valget). Siger
+    // brugeren nej her, gemmes INTET af det samlede sæt ændringer.
+    if (assignDirty && selectedFreelancerId === null) {
+      if (!confirm(`Frigiv vagten fra ${shift.assignedFreelancerName}? Vagten bliver åben igen.`)) return;
+    }
     setError(null);
     startTransition(async () => {
       if (eventDirty) {
@@ -221,10 +226,27 @@ export default function ShiftDetailPanel({
           return;
         }
       }
+      if (assignDirty) {
+        const result = selectedFreelancerId
+          ? await assignFreelancer(shift.id, selectedFreelancerId)
+          : await releaseShift(shift.id);
+        if (!result.success) {
+          setError(result.error ?? "Der opstod en fejl.");
+          return;
+        }
+      }
       router.refresh();
-      // Samme luk-og-blink-mønster som tildeling (grøn)/frigivelse (rød),
-      // her lilla — se onSaved-kommentaren ved komponentens props.
-      onSaved?.(shift.id);
+      // Blink-farven prioriteres: tildeling (grøn) > frigivelse (rød) >
+      // almindelig gemning af andre felter (lilla) — kun ÉN af dem kan være
+      // sand her, da assignDirty kun peger mod enten "nogen" eller "Ledig
+      // vagt", aldrig begge.
+      if (assignDirty && selectedFreelancerId) {
+        onAssigned?.(shift.id);
+      } else if (assignDirty) {
+        onReleased?.(shift.id);
+      } else {
+        onSaved?.(shift.id);
+      }
       close();
     });
   }
@@ -289,10 +311,22 @@ export default function ShiftDetailPanel({
         <div className="flex items-start justify-between px-5 py-[18px] border-b border-pepo-bd flex-shrink-0">
           <div>
             <div className="text-sm font-medium">Vagtdetaljer</div>
-            {/* Dato/titel er ikke redigerbare her (det gøres på eventets eget
-                kort) — vist read-only i stedet, så de stadig er synlige. */}
+            {/* Dato/titel/kunde/sted er ikke redigerbare her (det gøres på
+                eventets eget kort, se "Kunde & sted" fjernet fra denne
+                panel — [[project_shift_detail_panel_deferred_save]]) —
+                vist read-only i stedet, så de stadig er synlige. */}
             <div className="text-[15px] font-semibold text-pepo-t1 mt-3">{event.title}</div>
             <div className="text-[12.5px] text-pepo-t2 mt-0.5">{formatEventDate(event.eventDate)}</div>
+            <div className="text-[12.5px] text-pepo-t2 mt-0.5 flex items-center gap-1.5">
+              <Icon name="building-store" size={14} className="text-pepo-t3 flex-shrink-0" />
+              {event.clientName}
+            </div>
+            {event.venueLabel && (
+              <div className="text-[12.5px] text-pepo-t2 mt-0.5 flex items-center gap-1.5">
+                <Icon name="map-pin" size={14} className="text-pepo-t3 flex-shrink-0" />
+                {event.venueLabel}
+              </div>
+            )}
           </div>
           <button onClick={close} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su flex-shrink-0">
             <Icon name="x" size={20} />
@@ -324,46 +358,12 @@ export default function ShiftDetailPanel({
                 </Field>
               </div>
 
-              <div className="border-t border-pepo-bd my-5" />
-
-              <FreelancerAssignDropdown
-                freelancers={matchingFreelancers}
-                selectedFreelancerId={shift.assignedFreelancerId}
-                selectedFreelancerName={shift.assignedFreelancerName}
-                interests={shift.interests}
-                isForResale={shift.status === "for_resale"}
-                conflictFreelancerIds={conflictFreelancerIds}
-                disabled={isPending}
-                onSelect={(freelancerId) => {
-                  // Uændret valg (inkl. "Ledig vagt" på en allerede-ledig
-                  // vagt) — luk bare menuen, ingen grund til et API-kald.
-                  if (freelancerId === shift.assignedFreelancerId) return;
-                  if (freelancerId === null) {
-                    if (!confirm(`Frigiv vagten fra ${shift.assignedFreelancerName}? Vagten bliver åben igen.`)) return;
-                    run(() => releaseShift(shift.id), {
-                      closeOnSuccess: true,
-                      onSuccess: () => onReleased?.(shift.id),
-                    });
-                  } else {
-                    run(() => assignFreelancer(shift.id, freelancerId), {
-                      closeOnSuccess: true,
-                      onSuccess: () => onAssigned?.(shift.id),
-                    });
-                  }
-                }}
-              />
-
-              <div className="border-t border-pepo-bd my-6" />
-            </>
-          )}
-
-          {readOnly ? (
-            // Titel/dato vises nu altid øverst i headeren — her er kun
-            // vagtens eget tidsrum tilbage at vise.
-            <div className="text-[13.5px] text-pepo-t2 mb-4">{formatTimeRange(shift.startTime, shift.endTime)}</div>
-          ) : (
-            <>
-              {shiftHasStarted && (
+              {/* Vises først når vagten faktisk er begyndt ELLER freelanceren
+                  allerede har stemplet ind via app'ens stempelur, alt efter
+                  hvad der sker først — inden da giver "Mangler"/"Vagt i gang"
+                  ingen mening for de fleste kommende vagter. Grupperet lige
+                  under start-/sluttid, da det hele er tidsfelter. */}
+              {(shiftHasStarted || shift.clockedInAt !== null) && (
                 <div className="flex gap-2.5">
                   <Field label="Stemplet ind" className="flex-1 min-w-0">
                     <TimeField value={clockInTime} onChange={setClockInTime} placeholder="Mangler" />
@@ -378,14 +378,32 @@ export default function ShiftDetailPanel({
                 </div>
               )}
 
-              <ClientVenueField
-                clients={clientsState}
-                clientId={eventForm.clientId}
-                venueId={eventForm.venueId}
-                onChange={(clientId, venueId) => setEventForm((f) => ({ ...f, clientId, venueId }))}
-                onClientSaved={onClientSaved}
+              <div className="border-t border-pepo-bd my-5" />
+
+              <FreelancerAssignDropdown
+                freelancers={matchingFreelancers}
+                selectedFreelancerId={selectedFreelancerId}
+                selectedFreelancerName={
+                  selectedFreelancerId ? freelancers.find((f) => f.id === selectedFreelancerId)?.fullName ?? null : null
+                }
+                currentlyAssignedFreelancerId={shift.assignedFreelancerId}
+                interests={shift.interests}
+                isForResale={shift.status === "for_resale"}
+                conflictFreelancerIds={conflictFreelancerIds}
+                disabled={isPending}
+                onSelect={setSelectedFreelancerId}
               />
 
+              <div className="border-t border-pepo-bd my-6" />
+            </>
+          )}
+
+          {readOnly ? (
+            // Titel/dato vises nu altid øverst i headeren — her er kun
+            // vagtens eget tidsrum tilbage at vise.
+            <div className="text-[13.5px] text-pepo-t2 mb-4">{formatTimeRange(shift.startTime, shift.endTime)}</div>
+          ) : (
+            <>
               <Field label="Briefing">
                 <textarea
                   ref={briefingRef}
@@ -475,14 +493,6 @@ export default function ShiftDetailPanel({
           </div>
         </div>
       </div>
-      <style jsx>{`
-        .badge {
-          padding: 3px 9px;
-          border-radius: 20px;
-          font-size: 11px;
-          font-weight: 500;
-        }
-      `}</style>
     </>
   );
 }

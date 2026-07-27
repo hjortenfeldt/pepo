@@ -397,6 +397,7 @@ export default function ShiftWizardPanel({
                             selectedFreelancerName={
                               rowFreelancers.find((f) => f.id === row.freelancerId)?.fullName ?? null
                             }
+                            currentlyAssignedFreelancerId={null}
                             interests={[]}
                             isForResale={false}
                             conflictFreelancerIds={rowConflicts}

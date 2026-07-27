@@ -75,6 +75,7 @@ export default function FreelancerAssignDropdown({
   freelancers,
   selectedFreelancerId,
   selectedFreelancerName,
+  currentlyAssignedFreelancerId,
   interests,
   isForResale,
   conflictFreelancerIds,
@@ -83,12 +84,21 @@ export default function FreelancerAssignDropdown({
 }: {
   /** Allerede filtreret til den (evt. lige nu redigerede) jobfunktion. */
   freelancers: FreelancerOption[];
+  /** Den lokale, endnu ikke gemte valgte værdi (styrer trigger + checkmark) —
+   * ikke nødvendigvis det samme som currentlyAssignedFreelancerId, hvis
+   * admin har valgt en anden freelancer men endnu ikke trykket "Gem
+   * ændringer". */
   selectedFreelancerId: string | null;
   selectedFreelancerName: string | null;
+  /** Den faktisk GEMTE tildeling i databasen — bruges KUN til at afgøre
+   * hvis navn "Til salg"-mærkatet skal stå ved (sælgeren af en for_resale-
+   * vagt ændrer sig ikke bare fordi admin midlertidigt overvejer en anden i
+   * dropdownet). null hvis vagten (endnu) ikke findes, fx i
+   * ShiftWizardPanel.tsx, hvor isForResale altid er false alligevel. */
+  currentlyAssignedFreelancerId: string | null;
   /** Tom for en vagt der endnu ikke er oprettet (kan ikke have anmodninger). */
   interests: ShiftInterestItem[];
-  /** Sat hvis DENNE vagt selv har status "for_resale" — viser "Til salg" ud
-   * for sælgerens (= selectedFreelancerId's) eget navn. */
+  /** Sat hvis DENNE vagt selv har status "for_resale". */
   isForResale: boolean;
   conflictFreelancerIds: Set<string>;
   /** null = "Ledig vagt" valgt (frigiv/lad stå ledig). */
@@ -114,7 +124,7 @@ export default function FreelancerAssignDropdown({
   function badgesFor(freelancerId: string): FreelancerBadgeKind[] {
     const badges: FreelancerBadgeKind[] = [];
     if (interestedIds.has(freelancerId)) badges.push("anmodet");
-    if (isForResale && freelancerId === selectedFreelancerId) badges.push("til-salg");
+    if (isForResale && freelancerId === currentlyAssignedFreelancerId) badges.push("til-salg");
     if (conflictFreelancerIds.has(freelancerId)) badges.push("utilgaengelig");
     return badges;
   }
