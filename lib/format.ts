@@ -191,3 +191,20 @@ export function venueLabel(
   if (venue.name && addressLine) return `${venue.name}\n${addressLine}`;
   return venue.name || addressLine || "Unavngivet arbejdssted";
 }
+
+/**
+ * Alder ud fra fødselsdato, `null` hvis ingen er sat. Flyttet hertil fra
+ * FreelancerBoard.tsx (var lokal der) så FreelancerAssignDropdown.tsx også
+ * kan vise "(alder)" efter navnet — samme "(N)"-format begge steder, ét
+ * sted at rette hvis beregningen nogensinde skal ændres.
+ */
+export function ageFromBirthDate(iso: string | null): number | null {
+  if (!iso) return null;
+  const birth = new Date(iso);
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const hasHadBirthdayThisYear =
+    now.getMonth() > birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() >= birth.getDate());
+  if (!hasHadBirthdayThisYear) age -= 1;
+  return age;
+}

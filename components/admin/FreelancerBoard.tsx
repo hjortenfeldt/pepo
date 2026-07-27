@@ -12,7 +12,7 @@ import {
   type FreelancerFormInput,
 } from "@/app/tenant/(protected)/freelancers/actions";
 import Icon from "@/components/Icon";
-import { lastActiveLabel, lastActivePhrase } from "@/lib/format";
+import { lastActiveLabel, lastActivePhrase, ageFromBirthDate } from "@/lib/format";
 import { usePageScrollLock } from "@/components/freelancer/PullToRefresh";
 import { AddressAutocompleteInput, type ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 import ExpandingSearchButton from "./ExpandingSearchButton";
@@ -40,18 +40,6 @@ function formatDate(iso: string) {
     month: "long",
     year: "numeric",
   });
-}
-
-function ageFromBirthDate(iso: string | null) {
-  if (!iso) return null;
-  const birth = new Date(iso);
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const hasHadBirthdayThisYear =
-    now.getMonth() > birth.getMonth() ||
-    (now.getMonth() === birth.getMonth() && now.getDate() >= birth.getDate());
-  if (!hasHadBirthdayThisYear) age -= 1;
-  return age;
 }
 
 function Badge({ status }: { status: ApplicationStatus }) {

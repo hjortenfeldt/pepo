@@ -29,7 +29,7 @@ type RawMessageRow = {
   message_recipients: RawRecipientRow[] | null;
 };
 type RawCategoryRow = { id: string; name: string };
-type RawFreelancerProfileRow = { auth_user_id: string; full_name: string };
+type RawFreelancerProfileRow = { auth_user_id: string; full_name: string; birth_date: string | null };
 type RawFreelancerCategoryRow = { freelancer_id: string; work_categories: RawCategoryRef | RawCategoryRef[] | null };
 
 function one<T>(rel: T | T[] | null | undefined): T | null {
@@ -64,7 +64,7 @@ export default async function AdminMessagesPage() {
     // id'et message_recipients rent faktisk gemmer.
     supabase
       .from("freelancer_profiles")
-      .select("auth_user_id, full_name")
+      .select("auth_user_id, full_name, birth_date")
       .eq("company_id", company.id)
       .eq("application_status", "approved"),
   ]);
@@ -138,6 +138,7 @@ export default async function AdminMessagesPage() {
     id: p.auth_user_id,
     fullName: p.full_name,
     categories: categoriesByAuthId.get(p.auth_user_id) ?? [],
+    birthDate: p.birth_date,
   }));
 
   return <MessageBoard messages={messages} categories={categories} freelancers={freelancers} />;

@@ -94,7 +94,7 @@ type RawCategoryRow = { id: string; name: string; icon: string | null };
 // Godkendte freelancer-profiler for DENNE virksomhed. id er profilens eget
 // id, men shifts/shift_interests bruger auth_user_id (login-id'et) til
 // tildeling — se FreelancerOption-mapningen nedenfor.
-type RawFreelancerProfileRow = { auth_user_id: string; full_name: string };
+type RawFreelancerProfileRow = { auth_user_id: string; full_name: string; birth_date: string | null };
 type RawFreelancerCategoryRow = { freelancer_id: string; work_categories: RawWorkCategoryRef | RawWorkCategoryRef[] | null };
 
 // PostgREST returnerer en til-én-relation som enten ét objekt eller et
@@ -152,7 +152,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
     // rent faktisk gemmer i assigned_freelancer_id.
     supabase
       .from("freelancer_profiles")
-      .select("auth_user_id, full_name")
+      .select("auth_user_id, full_name, birth_date")
       .eq("company_id", companyId)
       .eq("application_status", "approved"),
     // Transporttillæggets kr./km-takst — konfigurerbar pr. virksomhed under
@@ -330,6 +330,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
     id: p.auth_user_id,
     fullName: p.full_name,
     categories: categoriesByAuthId.get(p.auth_user_id) ?? [],
+    birthDate: p.birth_date,
   }));
 
   return { events, clients, categories, freelancers };

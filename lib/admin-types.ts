@@ -147,6 +147,10 @@ export type FreelancerOption = {
   id: string;
   fullName: string;
   categories: string[];
+  // Til alder-visningen "(N)" i FreelancerAssignDropdown.tsx, samme format
+  // som FreelancerBoard.tsx's grid-/listevisning (se lib/format.ts's
+  // ageFromBirthDate). null hvis freelanceren ikke har udfyldt fødselsdato.
+  birthDate: string | null;
 };
 
 export type DashboardEventRole = {

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import type { FreelancerOption, ShiftInterestItem } from "@/lib/admin-types";
+import { ageFromBirthDate } from "@/lib/format";
 
 // Samler "Tildelt"/"Frigiv vagt", "Anmodet"-listen og "Tildel manuelt"-
 // selecten (se tidligere ShiftDetailPanel.tsx) i ét overlay-menu-drevet
@@ -42,18 +43,53 @@ function initials(name: string): string {
 
 // null = "Ledig vagt" — rødt spørgsmålstegn-ikon i stedet for et
 // initial-badge, samme røde farve som "Mangler"-status andre steder i
-// systemet (fx ShiftBoard.tsx's STATUS_BADGE_CLASS.open).
+// systemet (fx ShiftBoard.tsx's STATUS_BADGE_CLASS.open). 36px (ikke 30px)
+// for at matche navnet+alder/jobfunktion-tolinjers-blokken ved siden af,
+// samme størrelse som listevisningen på "Freelancere"-siden
+// (FreelancerBoard.tsx's w-9 h-9).
 function RowAvatar({ freelancerId, name }: { freelancerId: string | null; name: string }) {
   if (freelancerId === null) {
     return (
-      <div className="w-[30px] h-[30px] rounded-full bg-[#FDECEA] text-[#C0021A] flex items-center justify-center flex-shrink-0">
-        <Icon name="question-mark" size={16} />
+      <div className="w-9 h-9 rounded-full bg-[#FDECEA] text-[#C0021A] flex items-center justify-center flex-shrink-0">
+        <Icon name="question-mark" size={18} />
       </div>
     );
   }
   return (
-    <div className="w-[30px] h-[30px] rounded-full bg-pepo-pl text-pepo-p text-[11px] font-medium flex items-center justify-center flex-shrink-0">
+    <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p text-xs font-medium flex items-center justify-center flex-shrink-0">
       {initials(name)}
+    </div>
+  );
+}
+
+// Navn(+alder) på øverste linje, jobfunktion nedenunder — samme
+// tekst-opbygning som "Freelancere"-sidens grid-/listevisning
+// (FreelancerBoard.tsx: navn+"(alder)" øverst, en info-linje nedenunder),
+// blot med jobfunktionen for DENNE vagt i stedet for lokation, da alle
+// rækker i dropdownet uundgåeligt har samme jobfunktion (listen er jo
+// allerede filtreret til den). "Ledig vagt" er ikke en rigtig person og får
+// derfor ingen alder/jobfunktion-linje.
+function RowNameBlock({
+  freelancerId,
+  name,
+  age,
+  categoryName,
+}: {
+  freelancerId: string | null;
+  name: string;
+  age: number | null;
+  categoryName: string;
+}) {
+  if (freelancerId === null) {
+    return <span className="text-[13.5px] font-medium text-pepo-t1 flex-1 text-left truncate">Ledig vagt</span>;
+  }
+  return (
+    <div className="flex-1 min-w-0 text-left">
+      <div className="text-[13.5px] font-medium text-pepo-t1 truncate">
+        {name}
+        {age !== null && <span className="text-pepo-t2 font-normal"> ({age})</span>}
+      </div>
+      <div className="text-xs text-pepo-t2 truncate">{categoryName}</div>
     </div>
   );
 }
@@ -75,6 +111,8 @@ export default function FreelancerAssignDropdown({
   freelancers,
   selectedFreelancerId,
   selectedFreelancerName,
+  selectedFreelancerBirthDate,
+  categoryName,
   currentlyAssignedFreelancerId,
   interests,
   isForResale,
@@ -90,6 +128,15 @@ export default function FreelancerAssignDropdown({
    * ændringer". */
   selectedFreelancerId: string | null;
   selectedFreelancerName: string | null;
+  /** Slås op af kalderen fra DEN FULDE freelancerliste (ikke kun `freelancers`
+   * ovenfor), så alder stadig vises i triggeren selvom den valgte person er
+   * blevet filtreret ud af listen (fx fordi jobfunktionen på vagten lige er
+   * ændret til noget personen ikke selv har). */
+  selectedFreelancerBirthDate: string | null;
+  /** Jobfunktionen DENNE vagt/række har — vist som info-linje under hvert
+   * navn i listen (alle rækker viser samme jobfunktion, se
+   * RowNameBlock-kommentaren ovenfor). */
+  categoryName: string;
   /** Den faktisk GEMTE tildeling i databasen — bruges KUN til at afgøre
    * hvis navn "Til salg"-mærkatet skal stå ved (sælgeren af en for_resale-
    * vagt ændrer sig ikke bare fordi admin midlertidigt overvejer en anden i
@@ -149,9 +196,12 @@ export default function FreelancerAssignDropdown({
           className="w-full flex items-center gap-2.5 border border-pepo-bds rounded-[10px] px-2.5 py-2 text-left bg-pepo-wh disabled:opacity-50"
         >
           <RowAvatar freelancerId={selectedFreelancerId} name={selectedFreelancerName ?? ""} />
-          <span className="text-[13.5px] font-medium text-pepo-t1 flex-1 truncate">
-            {selectedFreelancerId && selectedFreelancerName ? selectedFreelancerName : "Ledig vagt"}
-          </span>
+          <RowNameBlock
+            freelancerId={selectedFreelancerId}
+            name={selectedFreelancerName ?? ""}
+            age={ageFromBirthDate(selectedFreelancerBirthDate)}
+            categoryName={categoryName}
+          />
           <RowBadges badges={selectedBadges} />
           <Icon
             name="chevron-down"
@@ -168,7 +218,7 @@ export default function FreelancerAssignDropdown({
               className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[9px] hover:bg-pepo-su transition-colors"
             >
               <RowAvatar freelancerId={null} name="" />
-              <span className="text-[13.5px] font-medium text-pepo-t1 flex-1 text-left truncate">Ledig vagt</span>
+              <RowNameBlock freelancerId={null} name="" age={null} categoryName={categoryName} />
               {selectedFreelancerId === null && <Icon name="check" size={16} className="text-pepo-p flex-shrink-0" />}
             </button>
 
@@ -188,7 +238,12 @@ export default function FreelancerAssignDropdown({
                   className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[9px] hover:bg-pepo-su transition-colors"
                 >
                   <RowAvatar freelancerId={f.id} name={f.fullName} />
-                  <span className="text-[13.5px] font-medium text-pepo-t1 flex-1 text-left truncate">{f.fullName}</span>
+                  <RowNameBlock
+                    freelancerId={f.id}
+                    name={f.fullName}
+                    age={ageFromBirthDate(f.birthDate)}
+                    categoryName={categoryName}
+                  />
                   <RowBadges badges={badges} />
                   {f.id === selectedFreelancerId && <Icon name="check" size={16} className="text-pepo-p flex-shrink-0" />}
                 </button>

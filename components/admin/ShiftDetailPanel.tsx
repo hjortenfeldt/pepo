@@ -386,6 +386,12 @@ export default function ShiftDetailPanel({
                 selectedFreelancerName={
                   selectedFreelancerId ? freelancers.find((f) => f.id === selectedFreelancerId)?.fullName ?? null : null
                 }
+                selectedFreelancerBirthDate={
+                  selectedFreelancerId
+                    ? freelancers.find((f) => f.id === selectedFreelancerId)?.birthDate ?? null
+                    : null
+                }
+                categoryName={selectedCategoryName}
                 currentlyAssignedFreelancerId={shift.assignedFreelancerId}
                 interests={shift.interests}
                 isForResale={shift.status === "for_resale"}
