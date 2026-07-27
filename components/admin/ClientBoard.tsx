@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ClientListItem, VenueItem } from "@/lib/admin-types";
 import {
@@ -95,6 +95,35 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
+  // Historik-baseret lukning af panelet, samme mønster som
+  // FreelancerBoard.tsx (se dens kommentar for baggrunden) — panelet her
+  // er også bevidst ALTID i DOM'en (kun translate-x skifter), så
+  // useSlidePanel selv (som pusher sin historik-post ved MOUNT) ikke
+  // fanger et edge-swipe-tilbage. Se [[feedback_slide_panel_edge_swipe_back]].
+  const panelDepthRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (panelOpen && panelDepthRef.current === null) {
+      const currentDepth = (window.history.state as { pepoPanelDepth?: number } | null)?.pepoPanelDepth ?? 0;
+      panelDepthRef.current = currentDepth + 1;
+      window.history.pushState({ pepoPanelDepth: panelDepthRef.current }, "");
+    }
+  }, [panelOpen]);
+
+  useEffect(() => {
+    function handlePopState() {
+      const newDepth = (window.history.state as { pepoPanelDepth?: number } | null)?.pepoPanelDepth ?? 0;
+      if (panelDepthRef.current !== null && newDepth < panelDepthRef.current) {
+        panelDepthRef.current = null;
+        setPanelOpen(false);
+        setError(null);
+        router.refresh();
+      }
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [router]);
+
   // Gem skal være disabled, så længe et arbejdssted har adresse-tekst
   // skrevet ind, som ikke er bekræftet ved et valg fra Google-dropdown'en.
   const hasUnvalidatedAddress = form.venues.some((v) => v.addressText.trim().length > 0 && !v.validated);
@@ -152,7 +181,15 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
   }
 
   function closePanel() {
-    setPanelOpen(false);
+    // Går via historik i stedet for at nulstille direkte, så et klik på
+    // luk-knappen/baggrunden opfører sig 100% som et edge-swipe-tilbage —
+    // selve nulstillingen sker i popstate-lytteren ovenfor.
+    if (panelDepthRef.current !== null) {
+      window.history.back();
+    } else {
+      setPanelOpen(false);
+      setError(null);
+    }
   }
 
   function setType(type: CustomerType) {
@@ -219,7 +256,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
         setError(result.error ?? "Der opstod en fejl.");
         return;
       }
-      setPanelOpen(false);
+      closePanel();
       router.refresh();
     });
   }
@@ -234,7 +271,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
         setError(result.error ?? "Der opstod en fejl.");
         return;
       }
-      setPanelOpen(false);
+      closePanel();
       router.refresh();
     });
   }

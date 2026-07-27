@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ApplicationStatus, CategoryOption, FreelancerListItem } from "@/lib/admin-types";
 import {
@@ -158,6 +158,47 @@ export default function FreelancerBoard({
   }, [freelancers, approvedList, mainTab, subTab, selectedCats, search]);
 
   const open = openId ? freelancers.find((f) => f.id === openId) ?? null : null;
+  const panelIsOpen = panelMode === "create" || open !== null;
+
+  // Historik-baseret lukning af profilpanelet, samme princip som
+  // useSlidePanel.ts (se dens doc-kommentar for baggrunden) — men dette
+  // panel er bevidst ALTID i DOM'en (skifter kun translate-x, se
+  // usePageScrollLock-kaldet nedenfor) i stedet for betinget monteret som
+  // de paneler useSlidePanel er skrevet til, så vi kan ikke bruge hook'en
+  // direkte. I stedet skubbes/forbruges historik-posten manuelt her, holdt
+  // i sync med panelIsOpen i stedet for med mount/unmount.
+  //
+  // Fundet 2026-07-28: uden dette faldt et edge-swipe-tilbage (mens
+  // profilpanelet var åbent) helt igennem til browserens RIGTIGE
+  // navigationshistorik og landede på en helt anden, tidligere besøgt
+  // side (fx "Events & vagter", med mobilmenuen stadig hængende åben fra
+  // et tidligere besøg der, se AdminTopBar.tsx) i stedet for blot at lukke
+  // panelet — samme fejlklasse som [[feedback_slide_panel_edge_swipe_back]].
+  const panelDepthRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (panelIsOpen && panelDepthRef.current === null) {
+      const currentDepth = (window.history.state as { pepoPanelDepth?: number } | null)?.pepoPanelDepth ?? 0;
+      panelDepthRef.current = currentDepth + 1;
+      window.history.pushState({ pepoPanelDepth: panelDepthRef.current }, "");
+    }
+  }, [panelIsOpen]);
+
+  useEffect(() => {
+    function handlePopState() {
+      const newDepth = (window.history.state as { pepoPanelDepth?: number } | null)?.pepoPanelDepth ?? 0;
+      if (panelDepthRef.current !== null && newDepth < panelDepthRef.current) {
+        panelDepthRef.current = null;
+        setOpenId(null);
+        setPanelMode("view");
+        setError(null);
+        setConfirmingDelete(false);
+        router.refresh();
+      }
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [router]);
 
   // Bruges alle tre steder en freelancer kan vises (kort, liste,
   // profilpanel) — se invitedIds/sendingId ovenfor. "Har aldrig været
@@ -201,10 +242,20 @@ export default function FreelancerBoard({
   }
 
   function closePanel() {
-    setOpenId(null);
-    setPanelMode("view");
-    setError(null);
-    setConfirmingDelete(false);
+    // Går via historik i stedet for at nulstille state direkte, så et
+    // klik på luk-knappen/baggrunden opfører sig 100% som et
+    // edge-swipe-tilbage — selve nulstillingen sker i popstate-lytteren
+    // ovenfor. Falder tilbage til den gamle direkte opførsel, hvis der af
+    // en eller anden grund ikke er en historik-post at forbruge (fx hvis
+    // panelet blev åbnet før denne effekt nåede at køre).
+    if (panelDepthRef.current !== null) {
+      window.history.back();
+    } else {
+      setOpenId(null);
+      setPanelMode("view");
+      setError(null);
+      setConfirmingDelete(false);
+    }
   }
 
   function openNewFreelancer() {
@@ -361,10 +412,10 @@ export default function FreelancerBoard({
     });
   }
 
-  const panelIsOpen = panelMode === "create" || open !== null;
   // Se usePageScrollLock's doc-kommentar i PullToRefresh.tsx — dette panel
   // er "altid i DOM'en" (skifter kun translate-x), så useSlidePanel's
-  // indbyggede lås ikke gælder her; kaldes derfor direkte.
+  // indbyggede lås ikke gælder her; kaldes derfor direkte. panelIsOpen selv
+  // er flyttet op til lige efter `open`-udregningen, se historik-kommentaren der.
   usePageScrollLock(panelIsOpen);
 
   return (

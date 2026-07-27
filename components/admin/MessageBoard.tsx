@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CategoryOption, FreelancerOption, MessageListItem } from "@/lib/admin-types";
 import { sendMessage } from "@/app/tenant/(protected)/messages/actions";
@@ -45,6 +45,36 @@ export default function MessageBoard({
   }, [messages, search]);
 
   const viewing = messages.find((m) => m.id === viewingId) ?? null;
+  const panelOpen = composing || viewing !== null;
+
+  // Historik-baseret lukning af panelet, samme mønster som
+  // FreelancerBoard.tsx/ClientBoard.tsx (se deres kommentarer for
+  // baggrunden) — panelet her er også bevidst ALTID i DOM'en, så
+  // useSlidePanel selv ikke fanger et edge-swipe-tilbage. Se
+  // [[feedback_slide_panel_edge_swipe_back]].
+  const panelDepthRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (panelOpen && panelDepthRef.current === null) {
+      const currentDepth = (window.history.state as { pepoPanelDepth?: number } | null)?.pepoPanelDepth ?? 0;
+      panelDepthRef.current = currentDepth + 1;
+      window.history.pushState({ pepoPanelDepth: panelDepthRef.current }, "");
+    }
+  }, [panelOpen]);
+
+  useEffect(() => {
+    function handlePopState() {
+      const newDepth = (window.history.state as { pepoPanelDepth?: number } | null)?.pepoPanelDepth ?? 0;
+      if (panelDepthRef.current !== null && newDepth < panelDepthRef.current) {
+        panelDepthRef.current = null;
+        setComposing(false);
+        setViewingId(null);
+        setError(null);
+      }
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const categoryName = categories.find((c) => c.id === categoryId)?.name ?? "";
   const recipientCount =
@@ -61,8 +91,14 @@ export default function MessageBoard({
   }
 
   function closePanel() {
-    setComposing(false);
-    setViewingId(null);
+    // Går via historik i stedet for at nulstille direkte, se kommentaren
+    // ved panelDepthRef ovenfor.
+    if (panelDepthRef.current !== null) {
+      window.history.back();
+    } else {
+      setComposing(false);
+      setViewingId(null);
+    }
   }
 
   function submit() {
@@ -83,10 +119,10 @@ export default function MessageBoard({
     });
   }
 
-  const panelOpen = composing || viewing !== null;
   // Se usePageScrollLock's doc-kommentar i PullToRefresh.tsx — dette panel
   // er "altid i DOM'en" (skifter kun translate-x), så useSlidePanel's
-  // indbyggede lås ikke gælder her; kaldes derfor direkte.
+  // indbyggede lås ikke gælder her; kaldes derfor direkte. panelOpen selv
+  // er flyttet op til lige efter `viewing`-udregningen, se historik-kommentaren der.
   usePageScrollLock(panelOpen);
 
   return (
