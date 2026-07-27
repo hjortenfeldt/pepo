@@ -106,6 +106,10 @@ export type EventListItem = {
   description: string | null;
   clientId: string;
   clientName: string;
+  // true når kunden er en privatkunde (clients.name er tom, kun contact_person
+  // udfyldt) — bruges til at vise person-ikonet i stedet for firma-ikonet ud
+  // for kundenavnet (EventCard i ShiftBoard.tsx, headeren i ShiftDetailPanel.tsx).
+  clientIsPrivate: boolean;
   venueId: string | null;
   venueLabel: string | null; // fx "Havnelokale — Islands Brygge 26, 2300 København S"
   attachments: EventAttachment[];

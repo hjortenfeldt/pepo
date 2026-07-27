@@ -242,6 +242,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
       description: e.description,
       clientId: e.client_id,
       clientName: client?.name || client?.contact_person || "(uden navn)",
+      clientIsPrivate: !client?.name,
       venueId: e.venue_id,
       venueLabel: venue
         ? venueLabel({

@@ -318,13 +318,13 @@ export default function ShiftDetailPanel({
             <div className="text-[15px] font-semibold text-pepo-t1 mt-3">{event.title}</div>
             <div className="text-[12.5px] text-pepo-t2 mt-0.5">{formatEventDate(event.eventDate)}</div>
             <div className="text-[12.5px] text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-              <Icon name="building-store" size={14} className="text-pepo-t3 flex-shrink-0" />
+              <Icon name={event.clientIsPrivate ? "user" : "building-store"} size={14} className="text-pepo-t3 flex-shrink-0" />
               {event.clientName}
             </div>
             {event.venueLabel && (
-              <div className="text-[12.5px] text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-                <Icon name="map-pin" size={14} className="text-pepo-t3 flex-shrink-0" />
-                {event.venueLabel}
+              <div className="text-[12.5px] text-pepo-t2 mt-0.5 flex items-start gap-1.5">
+                <Icon name="map-pin" size={14} className="text-pepo-t3 flex-shrink-0 mt-px" />
+                <span className="whitespace-pre-line">{event.venueLabel}</span>
               </div>
             )}
           </div>

@@ -210,7 +210,7 @@ function ClientDetailRows({ client }: { client: ClientOption }) {
           <Icon name={r.icon} size={20} className="text-pepo-t3 mt-px flex-shrink-0" />
           <div>
             <div className="text-[11px] text-pepo-t3 uppercase tracking-wide">{r.label}</div>
-            <div className="text-[13px] text-pepo-t1 mt-px leading-relaxed">{r.value}</div>
+            <div className="text-[13px] text-pepo-t1 mt-px leading-relaxed whitespace-pre-line">{r.value}</div>
           </div>
         </div>
       ))}

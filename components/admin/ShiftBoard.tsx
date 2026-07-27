@@ -591,20 +591,22 @@ export function EventCard({
             }}
             className="flex-shrink-0 h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center whitespace-nowrap"
           >
-            Til vagt
+            Tilføj vagt
           </button>
         </div>
         <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-          <Icon name="building-store" size={21} className="text-pepo-t2 flex-shrink-0" />
+          <Icon name={event.clientIsPrivate ? "user" : "building-store"} size={21} className="text-pepo-t2 flex-shrink-0" />
           {event.clientName}
         </div>
         {event.venueLabel && (
           // items-start (ikke items-center) så pin-ikonet altid følger
           // toppen af venue-teksten, i stedet for at flyde midt i hele
-          // linjen når teksten wrapper til to linjer.
+          // linjen når teksten wrapper til to linjer. whitespace-pre-line
+          // gør venueLabel()'s "\n" mellem navn og adresse til et rigtigt
+          // linjeskift i stedet for en bindestreg (se lib/format.ts).
           <div className="text-xs text-pepo-t2 mt-0.5 flex items-start gap-1.5">
             <Icon name="map-pin" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
-            {event.venueLabel}
+            <span className="whitespace-pre-line">{event.venueLabel}</span>
           </div>
         )}
         {(event.venueDistanceKm != null || event.transportSurchargeKr != null) && (
