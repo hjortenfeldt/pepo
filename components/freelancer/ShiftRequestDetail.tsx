@@ -48,6 +48,13 @@ export type OpenShiftDetail = {
   briefing: string | null;
   venueName: string | null;
   venueAddress: string | null;
+  /** Kundens firmanavn, eller kontaktpersonens navn hvis privatkunde — null hvis ukendt/intet event. */
+  clientName: string | null;
+  /** true når kunden er en privatkunde (intet firmanavn) — styrer ikonvalg, se ShiftBoard.tsx's samme felt admin-side. */
+  clientIsPrivate: boolean;
+  clientPhone: string | null;
+  /** Fugleflugtsafstand (km) fra freelancerens geokodede bopæls-lokation til vagtstedet — null hvis en af de to mangler koordinater. */
+  distanceKm: number | null;
   alreadyApplied: boolean;
   siblingShifts: SiblingShift[];
   attachments: ShiftAttachment[];
@@ -77,10 +84,28 @@ function siblingPillLabel(s: SiblingShift): string {
   return SIBLING_STATUS_LABEL[s.status];
 }
 
-function formatDuration(startTime: string, endTime: string): string {
+/** "8" eller "7,5" — brugt i parentesen efter start/sluttid, se bodyContent. */
+function durationLabel(startTime: string, endTime: string): string {
   const hours = hoursBetween(startTime, endTime);
   const label = Number.isInteger(hours) ? String(hours) : hours.toFixed(1).replace(".", ",");
-  return `${label} timers vagt`;
+  return `${label} timer`;
+}
+
+/** "5 km." / "Under 1 km." — helt tal, ingen decimaler (fugleflugtsafstanden er kun vejledende). */
+function distanceLabel(km: number): string {
+  const rounded = Math.round(km);
+  if (rounded < 1) return "Under 1 km.";
+  return `${rounded} km.`;
+}
+
+/**
+ * Universalt Google Maps-søgelink — åbner Google Maps-appen hvis
+ * installeret (både iOS og Android), ellers en fungerende webvisning i
+ * Safari/Chrome. Bevidst IKKE et Apple Maps-link (maps.apple.com), da det
+ * ikke har nogen god fallback for Android-brugere.
+ */
+function mapsSearchUrl(query: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 export default function ShiftRequestDetail({
@@ -176,30 +201,69 @@ export default function ShiftRequestDetail({
 
   const bodyContent = (
     <div className="px-[var(--page-px)] pt-5 pb-8">
-      <span className="inline-flex items-center gap-2 bg-pepo-pl text-pepo-p rounded-full px-5 py-2 text-[24px] font-semibold mb-3">
+      {/* Jobfunktions-badgens ikon er bevidst IKKE gjort større/mørkere
+          sammen med resten af sektionens ikoner nedenfor (ønsket eksplicit
+          af Hjorth) — kun badgens tekststørrelse er ændret, så den matcher
+          eventtitlen lige under. */}
+      <span className="inline-flex items-center gap-2 bg-pepo-pl text-pepo-p rounded-full px-5 py-2 text-[20px] font-semibold mb-3">
         <Icon name={shift.categoryIcon || "briefcase"} size={26} />
         {shift.categoryName}
       </span>
       <div className="text-[20px] font-bold text-pepo-t1 tracking-tight">{shift.eventTitle}</div>
-      <div className="text-[13px] text-pepo-t2 mt-1">
-        {formatEventDate(shift.date)} · {formatTimeRange(shift.startTime, shift.endTime)}
+      {/* Dato og klokkeslæt på hver sin linje (i stedet for "·"-adskilt på
+          én linje), samme mørke tekstfarve som eventtitlen ovenfor —
+          varighed tilføjet i parentes efter sluttidspunktet. */}
+      <div className="text-[13px] text-pepo-t1 mt-1">
+        <div>{formatEventDate(shift.date)}</div>
+        <div>
+          {formatTimeRange(shift.startTime, shift.endTime)} ({durationLabel(shift.startTime, shift.endTime)})
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 mt-4">
-        {(shift.venueName || shift.venueAddress) && (
-          <div className="flex items-center gap-2 text-[13px] text-pepo-t2">
-            <Icon name="map-pin" size={16} className="text-pepo-t3 flex-shrink-0" />
-            <span>
-              {shift.venueName}
-              {shift.venueName && shift.venueAddress ? " — " : ""}
-              {shift.venueAddress}
-            </span>
+        {(shift.clientName || shift.venueName || shift.venueAddress) && (
+          <div className="flex items-start gap-2 text-[13px] text-pepo-t2">
+            <Icon
+              name={shift.clientIsPrivate ? "user" : "building-store"}
+              size={21}
+              className="text-pepo-t2 flex-shrink-0 mt-0.5"
+            />
+            <div className="min-w-0">
+              {shift.clientName && (
+                <div>
+                  {shift.clientName}
+                  {shift.clientPhone && (
+                    <>
+                      {" "}
+                      (Tel:{" "}
+                      <a href={`tel:${shift.clientPhone}`} className="text-pepo-p">
+                        {shift.clientPhone}
+                      </a>
+                      )
+                    </>
+                  )}
+                </div>
+              )}
+              {shift.venueName && <div>{shift.venueName}</div>}
+              {shift.venueAddress && (
+                <a
+                  href={mapsSearchUrl([shift.venueName, shift.venueAddress].filter(Boolean).join(", "))}
+                  target="_blank"
+                  rel="noopener"
+                  className="block text-pepo-p underline decoration-pepo-p/40"
+                >
+                  {shift.venueAddress}
+                </a>
+              )}
+            </div>
           </div>
         )}
-        <div className="flex items-center gap-2 text-[13px] text-pepo-t2">
-          <Icon name="clock" size={16} className="text-pepo-t3 flex-shrink-0" />
-          {formatDuration(shift.startTime, shift.endTime)}
-        </div>
+        {shift.distanceKm != null && (
+          <div className="flex items-center gap-2 text-[13px] text-pepo-t2">
+            <Icon name="route" size={21} className="text-pepo-t2 flex-shrink-0" />
+            <span>{distanceLabel(shift.distanceKm)} fra din bopæl.</span>
+          </div>
+        )}
       </div>
 
       {otherShifts.length > 0 && (

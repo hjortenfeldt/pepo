@@ -7,6 +7,7 @@ import { getCompanyBySubdomain } from "@/lib/tenant";
 import { normalizePhone } from "@/lib/format";
 import { revalidatePath, updateTag } from "next/cache";
 import { FREELANCER_MEMBERSHIPS_TAG } from "@/lib/freelancer";
+import { geocodeFreelancerLocation } from "@/lib/maps";
 import { sendEmail } from "@/lib/resend";
 import {
   buildInvitationEmailHtml,
@@ -192,6 +193,8 @@ export async function createFreelancer(input: FreelancerFormInput) {
   const freelancerId = randomUUID();
   const profileImageUrl = await uploadPhotoIfNeeded(supabase, freelancerId, input.photoDataUrl);
 
+  const newLocation = input.location.trim() || null;
+  const { latitude, longitude } = await geocodeFreelancerLocation(newLocation);
   const { error: profileError } = await supabase.from("freelancer_profiles").insert({
     id: freelancerId,
     auth_user_id: authUserId,
@@ -201,7 +204,9 @@ export async function createFreelancer(input: FreelancerFormInput) {
     email: input.email.trim() || null,
     gender: input.gender.trim() || null,
     birth_date: input.birthDate,
-    location: input.location.trim() || null,
+    location: newLocation,
+    latitude,
+    longitude,
     phone: normalizePhone(input.phone.trim()),
     bio: input.bio.trim() || null,
     profile_image_url: profileImageUrl,
@@ -368,7 +373,7 @@ export async function updateFreelancer(freelancerId: string, input: FreelancerFo
   // til en helt anden virksomhed.
   const { data: existing } = await supabase
     .from("freelancer_profiles")
-    .select("id, auth_user_id")
+    .select("id, auth_user_id, location")
     .eq("id", freelancerId)
     .eq("company_id", company.id)
     .maybeSingle();
@@ -379,18 +384,27 @@ export async function updateFreelancer(freelancerId: string, input: FreelancerFo
 
   const profileImageUrl = await uploadPhotoIfNeeded(supabase, freelancerId, input.photoDataUrl);
 
+  const newLocation = input.location.trim() || null;
   const updateRow: Record<string, unknown> = {
     full_name: input.fullName.trim(),
     email: input.email.trim() || null,
     gender: input.gender.trim() || null,
     birth_date: input.birthDate,
-    location: input.location.trim() || null,
+    location: newLocation,
     phone: normalizePhone(input.phone.trim()),
     bio: input.bio.trim() || null,
     social_media_url: input.socialMediaUrl.trim() || null,
     has_license: input.hasLicense,
   };
   if (profileImageUrl) updateRow.profile_image_url = profileImageUrl;
+
+  // Kun gengeokod ved faktisk ændret lokationstekst — se samme mønster i
+  // freelancerens egen updateMyProfile() i app/freelancer/(protected)/profil/actions.ts.
+  if (newLocation !== existing.location) {
+    const { latitude, longitude } = await geocodeFreelancerLocation(newLocation);
+    updateRow.latitude = latitude;
+    updateRow.longitude = longitude;
+  }
 
   const { error: profileError } = await supabase
     .from("freelancer_profiles")

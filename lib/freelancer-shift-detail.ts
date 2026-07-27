@@ -1,10 +1,19 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OpenShiftDetail, SiblingShift, ShiftAttachment } from "@/components/freelancer/ShiftRequestDetail";
+import { haversineMeters } from "@/lib/geo";
 
 type RawCategoryRef = { name: string; icon: string | null };
-type RawVenueRef = { name: string | null; address: string | null; postal_code: string | null; city: string | null };
-type RawEventRef = { id: string; title: string; description: string | null };
+type RawVenueRef = {
+  name: string | null;
+  address: string | null;
+  postal_code: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+type RawClientRef = { name: string | null; contact_person: string | null; contact_phone: string | null };
+type RawEventRef = { id: string; title: string; description: string | null; clients: RawClientRef | RawClientRef[] | null };
 
 type RawShiftRow = {
   id: string;
@@ -59,7 +68,7 @@ export async function loadOpenShiftDetail(
   const { data: shiftRow } = await supabase
     .from("shifts")
     .select(
-      "id, shift_date, start_time, end_time, status, event_id, assigned_freelancer_id, work_categories(name, icon), client_venues(name, address, postal_code, city), events(id, title, description)"
+      "id, shift_date, start_time, end_time, status, event_id, assigned_freelancer_id, work_categories(name, icon), client_venues(name, address, postal_code, city, latitude, longitude), events(id, title, description, clients(name, contact_person, contact_phone))"
     )
     .eq("id", shiftId)
     .maybeSingle();
@@ -67,26 +76,51 @@ export async function loadOpenShiftDetail(
   const shift = shiftRow as unknown as RawShiftRow | null;
   if (!shift) return null;
 
-  const [{ data: interest }, { data: siblingRows }, { data: attachmentRows }] = await Promise.all([
-    supabase
-      .from("shift_interests")
-      .select("id")
-      .eq("shift_id", shiftId)
-      .eq("freelancer_id", userId)
-      .maybeSingle(),
-    shift.event_id
-      ? supabase.rpc("get_event_shift_summary", { p_event_id: shift.event_id })
-      : Promise.resolve({ data: [] as RawSiblingRow[] }),
-    shift.event_id
-      ? supabase
-          .from("shift_attachments")
-          .select("id, file_name, file_url, file_type")
-          .eq("event_id", shift.event_id)
-      : Promise.resolve({ data: [] as { id: string; file_name: string; file_url: string; file_type: string | null }[] }),
-  ]);
+  const [{ data: interest }, { data: siblingRows }, { data: attachmentRows }, { data: freelancerProfile }] =
+    await Promise.all([
+      supabase
+        .from("shift_interests")
+        .select("id")
+        .eq("shift_id", shiftId)
+        .eq("freelancer_id", userId)
+        .maybeSingle(),
+      shift.event_id
+        ? supabase.rpc("get_event_shift_summary", { p_event_id: shift.event_id })
+        : Promise.resolve({ data: [] as RawSiblingRow[] }),
+      shift.event_id
+        ? supabase
+            .from("shift_attachments")
+            .select("id, file_name, file_url, file_type")
+            .eq("event_id", shift.event_id)
+        : Promise.resolve({ data: [] as { id: string; file_name: string; file_url: string; file_type: string | null }[] }),
+      // Freelancerens egen bopæls-koordinater (geokodet ud fra det grove
+      // by/postnummer-felt location, se geocodeFreelancerLocation i
+      // lib/maps.ts) — bruges nedenfor til fugleflugtsafstanden til
+      // vagtstedet, vist på Vagtdetaljer-siden.
+      supabase
+        .from("freelancer_profiles")
+        .select("latitude, longitude")
+        .eq("auth_user_id", userId)
+        .maybeSingle(),
+    ]);
 
   const event = one(shift.events);
   const venue = one(shift.client_venues);
+  const client = event ? one(event.clients) : null;
+
+  let distanceKm: number | null = null;
+  if (
+    freelancerProfile?.latitude != null &&
+    freelancerProfile?.longitude != null &&
+    venue?.latitude != null &&
+    venue?.longitude != null
+  ) {
+    const meters = haversineMeters(
+      { lat: freelancerProfile.latitude, lng: freelancerProfile.longitude },
+      { lat: venue.latitude, lng: venue.longitude }
+    );
+    distanceKm = meters / 1000;
+  }
 
   const siblingShifts: SiblingShift[] = ((siblingRows ?? []) as unknown as RawSiblingRow[]).map((s) => ({
     id: s.shift_id,
@@ -120,6 +154,12 @@ export async function loadOpenShiftDetail(
     venueAddress: venue
       ? [venue.address, [venue.postal_code, venue.city].filter(Boolean).join(", ")].filter(Boolean).join(", ")
       : null,
+    // clientIsPrivate afledes ligesom på admin-siden (lib/shifts-data.ts) —
+    // en privatkunde har intet firmanavn, kun en kontaktperson.
+    clientName: client ? client.name || client.contact_person || null : null,
+    clientIsPrivate: Boolean(client && !client.name),
+    clientPhone: client?.contact_phone ?? null,
+    distanceKm,
     alreadyApplied: Boolean(interest),
     siblingShifts,
     attachments,

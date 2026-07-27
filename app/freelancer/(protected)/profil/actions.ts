@@ -5,6 +5,7 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { normalizePhone } from "@/lib/format";
 import { revalidatePath, updateTag } from "next/cache";
 import { FREELANCER_MEMBERSHIPS_TAG } from "@/lib/freelancer";
+import { geocodeFreelancerLocation } from "@/lib/maps";
 
 export type MyProfileFormInput = {
   fullName: string;
@@ -83,7 +84,7 @@ export async function updateMyProfile(profileId: string, input: MyProfileFormInp
 
   const { data: existing } = await supabase
     .from("freelancer_profiles")
-    .select("id, auth_user_id, company_id")
+    .select("id, auth_user_id, company_id, location")
     .eq("id", profileId)
     .eq("auth_user_id", user.id)
     .maybeSingle();
@@ -94,18 +95,28 @@ export async function updateMyProfile(profileId: string, input: MyProfileFormInp
 
   const profileImageUrl = await uploadPhotoIfNeeded(supabase, profileId, input.photoDataUrl);
 
+  const newLocation = input.location.trim() || null;
   const updateRow: Record<string, unknown> = {
     full_name: input.fullName.trim(),
     email: input.email.trim() || null,
     gender: input.gender.trim() || null,
     birth_date: input.birthDate,
-    location: input.location.trim() || null,
+    location: newLocation,
     phone: normalizePhone(input.phone.trim()),
     bio: input.bio.trim() || null,
     social_media_url: input.socialMediaUrl.trim() || null,
     has_license: input.hasLicense,
   };
   if (profileImageUrl) updateRow.profile_image_url = profileImageUrl;
+
+  // Kun gengeokod hvis lokationsteksten faktisk er ændret — samme
+  // "kun ved ændring"-mønster som syncVenues() bruger til vagtsteder, for
+  // ikke at spamme Google Geocoding API ved hvert gem af uændrede felter.
+  if (newLocation !== existing.location) {
+    const { latitude, longitude } = await geocodeFreelancerLocation(newLocation);
+    updateRow.latitude = latitude;
+    updateRow.longitude = longitude;
+  }
 
   const { error: profileError } = await supabase
     .from("freelancer_profiles")

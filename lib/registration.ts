@@ -6,6 +6,7 @@ import type { RegistrationResult, WorkCategory } from "@/lib/types";
 import { updateTag } from "next/cache";
 import { FREELANCER_MEMBERSHIPS_TAG } from "@/lib/freelancer";
 import { sendPushToCompanyAdmins } from "@/lib/admin-push";
+import { geocodeFreelancerLocation } from "@/lib/maps";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -131,6 +132,10 @@ export async function submitRegistrationForCompany(
   // 3. Opret freelancer-profilen — en helt ny, uafhængig profil for DENNE
   // virksomhed (eget navn/billede/bio osv.), selvom login-kontoen (userId)
   // evt. er genbrugt fra en tidligere ansøgning hos en anden virksomhed.
+  // Geokoder lokationen (by/postnummer-niveau) med det samme, så
+  // Vagtdetaljer-siden kan vise en fugleflugtsafstand til vagtsteder —
+  // fejler aldrig hårdt, ansøgningen gennemføres uanset.
+  const { latitude, longitude } = await geocodeFreelancerLocation(location || null);
   const { error: profileError } = await supabase.from("freelancer_profiles").insert({
     id: profileId,
     auth_user_id: userId,
@@ -141,6 +146,8 @@ export async function submitRegistrationForCompany(
     gender: gender || null,
     birth_date: birthDate,
     location: location || null,
+    latitude,
+    longitude,
     phone,
     bio: bio || null,
     profile_image_url: profileImageUrl,

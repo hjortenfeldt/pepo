@@ -149,6 +149,26 @@ export async function geocodeAndMeasureFromCompany(
   return { location, distanceKm };
 }
 
+/**
+ * Geokoder freelancerens grove by/postnummer-lokation
+ * (freelancer_profiles.location — ét frit tekstfelt, bevidst IKKE en præcis
+ * gadeadresse, se [[project_freelancer_home_distance_feature]]) til lat/lng,
+ * så Vagtdetaljer-siden (ShiftRequestDetail.tsx) kan vise en
+ * fugleflugtsafstand til vagtstedet. Kaldes fra alle steder der
+ * gemmer/opretter en freelancer-profil (ansøgningsformular, admins
+ * opret/redigér-freelancer, freelancerens egen profilredigering) — men KUN
+ * når lokationsteksten faktisk er ændret, se kaldestederne. Fejler aldrig
+ * hårdt — returnerer null/null hvis lokationen mangler eller ikke kan
+ * geokodes, ligesom geocodeAddress() selv.
+ */
+export async function geocodeFreelancerLocation(
+  location: string | null
+): Promise<{ latitude: number | null; longitude: number | null }> {
+  if (!location) return { latitude: null, longitude: null };
+  const result = await geocodeAddress(location, null, null);
+  return { latitude: result?.lat ?? null, longitude: result?.lng ?? null };
+}
+
 export type AddressSuggestion = {
   placeId: string;
   mainText: string;
