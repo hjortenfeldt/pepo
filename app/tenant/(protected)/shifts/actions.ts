@@ -550,6 +550,23 @@ export async function releaseShift(shiftId: string) {
     return { success: false, error: "Kunne ikke frigive vagten. Prøv igen." };
   }
 
+  // Genopretter en evt. "accepted" tilkendegivelse til "pending" igen.
+  // assignFreelancer() ovenfor sætter denne freelancers shift_interests-
+  // række til "accepted" ved tildeling — uden denne rettelse blev den
+  // stående som "accepted" for evigt efter en frigivelse, hvilket fik
+  // vagten til at forsvinde permanent fra "Vagtanmodninger"-fanen (se
+  // hasPendingShiftRequest i lib/shift-request-utils.ts, som kun tæller
+  // "pending"), selvom freelanceren jo stadig gerne vil have vagten.
+  // Best-effort ligesom assignFreelancer's tilsvarende opdatering.
+  if (before?.assigned_freelancer_id) {
+    await supabase
+      .from("shift_interests")
+      .update({ status: "pending" })
+      .eq("shift_id", shiftId)
+      .eq("freelancer_id", before.assigned_freelancer_id)
+      .eq("status", "accepted");
+  }
+
   // #2 Vagt frigivet (til den tidligere tildelte), + #5 (kø til andre
   // matchende freelancere, da vagten nu igen er ledig).
   if (before?.assigned_freelancer_id) {

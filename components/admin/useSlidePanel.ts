@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { usePageScrollLock } from "@/components/freelancer/PullToRefresh";
 
 // Slide-ind/ud-animation til højrepaneler, der monteres/afmonteres betinget
@@ -42,6 +43,7 @@ import { usePageScrollLock } from "@/components/freelancer/PullToRefresh";
 // dybde end den nye aktuelle, så kun det lukker ved ét swipe/back-tryk.
 export function useSlidePanel(onClose: () => void, duration = 200) {
   const [visible, setVisible] = useState(false);
+  const router = useRouter();
 
   // Låser side-scrollen bag panelet, mens det er synligt — se
   // usePageScrollLock's egen doc-kommentar i PullToRefresh.tsx for hvorfor
@@ -73,6 +75,21 @@ export function useSlidePanel(onClose: () => void, duration = 200) {
       const newDepth = (window.history.state as { pepoPanelDepth?: number } | null)?.pepoPanelDepth ?? 0;
       if (depthRef.current !== null && newDepth < depthRef.current) {
         setVisible(false);
+        // En panel-lukning (både via luk-knap-klik og via history.back()
+        // ovenfor) udløser DENNE popstate — men Next.js' egen router lytter
+        // også globalt efter popstate for at understøtte browserens
+        // frem/tilbage-navigation, og kan nå at gen-anvende sin klient-side
+        // router-cache for den historik-post vi lige er "gået tilbage til"
+        // FØR vi selv når hertil (listener-rækkefølge). Er den cachede
+        // udgave ældre end et `router.refresh()` kaldt lige inden panelet
+        // blev lukket (fx efter en gemt tildeling/frigivelse), overskriver
+        // Next stiltiende det friske data igen med den forældede cache —
+        // observeret som "Utilgængelig"-mærkatet i FreelancerAssignDropdown
+        // der aldrig forsvinder efter en frigivelse, selvom frigivelsen er
+        // gemt korrekt. Et ekstra `router.refresh()` HER (efter selve
+        // tilbage-navigationen er anvendt) tvinger en frisk hentning af den
+        // nu aktuelle rute igen, uanset hvad Next lige gjorde.
+        router.refresh();
         const callback = pendingCallbackRef.current;
         setTimeout(callback, duration);
       }
