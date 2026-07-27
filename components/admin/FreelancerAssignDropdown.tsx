@@ -166,7 +166,15 @@ export default function FreelancerAssignDropdown({
     return () => document.removeEventListener("mousedown", onOutside);
   }, [open]);
 
-  const interestedIds = new Set(interests.map((i) => i.freelancerId));
+  // KUN "pending" tæller som en levende anmodning, der skal vise
+  // "Anmodet"-mærkatet — en "accepted" række betyder freelanceren ER (eller
+  // var) den tildelte for DENNE vagt (se assignFreelancer/releaseShift i
+  // actions.ts), ikke en kandidat der venter på svar. Uden dette filter
+  // kunne en forældet/uafklaret "accepted"-række (fx fra en freelancer der
+  // ikke længere har vagtens jobfunktion, så de slet ikke vises i listen
+  // nedenfor) tælle med i "X anmodninger" uden at der reelt var et
+  // synligt mærkat at pege på — set og rapporteret af Hjorth 2026-07-27.
+  const interestedIds = new Set(interests.filter((i) => i.status === "pending").map((i) => i.freelancerId));
 
   function badgesFor(freelancerId: string): FreelancerBadgeKind[] {
     const badges: FreelancerBadgeKind[] = [];
@@ -181,7 +189,12 @@ export default function FreelancerAssignDropdown({
     onSelect(freelancerId);
   }
 
-  const requestCount = interests.length;
+  // Talt ud fra de FREELANCERE DER RENT FAKTISK VISES (allerede filtreret
+  // til vagtens jobfunktion), ikke rå `interests.length` — garanterer at
+  // tallet altid matcher antallet af synlige "Anmodet"-mærkater i listen
+  // nedenfor, uanset forældede/ikke-matchende anmodningsrækker i
+  // databasen (samme baggrund som interestedIds-kommentaren ovenfor).
+  const requestCount = freelancers.filter((f) => interestedIds.has(f.id)).length;
   const selectedBadges = selectedFreelancerId ? badgesFor(selectedFreelancerId) : [];
 
   return (

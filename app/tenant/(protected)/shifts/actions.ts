@@ -517,6 +517,21 @@ export async function assignFreelancer(shiftId: string, freelancerId: string) {
     .eq("shift_id", shiftId)
     .eq("freelancer_id", freelancerId);
 
+  // Genopretter en evt. ANDEN freelancers "accepted"-tilkendegivelse til
+  // "pending" — dækker direkte OMTILDELING (vælge en ny freelancer i
+  // dropdownet uden først at vælge "Ledig vagt"), hvor releaseShift()
+  // aldrig kaldes. Uden dette blev den forrige tildeltes anmodning stående
+  // som "accepted" for evigt, selvom de ikke længere er tildelt vagten —
+  // det gav et forkert (for lavt) antal anmodninger og et manglende
+  // "Anmodet"-mærkat for dem i FreelancerAssignDropdown, se
+  // [[project_shift_detail_panel_deferred_save]].
+  await supabase
+    .from("shift_interests")
+    .update({ status: "pending" })
+    .eq("shift_id", shiftId)
+    .neq("freelancer_id", freelancerId)
+    .eq("status", "accepted");
+
   // #1 Vagt tildelt.
   await pushShiftAssigned(shiftId, freelancerId);
 
