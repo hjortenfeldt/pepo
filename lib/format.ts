@@ -169,8 +169,12 @@ export function lastActiveLabel(lastActiveDate: string | null, today: string = t
 }
 
 /**
- * Matcher prototypens venueLabel(): navn hvis sat, ellers adressen, ellers
- * en tydelig placeholder — aldrig en tom streng i UI'en.
+ * Navn OG adresse når begge findes ("Havnelokale — Islands Brygge 26, 2300
+ * København S"), ellers hvilken som helst af de to der findes, ellers en
+ * tydelig placeholder — aldrig en tom streng i UI'en. Delt af både
+ * ClientVenueField.tsx's venue-dropdown/detaljer og lib/shifts-data.ts's
+ * EventListItem.venueLabel (headeren i ShiftDetailPanel.tsx, EventCard i
+ * ShiftBoard.tsx) — én rettelse her retter alle steder.
  */
 export function venueLabel(
   venue: { name: string | null; address: string | null; postalCode: string | null; city: string | null } | null
@@ -179,5 +183,6 @@ export function venueLabel(
   const addressLine = [venue.address, [venue.postalCode, venue.city].filter(Boolean).join(" ")]
     .filter(Boolean)
     .join(", ");
+  if (venue.name && addressLine) return `${venue.name} — ${addressLine}`;
   return venue.name || addressLine || "Unavngivet arbejdssted";
 }
