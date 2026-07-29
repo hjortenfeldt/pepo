@@ -94,17 +94,23 @@ export default function VagterClient({
           <div className="text-[20px] font-bold text-pepo-t1 mb-3">Vagter</div>
           {/* Samme opbygning som "Kundetype"-vælgeren på admin-appens "Ny
               kunde" (ClientQuickAddPanel.tsx: pille-wrapper + to
-              flex-1-knapper, den aktive med skygge) — farverne er byttet om
-              (hvid wrapper/grå aktiv-knap i stedet for omvendt), fordi denne
-              header (i modsætning til "Ny kunde"s hvide panel) selv har
-              pepo-su som baggrund; ellers ville pillen slet ikke kunne ses. */}
+              flex-1-knapper) — wrapperens hvide baggrund er byttet om ift.
+              "Ny kunde" (hvid i stedet for grå), fordi denne header (i
+              modsætning til "Ny kunde"s hvide panel) selv har pepo-su som
+              baggrund; ellers ville pillen slet ikke kunne ses. Den aktive
+              knap er nu en massiv lilla (bg-pepo-p) med hvid tekst i stedet
+              for en skygget hvid/grå — ingen skygge, så p-[3px]-margenen
+              omkring den aktive knap er lige bred i alle fire sider (en
+              skygge nedadtil gjorde tidligere bundmargenen "beskidt"/
+              utydelig sammenlignet med de andre tre sider). Samme rettelse
+              lavet i ClientQuickAddPanel.tsx (se dens tilsvarende vælger). */}
           <div className="flex bg-pepo-wh border border-pepo-bd rounded-[9px] p-[3px]">
             <button
               type="button"
               onClick={() => setTab("mine")}
               className={
                 "flex-1 text-center py-2 rounded-[7px] text-[13px] font-medium transition-colors " +
-                (tab === "mine" ? "bg-pepo-su text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "text-pepo-t2")
+                (tab === "mine" ? "bg-pepo-p text-white" : "text-pepo-t2")
               }
             >
               Mine vagter
@@ -114,7 +120,7 @@ export default function VagterClient({
               onClick={() => setTab("ledige")}
               className={
                 "flex-1 text-center py-2 rounded-[7px] text-[13px] font-medium transition-colors " +
-                (tab === "ledige" ? "bg-pepo-su text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "text-pepo-t2")
+                (tab === "ledige" ? "bg-pepo-p text-white" : "text-pepo-t2")
               }
             >
               Ledige vagter
@@ -129,9 +135,20 @@ export default function VagterClient({
             <EmptyRow text="Ingen kommende vagter lige nu." />
           ) : (
             <div className="flex flex-col">
-              {myGroups.map(([heading, rows]) => (
+              {myGroups.map(([heading, rows], groupIndex) => (
                 <div key={heading}>
-                  <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide pt-4 pb-2 first:pt-0">
+                  {/* groupIndex === 0, IKKE first:pt-0 — sidstnævnte ville
+                      matche overskriften i HVER gruppe (den er jo altid selv
+                      første barn i sin egen wrapper-div ovenfor), ikke kun
+                      den allerførste overskrift på hele siden. Var den
+                      egentlige årsag til at fx "September 2026" sad helt
+                      oppe ad forrige måneds sidste vagtkort. */}
+                  <div
+                    className={
+                      "text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide pb-2 " +
+                      (groupIndex === 0 ? "pt-0" : "pt-5")
+                    }
+                  >
                     {heading}
                   </div>
                   <div className="flex flex-col gap-2">
@@ -181,9 +198,14 @@ export default function VagterClient({
           <EmptyRow text="Ingen ledige vagter matcher dine kategorier lige nu." />
         ) : (
           <div className="flex flex-col">
-            {openGroups.map(([heading, rows]) => (
+            {openGroups.map(([heading, rows], groupIndex) => (
               <div key={heading}>
-                <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide pt-4 pb-2 first:pt-0">
+                <div
+                  className={
+                    "text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide pb-2 " +
+                    (groupIndex === 0 ? "pt-0" : "pt-5")
+                  }
+                >
                   {heading}
                 </div>
                 <div className="flex flex-col gap-2">

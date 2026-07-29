@@ -236,12 +236,18 @@ export default function ClientQuickAddPanel({
           </div>
 
           <Field label="Kundetype">
+            {/* Aktiv knap er en massiv lilla (bg-pepo-p) med hvid tekst, uden
+                skygge — en skygge nedadtil gjorde tidligere p-[3px]-margenen
+                omkring den aktive knap "beskidt"/utydelig i bunden
+                sammenlignet med de tre andre sider (opdaget via samme vælger
+                genbrugt i freelancer-appens VagterClient.tsx, rettet begge
+                steder). */}
             <div className="flex bg-pepo-su rounded-[9px] p-[3px]">
               <button
                 onClick={() => setType("company")}
                 className={
                   "flex-1 text-center py-2 rounded-[7px] text-[13px] font-medium transition-colors " +
-                  (customerType === "company" ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "text-pepo-t2")
+                  (customerType === "company" ? "bg-pepo-p text-white" : "text-pepo-t2")
                 }
               >
                 Firmakunde
@@ -250,7 +256,7 @@ export default function ClientQuickAddPanel({
                 onClick={() => setType("private")}
                 className={
                   "flex-1 text-center py-2 rounded-[7px] text-[13px] font-medium transition-colors " +
-                  (customerType === "private" ? "bg-pepo-wh text-pepo-p shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "text-pepo-t2")
+                  (customerType === "private" ? "bg-pepo-p text-white" : "text-pepo-t2")
                 }
               >
                 Privatkunde
