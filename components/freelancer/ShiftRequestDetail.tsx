@@ -60,28 +60,19 @@ export type OpenShiftDetail = {
   attachments: ShiftAttachment[];
 };
 
-const SIBLING_STATUS_LABEL: Record<ShiftStatus, string> = {
-  open: "Ledig",
-  for_resale: "Til salg",
-  assigned: "Tildelt",
-  completed: "Afsluttet",
-  cancelled: "Slettet",
-};
-
-const SIBLING_STATUS_CLASS: Record<ShiftStatus, string> = {
-  open: "bg-pepo-pl text-pepo-p",
-  for_resale: "bg-[#FEF3E2] text-[#9A5F00]",
-  assigned: "bg-[#EAF6EE] text-[#1A7A34]",
-  completed: "bg-pepo-su text-pepo-t3",
-  cancelled: "bg-pepo-su text-pepo-t3",
-};
-
-function siblingPillLabel(s: SiblingShift): string {
-  if (s.status === "assigned") {
-    if (s.isMine) return "Din vagt";
-    return s.assignedFreelancerName ?? SIBLING_STATUS_LABEL.assigned;
-  }
-  return SIBLING_STATUS_LABEL[s.status];
+/**
+ * Navnekolonnen i "kollegaer til dette event"-listen nedenfor — "Dig" for
+ * ens egne vagter (uanset om det er den man kigger på lige nu eller en
+ * anden rolle man selv har på samme event), "Ubesat" for åbne vagter, ellers
+ * den tildelte kollegas navn. En vagt "til salg" hænger stadig ved sælgeren
+ * indtil en anden tager den (se samme logik i components/admin/ShiftBoard.tsx),
+ * så den viser navnet + en lille markering i stedet for "Ubesat".
+ */
+function colleagueLabel(s: SiblingShift): string {
+  if (s.isMine) return "Dig";
+  if (s.status === "open") return "Ubesat";
+  const name = s.assignedFreelancerName ?? "Ubesat";
+  return s.status === "for_resale" ? `${name} · Til salg` : name;
 }
 
 /** "8" eller "7,5" — brugt i parentesen efter start/sluttid, se bodyContent. */
@@ -138,7 +129,6 @@ export default function ShiftRequestDetail({
   // de skal i stedet kunne følge/fortryde deres eget salg. Se footeren
   // nedenfor for prioriteringen.
   const isSellerListing = shift.status === "for_resale" && shift.isMine;
-  const otherShifts = shift.siblingShifts.filter((s) => !s.isCurrent);
 
   // Efter en statusændrende handling: i embedded (panel-) tilstand skal
   // panelet lukke og det bagvedliggende kort blinke; i fuld-side-tilstand
@@ -176,6 +166,14 @@ export default function ShiftRequestDetail({
   }
 
   function handlePutForResale() {
+    // Confirm-dialog for at undgå fejltryk (Hjorth 2026-07-29) — vagten
+    // forsvinder ikke med det samme (den er stadig freelancerens indtil en
+    // anden tager den), men handlingen gør den synlig for alle kollegaer med
+    // adgang til jobfunktionen, så et fejltryk bør stadig kunne fortrydes
+    // inden det sker.
+    if (!confirm(`Sæt "${shift.categoryName}"-vagten (${formatEventDate(shift.date)}) til salg? Andre kolleger kan så tage den, indtil vagten starter.`)) {
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const res = await putShiftForResale(shift.id);
@@ -266,33 +264,40 @@ export default function ShiftRequestDetail({
         )}
       </div>
 
-      {otherShifts.length > 0 && (
+      {shift.siblingShifts.length > 0 && (
         <>
           <div className="h-px bg-pepo-bd my-5" />
+          {/* Hvem-er-på-hvad for hele eventet — kronologisk (get_event_shift_summary
+              sorterer selv efter start_time), tid → jobfunktion → navn/"Ubesat",
+              så man kan se hvilke kolleger man arbejder sammen med (ønsket af
+              Hjorth 2026-07-29). Vises altid når vagten hører til et event, også
+              hvis man selv er den eneste på det lige nu. */}
           <div className="text-[14px] font-semibold text-pepo-t1 mb-2.5">
-            Vagter til dette event ({shift.siblingShifts.length})
+            Kollegaer til dette event ({shift.siblingShifts.length})
           </div>
           <div className="flex flex-col gap-1.5">
             {shift.siblingShifts.map((s) => (
               <div
                 key={s.id}
                 className={
-                  "flex items-center justify-between gap-2 rounded-[10px] px-3 py-2 border " +
+                  "flex items-center gap-3 rounded-[10px] px-3 py-2 border " +
                   (s.isCurrent ? "border-pepo-p bg-pepo-pl/30" : "border-pepo-bd")
                 }
               >
-                <div className="min-w-0">
-                  <div className="text-[13px] font-medium text-pepo-t1 truncate">
-                    {s.categoryName}
-                    {s.isCurrent && <span className="text-pepo-t3 font-normal"> · denne vagt</span>}
-                  </div>
-                  <div className="text-[12px] text-pepo-t2">{formatTimeRange(s.startTime, s.endTime)}</div>
+                <div className="text-[12px] font-medium text-pepo-t2 tabular-nums flex-shrink-0 w-[84px]">
+                  {formatTimeRange(s.startTime, s.endTime)}
                 </div>
-                <span
-                  className={"flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold " + SIBLING_STATUS_CLASS[s.status]}
+                <div className="min-w-0 flex-1 text-[13px] font-medium text-pepo-t1 truncate">
+                  {s.categoryName}
+                </div>
+                <div
+                  className={
+                    "min-w-0 max-w-[38%] flex-shrink-0 text-[13px] truncate text-right " +
+                    (s.isMine ? "font-semibold text-pepo-p" : "text-pepo-t2")
+                  }
                 >
-                  {siblingPillLabel(s)}
-                </span>
+                  {colleagueLabel(s)}
+                </div>
               </div>
             ))}
           </div>
