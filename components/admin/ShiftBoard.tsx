@@ -310,7 +310,7 @@ export default function ShiftBoard({
             onClick={() => changeViewMode("list")}
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center transition-colors " +
-              (viewMode === "list" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2")
+              (viewMode === "list" ? "bg-pepo-p text-white" : "text-pepo-t2")
             }
             title="Listevisning"
           >
@@ -320,7 +320,7 @@ export default function ShiftBoard({
             onClick={() => changeViewMode("calendar")}
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center transition-colors " +
-              (viewMode === "calendar" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2")
+              (viewMode === "calendar" ? "bg-pepo-p text-white" : "text-pepo-t2")
             }
             title="Kalendervisning"
           >
@@ -814,10 +814,41 @@ function CalendarView({
     none: "bg-transparent",
   };
 
+  // Swipe venstre/højre skifter måned, som et supplement til pil-knapperne
+  // (Hjorth 2026-07-30) — kun touchstart/touchend (ingen touchmove/
+  // preventDefault undervejs), så almindelig lodret sidescroll ikke
+  // forstyrres, mens swipet stadig foregår. Reagerer kun hvis bevægelsen er
+  // overvejende VANDRET (dx markant større end dy) og mindst 50px, så et
+  // skævt/lodret drag ikke fejlagtigt tolkes som et månedsskift.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    onNav(dx < 0 ? 1 : -1);
+  }
+
   return (
-    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-[22px] mb-7">
+    <div
+      className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-[22px] mb-7"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <div className="flex items-center justify-between mb-3.5">
-        <button onClick={() => onNav(-1)} className="w-[30px] h-[30px] rounded-lg border border-pepo-bd flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
+        {/* Massiv mørklilla med hvide pile i stedet for den tidligere tynde
+            grå streg-knap — for utydelig til at se med det samme (Hjorth
+            2026-07-30). */}
+        <button onClick={() => onNav(-1)} className="w-[30px] h-[30px] rounded-lg bg-pepo-p flex items-center justify-center text-white hover:opacity-90 transition-opacity">
           <Icon name="chevron-left" size={16} />
         </button>
         <div className="text-center">
@@ -826,7 +857,7 @@ function CalendarView({
             I dag
           </button>
         </div>
-        <button onClick={() => onNav(1)} className="w-[30px] h-[30px] rounded-lg border border-pepo-bd flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
+        <button onClick={() => onNav(1)} className="w-[30px] h-[30px] rounded-lg bg-pepo-p flex items-center justify-center text-white hover:opacity-90 transition-opacity">
           <Icon name="chevron-right" size={16} />
         </button>
       </div>

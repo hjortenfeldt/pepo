@@ -454,7 +454,7 @@ export default function FreelancerBoard({
             onClick={() => changeViewMode("grid")}
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
-              (viewMode === "grid" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2 hover:text-pepo-t1")
+              (viewMode === "grid" ? "bg-pepo-p text-white" : "text-pepo-t2 hover:text-pepo-t1")
             }
           >
             <Icon name="layout-grid" size={20} />
@@ -464,7 +464,7 @@ export default function FreelancerBoard({
             onClick={() => changeViewMode("list")}
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
-              (viewMode === "list" ? "bg-pepo-su text-pepo-p" : "text-pepo-t2 hover:text-pepo-t1")
+              (viewMode === "list" ? "bg-pepo-p text-white" : "text-pepo-t2 hover:text-pepo-t1")
             }
           >
             <Icon name="list" size={20} />

@@ -313,7 +313,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
               (viewMode === "grid"
-                ? "bg-pepo-su text-pepo-p"
+                ? "bg-pepo-p text-white"
                 : "text-pepo-t2 hover:text-pepo-t1")
             }
           >
@@ -325,7 +325,7 @@ export default function ClientBoard({ clients }: { clients: ClientListItem[] }) 
             className={
               "w-[34px] h-8 rounded-[7px] flex items-center justify-center text-[16px] transition-colors " +
               (viewMode === "list"
-                ? "bg-pepo-su text-pepo-p"
+                ? "bg-pepo-p text-white"
                 : "text-pepo-t2 hover:text-pepo-t1")
             }
           >
