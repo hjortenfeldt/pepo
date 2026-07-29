@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Icon from "@/components/Icon";
 import { formatDayHeading } from "@/lib/format";
-import { getShiftDetail, type ShiftDetail } from "@/app/freelancer/(protected)/vagtplan/actions";
+import { getShiftDetail, type ShiftDetail } from "@/app/freelancer/(protected)/_vagtplan_legacy_unused/actions";
 
 export type ScheduledShift = {
   id: string;

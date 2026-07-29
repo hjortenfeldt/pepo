@@ -363,8 +363,18 @@ export default function OverviewClient({
         </div>
       )}
 
-      <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide mt-6 mb-2.5">
-        Mine vagter
+      <div className="flex items-center justify-between mt-6 mb-2.5">
+        <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide">Mine vagter</div>
+        {/* Samme knap-stil som admin-dashboardets "Se alle" (DashboardBoard.tsx)
+            — lander direkte på "Mine vagter"-fanen på den nye Vagter-side
+            (components/freelancer/VagterClient.tsx), som viser ALLE
+            kommende vagter uden det cap på 6 forespørgslen ovenfor har. */}
+        <Link
+          href="/vagter?tab=mine"
+          className="h-[30px] px-3 rounded-[9px] bg-pepo-p text-white text-[12px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity flex-shrink-0"
+        >
+          Se alle
+        </Link>
       </div>
       {upcomingShifts.length === 0 ? (
         <EmptyRow text="Ingen kommende vagter lige nu." />
@@ -421,8 +431,14 @@ export default function OverviewClient({
         </div>
       )}
 
-      <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide mt-6 mb-2.5">
-        Ledige vagter
+      <div className="flex items-center justify-between mt-6 mb-2.5">
+        <div className="text-[12px] font-semibold text-pepo-t2 uppercase tracking-wide">Ledige vagter</div>
+        <Link
+          href="/vagter?tab=ledige"
+          className="h-[30px] px-3 rounded-[9px] bg-pepo-p text-white text-[12px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity flex-shrink-0"
+        >
+          Se alle
+        </Link>
       </div>
       {/* Egen <Suspense>-grænse omkring kun selve listen — typisk den
           tungeste forespørgsel på siden (se page.tsx). Resten af Overblik

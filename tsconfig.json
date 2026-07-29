@@ -38,5 +38,15 @@
   // ingen route genereres længere for den, og Next holder derfor også op med
   // at ville typechecke den via sin egen validator.ts. excluden her er et
   // ekstra lag, så heller ikke selve tsc rører filerne.
-  "exclude": ["node_modules", "app/_admin_legacy_unused"]
+  //
+  // Samme mønster for _vagtplan_legacy_unused (oprindeligt
+  // app/freelancer/(protected)/vagtplan, erstattet af /vagter — se
+  // [[project_vagter_page_and_se_alle]]) og dens tilhørende, nu ubrugte
+  // klientkomponent i components/freelancer/.
+  "exclude": [
+    "node_modules",
+    "app/_admin_legacy_unused",
+    "app/freelancer/(protected)/_vagtplan_legacy_unused",
+    "components/freelancer/_VagtplanClient_legacy_unused.tsx"
+  ]
 }

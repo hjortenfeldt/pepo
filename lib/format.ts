@@ -75,6 +75,15 @@ export function formatDateDisplay(isoDate: string): string {
   return `${d.getDate()}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** "2026-08-17" → "August 2026" — månedsoverskrift i "Vagter"-sidens
+ * kronologiske lister (VagterClient.tsx), stort forbogstav i modsætning til
+ * de øvrige dato-hjælpere ovenfor, der bruger småt (bruges kun her). */
+export function formatMonthHeading(isoDate: string): string {
+  const d = new Date(isoDate + "T00:00:00");
+  const month = MONTHS[d.getMonth()];
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${d.getFullYear()}`;
+}
+
 /**
  * Antal timer mellem to "HH:MM"-klokkeslæt. Håndterer vagter der krydser
  * midnat (fx 22:00–02:00) ved at lægge et døgn til, hvis sluttid ikke er

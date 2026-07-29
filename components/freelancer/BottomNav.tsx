@@ -9,7 +9,10 @@ import Icon from "@/components/Icon";
 // på, se PullToRefresh.tsx's `icon`-prop).
 export const TABS = [
   { href: "/", label: "Overblik", icon: "layout-grid" },
-  { href: "/vagtplan", label: "Vagtplan", icon: "calendar" },
+  // Peger nu på den nye "Vagter"-side (VagterClient.tsx, faner "Mine
+  // vagter"/"Ledige vagter") i stedet for den nedlagte /vagtplan — label
+  // "Vagtplan" bevaret uændret i bundnavigationen, kun destinationen er ny.
+  { href: "/vagter", label: "Vagtplan", icon: "calendar" },
   { href: "/beskeder", label: "Beskeder", icon: "message-circle" },
   { href: "/kontakter", label: "Kollegaer", icon: "users" },
   { href: "/mere", label: "Mere", icon: "dots" },
@@ -17,9 +20,11 @@ export const TABS = [
 
 /**
  * Bundnavigation for freelancer-appen — fast placeret, samme fem faner på
- * alle sider. Aktiv fane afgøres af den nuværende sti; "/vagtplan/[id]"
- * skal fx stadig markere "Vagtplan" som aktiv, derfor startsWith frem for
- * eksakt match (undtaget "/", som ellers ville matche alt).
+ * alle sider. Aktiv fane afgøres af den nuværende sti; fx skal en eventuel
+ * fremtidig understi under "/vagter/..." stadig markere "Vagtplan" som
+ * aktiv, derfor startsWith frem for eksakt match (undtaget "/", som ellers
+ * ville matche alt). usePathname() indeholder ikke ?tab=-query-strengen, så
+ * "/vagter?tab=ledige" matcher fint som "/vagter".
  */
 export default function BottomNav() {
   const pathname = usePathname();
