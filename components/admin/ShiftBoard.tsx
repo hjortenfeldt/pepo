@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Icon from "@/components/Icon";
 import type {
   CategoryOption,
@@ -814,6 +815,44 @@ function CalendarView({
     none: "bg-transparent",
   };
 
+  // Retningen måneden skal glide ind fra — udledes af om calYear/calMonth
+  // er steget eller faldet siden sidste render, i stedet for at kræve at
+  // onNav's kald-side (pil-knapper OG swipe, se handleTouchEnd nedenfor)
+  // selv skal fortælle os det. Bruger Reacts officielle "juster state under
+  // selve renderet"-mønster (betinget setState i render-kroppen, IKKE i en
+  // effect) i stedet for en ref — at LÆSE en ref.current under render er nu
+  // en lint-fejl (react-hooks/refs), da det ikke er kompatibelt med React
+  // Compiler-antagelser. Se https://react.dev/learn/you-might-not-need-an-effect#adjusting-state-based-on-a-prop-change.
+  const monthIndex = calYear * 12 + calMonth;
+  const [prevMonthIndex, setPrevMonthIndex] = useState(monthIndex);
+  const [direction, setDirection] = useState(0);
+  if (monthIndex !== prevMonthIndex) {
+    setDirection(monthIndex > prevMonthIndex ? 1 : -1);
+    setPrevMonthIndex(monthIndex);
+  }
+  const shouldReduceMotion = useReducedMotion();
+
+  // Dynamiske variants (Motions officielle mønster for retningsafhængige
+  // enter/exit-værdier, se motion.dev/docs/react-animation#dynamic-variants)
+  // — funktionerne modtager `direction` via motion.div's `custom`-prop
+  // nedenfor. Bruger den fulde transform-streng (ikke x-genvejen), da
+  // Motions x/y-props IKKE er hardware-accelererede (emil-design-eng-
+  // skillens performance-regel). Ved prefers-reduced-motion erstattes
+  // skub-bevægelsen med et rent (retningsløst) fade, per skillens
+  // tilgængeligheds-regel: reduceret bevægelse betyder mildere, ikke
+  // ingen animation.
+  const monthSlideVariants = shouldReduceMotion
+    ? {
+        enter: { opacity: 0 },
+        center: { opacity: 1 },
+        exit: { opacity: 0 },
+      }
+    : {
+        enter: (dir: number) => ({ transform: `translateX(${dir >= 0 ? 100 : -100}%)` }),
+        center: { transform: "translateX(0%)" },
+        exit: (dir: number) => ({ transform: `translateX(${dir >= 0 ? -100 : 100}%)` }),
+      };
+
   // Swipe venstre/højre skifter måned, som et supplement til pil-knapperne
   // (Hjorth 2026-07-30) — kun touchstart/touchend (ingen touchmove/
   // preventDefault undervejs), så almindelig lodret sidescroll ikke
@@ -861,35 +900,63 @@ function CalendarView({
           <Icon name="chevron-right" size={16} />
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-[3px]">
+      {/* Ugedagsoverskrifterne er ens uanset måned, så de ligger UDENFOR den
+          glidende container nedenfor — kun selve datocellerne skal
+          skubbe/glide ved månedsskift, ellers ville "Man/Tir/..."-rækken
+          fejlagtigt følge med i animationen hver gang. */}
+      <div className="grid grid-cols-7 gap-[3px] mb-1.5">
         {["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"].map((d) => (
-          <div key={d} className="text-center text-[10.5px] font-medium uppercase text-pepo-t3 pb-1.5">
+          <div key={d} className="text-center text-[10.5px] font-medium uppercase text-pepo-t3">
             {d}
           </div>
         ))}
-        {cells.map(({ date, dateStr, otherMonth }) => {
-          const isToday = dateStr === now;
-          const isSelected = dateStr === selectedDate;
-          const dot = dateStatusDot(events, dateStr);
-          return (
-            <button
-              key={dateStr}
-              onClick={() => onSelectDay(dateStr)}
-              className={
-                "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 text-[12.5px] transition-colors " +
-                (isSelected
-                  ? "bg-pepo-pl text-pepo-p font-medium"
-                  : otherMonth
-                  ? "text-pepo-t3 opacity-35"
-                  : "text-pepo-t1 hover:bg-pepo-su") +
-                (isToday ? " border-[1.5px] border-pepo-p font-medium" : "")
-              }
-            >
-              <span>{date.getDate()}</span>
-              <span className={"w-1.5 h-1.5 rounded-full " + dotColor[dot]} />
-            </button>
-          );
-        })}
+      </div>
+      {/* Månedsskift (pil-knapper ELLER swipe ovenfor) lader den nye måned
+          skubbe den gamle ud til siden, app-agtigt, i stedet for at bare
+          "poppe" ind — ønsket af Hjorth 2026-07-31, bygget med Motion
+          (motion/react) efter research af emil-design-eng-skillen. Alle 42
+          celler (inkl. nabomånedernes udfyldningsdage) er altid samme antal,
+          så begge måneders grids har nøjagtig samme højde — ingen
+          layout-hop under overgangen, derfor er overflow-hidden trygt uden
+          en eksplicit fast højde. mode="popLayout" tager den udgående måned
+          ud af layout-flowet med det samme, så den nye ikke venter på den. */}
+      <div className="relative overflow-hidden">
+        <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+          <motion.div
+            key={monthIndex}
+            custom={direction}
+            variants={monthSlideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: shouldReduceMotion ? 0.15 : 0.28, ease: [0.23, 1, 0.32, 1] }}
+            className="grid grid-cols-7 gap-[3px]"
+          >
+            {cells.map(({ date, dateStr, otherMonth }) => {
+              const isToday = dateStr === now;
+              const isSelected = dateStr === selectedDate;
+              const dot = dateStatusDot(events, dateStr);
+              return (
+                <button
+                  key={dateStr}
+                  onClick={() => onSelectDay(dateStr)}
+                  className={
+                    "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 text-[12.5px] transition-colors " +
+                    (isSelected
+                      ? "bg-pepo-pl text-pepo-p font-medium"
+                      : otherMonth
+                      ? "text-pepo-t3 opacity-35"
+                      : "text-pepo-t1 hover:bg-pepo-su") +
+                    (isToday ? " border-[1.5px] border-pepo-p font-medium" : "")
+                  }
+                >
+                  <span>{date.getDate()}</span>
+                  <span className={"w-1.5 h-1.5 rounded-full " + dotColor[dot]} />
+                </button>
+              );
+            })}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
