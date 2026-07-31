@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
+import type { PanInfo } from "motion/react";
 import Icon from "@/components/Icon";
 import type {
   CategoryOption,
@@ -774,6 +775,27 @@ const ShiftCard = forwardRef<
   );
 });
 
+// Bygger de 42 kalenderceller (inkl. nabomånedernes udfyldningsdage) for
+// en given måned — udtrukket til en selvstændig funktion så CalendarView
+// kan bygge tre måneders celler på én gang (forrige/nuværende/næste), som
+// alle tre altid ligger side om side i drag-baren nedenfor.
+function buildMonthCells(year: number, month: number) {
+  const firstOfMonth = new Date(year, month, 1);
+  const startOffset = (firstOfMonth.getDay() + 6) % 7; // mandag = 0
+  const gridStart = new Date(year, month, 1 - startOffset);
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { date: d, dateStr, otherMonth: d.getMonth() !== month };
+  });
+}
+
+function addMonths(year: number, month: number, delta: number) {
+  const d = new Date(year, month + delta, 1);
+  return { year: d.getFullYear(), month: d.getMonth() };
+}
+
 function CalendarView({
   events,
   calYear,
@@ -797,17 +819,6 @@ function CalendarView({
     year: "numeric",
   });
 
-  const firstOfMonth = new Date(calYear, calMonth, 1);
-  const startOffset = (firstOfMonth.getDay() + 6) % 7; // mandag = 0
-  const gridStart = new Date(calYear, calMonth, 1 - startOffset);
-
-  const cells = Array.from({ length: 42 }, (_, i) => {
-    const d = new Date(gridStart);
-    d.setDate(gridStart.getDate() + i);
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    return { date: d, dateStr, otherMonth: d.getMonth() !== calMonth };
-  });
-
   const dotColor: Record<string, string> = {
     green: "bg-[#1A7A34]",
     red: "bg-[#C0021A]",
@@ -815,74 +826,113 @@ function CalendarView({
     none: "bg-transparent",
   };
 
-  // Retningen måneden skal glide ind fra — udledes af om calYear/calMonth
-  // er steget eller faldet siden sidste render, i stedet for at kræve at
-  // onNav's kald-side (pil-knapper OG swipe, se handleTouchEnd nedenfor)
-  // selv skal fortælle os det. Bruger Reacts officielle "juster state under
-  // selve renderet"-mønster (betinget setState i render-kroppen, IKKE i en
-  // effect) i stedet for en ref — at LÆSE en ref.current under render er nu
-  // en lint-fejl (react-hooks/refs), da det ikke er kompatibelt med React
-  // Compiler-antagelser. Se https://react.dev/learn/you-might-not-need-an-effect#adjusting-state-based-on-a-prop-change.
+  // Ægte live-drag-karrusel (Hjorth 2026-07-31: "mens jeg stadig holder
+  // fingeren nede... vil jeg DRAGE den nye måned ind i synsfeltet fra den
+  // rigtige side... og først ved slip glider måneden resten af vejen på
+  // plads"). Den tidligere version (touchstart/touchend + kun EFTER slip en
+  // hel animation) gav ingen fornemmelse af at trække selv — erstattet med
+  // Motions rigtige drag="x"-gestus, bygget efter emil-design-eng-skillens
+  // og motion.dev's egen dokumentation (drag/gestures/motion-values).
+  //
+  // Arkitektur: tre måneders grids (forrige/nuværende/næste) ligger altid
+  // side om side i én flex-bar. Det midterste panel starter centreret i
+  // viewport'et via `marginLeft: -100%` på det første panel — et rent
+  // CSS-tricks der skubber hele rækken én panel-bredde til venstre, uden at
+  // vi behøver måle bredden for selve hvile-positionen. `trackX` (en
+  // useMotionValue, ikke en x/y-genvej på et statisk objekt) styrer den
+  // LEVENDE forskydning under selve trækket — Motion optimerer denne vej
+  // med hardware-accelereret transform.
+  const shouldReduceMotion = useReducedMotion();
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const trackX = useMotionValue(0);
+  const [panelWidth, setPanelWidth] = useState(0);
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const measure = () => setPanelWidth(el.getBoundingClientRect().width);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // "I dag"-knappen og pil-knapperne kan ændre calYear/calMonth udefra
+  // (props), mens et drag er i gang. Skifter det ydre måned-index, snapper
+  // vi trækket tilbage til hvile med det samme, så det ikke fryser midt i
+  // en gammel gestus.
   const monthIndex = calYear * 12 + calMonth;
   const [prevMonthIndex, setPrevMonthIndex] = useState(monthIndex);
-  const [direction, setDirection] = useState(0);
   if (monthIndex !== prevMonthIndex) {
-    setDirection(monthIndex > prevMonthIndex ? 1 : -1);
     setPrevMonthIndex(monthIndex);
-  }
-  const shouldReduceMotion = useReducedMotion();
-
-  // Dynamiske variants (Motions officielle mønster for retningsafhængige
-  // enter/exit-værdier, se motion.dev/docs/react-animation#dynamic-variants)
-  // — funktionerne modtager `direction` via motion.div's `custom`-prop
-  // nedenfor. Bruger den fulde transform-streng (ikke x-genvejen), da
-  // Motions x/y-props IKKE er hardware-accelererede (emil-design-eng-
-  // skillens performance-regel). Ved prefers-reduced-motion erstattes
-  // skub-bevægelsen med et rent (retningsløst) fade, per skillens
-  // tilgængeligheds-regel: reduceret bevægelse betyder mildere, ikke
-  // ingen animation.
-  const monthSlideVariants = shouldReduceMotion
-    ? {
-        enter: { opacity: 0 },
-        center: { opacity: 1 },
-        exit: { opacity: 0 },
-      }
-    : {
-        enter: (dir: number) => ({ transform: `translateX(${dir >= 0 ? 100 : -100}%)` }),
-        center: { transform: "translateX(0%)" },
-        exit: (dir: number) => ({ transform: `translateX(${dir >= 0 ? -100 : 100}%)` }),
-      };
-
-  // Swipe venstre/højre skifter måned, som et supplement til pil-knapperne
-  // (Hjorth 2026-07-30) — kun touchstart/touchend (ingen touchmove/
-  // preventDefault undervejs), så almindelig lodret sidescroll ikke
-  // forstyrres, mens swipet stadig foregår. Reagerer kun hvis bevægelsen er
-  // overvejende VANDRET (dx markant større end dy) og mindst 50px, så et
-  // skævt/lodret drag ikke fejlagtigt tolkes som et månedsskift.
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-
-  function handleTouchStart(e: React.TouchEvent) {
-    const t = e.touches[0];
-    touchStart.current = { x: t.clientX, y: t.clientY };
+    trackX.jump(0);
   }
 
-  function handleTouchEnd(e: React.TouchEvent) {
-    const start = touchStart.current;
-    touchStart.current = null;
-    if (!start) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - start.x;
-    const dy = t.clientY - start.y;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    onNav(dx < 0 ? 1 : -1);
+  const prev = addMonths(calYear, calMonth, -1);
+  const next = addMonths(calYear, calMonth, 1);
+  const panels = [
+    { ...prev, key: `${prev.year}-${prev.month}` },
+    { year: calYear, month: calMonth, key: `${calYear}-${calMonth}` },
+    { ...next, key: `${next.year}-${next.month}` },
+  ];
+
+  // Ignorerer klik på en dato-celle hvis der lige har været et reelt træk
+  // (Motions egen pan-gestus aktiveres først efter ~3px bevægelse, så et
+  // "rigtigt" træk sætter altid dette flag). Nulstilles en anelse forsinket
+  // efter slip, så det stadig gælder når den efterfølgende syntetiske
+  // click-event (museknap/desktop) rammer den underliggende dato-knap —
+  // rene touch-enheder undertrykker allerede selv click efter et langt
+  // touchmove, men musetræk gør ikke, så vagten er nødvendig for begge.
+  const justDraggedRef = useRef(false);
+
+  function handleDragStart() {
+    justDraggedRef.current = true;
+  }
+
+  function handleDragEnd(_event: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) {
+    window.setTimeout(() => {
+      justDraggedRef.current = false;
+    }, 0);
+
+    if (panelWidth <= 0) {
+      animate(trackX, 0, { type: "spring", stiffness: 420, damping: 40 });
+      return;
+    }
+
+    const offset = info.offset.x;
+    const velocity = info.velocity.x;
+    const distanceThreshold = panelWidth * 0.3;
+    const velocityThreshold = 500;
+
+    let delta = 0;
+    if (offset <= -distanceThreshold || velocity <= -velocityThreshold) delta = 1;
+    else if (offset >= distanceThreshold || velocity >= velocityThreshold) delta = -1;
+
+    if (delta !== 0) {
+      const target = delta === 1 ? -panelWidth : panelWidth;
+      animate(trackX, target, {
+        type: shouldReduceMotion ? "tween" : "spring",
+        duration: shouldReduceMotion ? 0.12 : undefined,
+        stiffness: 380,
+        damping: 38,
+        onComplete: () => {
+          // Skifter måneden i det øjeblik glidningen er færdig, og hopper
+          // trækket tilbage til 0 UDEN overgang i samme kald — de nye
+          // paneler (beregnet af calYear/calMonth ovenfor) rykker samtidig
+          // ét hak, så illusionen er sømløs (samme trick som Embla/
+          // react-slick bruger til uendelig paging med kun 3 renderede
+          // paneler ad gangen).
+          onNav(delta);
+          trackX.jump(0);
+        },
+      });
+    } else {
+      animate(trackX, 0, { type: "spring", stiffness: 420, damping: 40 });
+    }
   }
 
   return (
-    <div
-      className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-[22px] mb-7"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-[22px] mb-7">
       <div className="flex items-center justify-between mb-3.5">
         {/* Massiv mørklilla med hvide pile i stedet for den tidligere tynde
             grå streg-knap — for utydelig til at se med det samme (Hjorth
@@ -901,9 +951,9 @@ function CalendarView({
         </button>
       </div>
       {/* Ugedagsoverskrifterne er ens uanset måned, så de ligger UDENFOR den
-          glidende container nedenfor — kun selve datocellerne skal
-          skubbe/glide ved månedsskift, ellers ville "Man/Tir/..."-rækken
-          fejlagtigt følge med i animationen hver gang. */}
+          trækbare bane nedenfor — kun selve datocellerne skal
+          følge med fingeren, ellers ville "Man/Tir/..."-rækken fejlagtigt
+          rykke med under trækket hver gang. */}
       <div className="grid grid-cols-7 gap-[3px] mb-1.5">
         {["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"].map((d) => (
           <div key={d} className="text-center text-[10.5px] font-medium uppercase text-pepo-t3">
@@ -911,52 +961,52 @@ function CalendarView({
           </div>
         ))}
       </div>
-      {/* Månedsskift (pil-knapper ELLER swipe ovenfor) lader den nye måned
-          skubbe den gamle ud til siden, app-agtigt, i stedet for at bare
-          "poppe" ind — ønsket af Hjorth 2026-07-31, bygget med Motion
-          (motion/react) efter research af emil-design-eng-skillen. Alle 42
-          celler (inkl. nabomånedernes udfyldningsdage) er altid samme antal,
-          så begge måneders grids har nøjagtig samme højde — ingen
-          layout-hop under overgangen, derfor er overflow-hidden trygt uden
-          en eksplicit fast højde. mode="popLayout" tager den udgående måned
-          ud af layout-flowet med det samme, så den nye ikke venter på den. */}
-      <div className="relative overflow-hidden">
-        <AnimatePresence initial={false} mode="popLayout" custom={direction}>
-          <motion.div
-            key={monthIndex}
-            custom={direction}
-            variants={monthSlideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: shouldReduceMotion ? 0.15 : 0.28, ease: [0.23, 1, 0.32, 1] }}
-            className="grid grid-cols-7 gap-[3px]"
-          >
-            {cells.map(({ date, dateStr, otherMonth }) => {
-              const isToday = dateStr === now;
-              const isSelected = dateStr === selectedDate;
-              const dot = dateStatusDot(events, dateStr);
-              return (
-                <button
-                  key={dateStr}
-                  onClick={() => onSelectDay(dateStr)}
-                  className={
-                    "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 text-[12.5px] transition-colors " +
-                    (isSelected
-                      ? "bg-pepo-pl text-pepo-p font-medium"
-                      : otherMonth
-                      ? "text-pepo-t3 opacity-35"
-                      : "text-pepo-t1 hover:bg-pepo-su") +
-                    (isToday ? " border-[1.5px] border-pepo-p font-medium" : "")
-                  }
-                >
-                  <span>{date.getDate()}</span>
-                  <span className={"w-1.5 h-1.5 rounded-full " + dotColor[dot]} />
-                </button>
-              );
-            })}
-          </motion.div>
-        </AnimatePresence>
+      <div ref={viewportRef} className="relative overflow-hidden">
+        <motion.div
+          className="flex"
+          style={{ x: trackX, touchAction: "pan-y" }}
+          drag={panelWidth > 0 ? "x" : false}
+          dragConstraints={{ left: -panelWidth, right: panelWidth }}
+          dragElastic={0.15}
+          dragMomentum={false}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          {panels.map((panel, i) => (
+            <div
+              key={panel.key}
+              className="w-full shrink-0 grid grid-cols-7 gap-[3px]"
+              style={i === 0 ? { marginLeft: "-100%" } : undefined}
+            >
+              {buildMonthCells(panel.year, panel.month).map(({ date, dateStr, otherMonth }) => {
+                const isToday = dateStr === now;
+                const isSelected = dateStr === selectedDate;
+                const dot = dateStatusDot(events, dateStr);
+                return (
+                  <button
+                    key={dateStr}
+                    onClick={() => {
+                      if (justDraggedRef.current) return;
+                      onSelectDay(dateStr);
+                    }}
+                    className={
+                      "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 text-[12.5px] transition-colors " +
+                      (isSelected
+                        ? "bg-pepo-pl text-pepo-p font-medium"
+                        : otherMonth
+                        ? "text-pepo-t3 opacity-35"
+                        : "text-pepo-t1 hover:bg-pepo-su") +
+                      (isToday ? " border-[1.5px] border-pepo-p font-medium" : "")
+                    }
+                  >
+                    <span>{date.getDate()}</span>
+                    <span className={"w-1.5 h-1.5 rounded-full " + dotColor[dot]} />
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </motion.div>
       </div>
     </div>
   );
