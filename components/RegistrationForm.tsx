@@ -51,7 +51,7 @@ const EMPTY_FORM: FormState = {
   hasLicense: false,
 };
 
-const STEP_NAMES = ["Om dig", "Arbejdskategorier", "Din profil", "Bekræft og send"];
+const STEP_NAMES = ["Stamdata", "Arbejdskategorier", "Din profil", "Bekræft og send"];
 
 function getInitials(fullName: string) {
   const words = fullName.trim().split(/\s+/).filter(Boolean);
@@ -144,19 +144,25 @@ export default function RegistrationForm({ categories, onSubmit, companyName, co
     categories.find((c) => c.id === id)?.name ?? id;
 
   return (
-    <div className="bg-pepo-wh rounded-[20px] w-full max-w-[480px] p-8 shadow-[0_4px_32px_rgba(62,31,138,0.10)]">
-      {/* Logo — virksomhedens eget logo hvis uploadet, ellers kun navnet uden
-          nogen logo-boks (Hjorth 2026-08-05). Pepos generiske
-          dobbelt-cirkel-mærke er nu KUN et fallback for Pepos egen
-          ansøgningsside (ingen companyName i scope), ikke for tenants uden
-          eget logo. */}
+    <div className="bg-pepo-wh rounded-[20px] w-full max-w-[480px] px-[var(--page-px)] py-8 shadow-[0_4px_32px_rgba(62,31,138,0.10)]">
+      {/* Logo — virksomhedens eget logo hvis uploadet, vist i sin egen
+          proportion (ikke tvunget ind i en firkantet boks) ligesom i
+          freelancer-appens header (OverviewClient.tsx: h-full/max-h +
+          object-contain, intet ikon/tekst ved siden af), og UDEN navnet ved
+          siden af — logoet identificerer allerede virksomheden, så navnet
+          ville være en overflødig dublet lige her (Hjorth 2026-08-06). Har
+          virksomheden intet logo, vises kun navnet, uden logo-boks
+          overhovedet. Pepos generiske dobbelt-cirkel-mærke er nu KUN et
+          fallback for Pepos egen ansøgningsside (ingen companyName i scope),
+          ikke for tenants uden eget logo. */}
       {companyLogoUrl ? (
-        <div className="flex items-center gap-2.5 mb-1">
-          <div className="w-10 h-10 rounded-[10px] bg-pepo-su border border-pepo-bd flex items-center justify-center overflow-hidden flex-shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={companyLogoUrl} alt="" className="w-full h-full object-contain" />
-          </div>
-          <span className="text-xl font-medium text-pepo-t1 truncate">{companyName}</span>
+        <div className="h-10 max-w-full mb-1 flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={companyLogoUrl}
+            alt={companyName ?? "Firmalogo"}
+            className="h-full w-auto max-w-full object-contain object-left"
+          />
         </div>
       ) : companyName ? (
         <div className="mb-1">
@@ -306,20 +312,25 @@ function Step1({
 }) {
   return (
     <div>
-      <Heading title="Om dig" subtitle="Fortæl os lidt om dig selv" />
+      <Heading title="Stamdata" />
 
       <Field label="Fuldt navn">
         <input
           type="text"
           className={inputClass}
-          placeholder="Maria Hansen"
           value={form.fullName}
           onChange={(e) => update("fullName", e.target.value)}
         />
       </Field>
 
+      {/* min-w-0 på begge grid-celler forhindrer den native date-input i at
+          presse sig ud over sin celle på smalle mobilskærme — grid-celler
+          (ligesom flex-celler) har som standard en min-bredde svarende til
+          deres indholds "min-content", og date-inputtens indbyggede
+          dag/måned/år-segmenter kan være bredere end det, uden dette
+          (Hjorth 2026-08-06: "Fødselsdato er for bred og ødelægger designet"). */}
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <div>
+        <div className="min-w-0">
           <label className={labelClass}>Køn</label>
           <select
             className={inputClass}
@@ -333,7 +344,7 @@ function Step1({
             <option>Ønsker ikke at oplyse</option>
           </select>
         </div>
-        <div>
+        <div className="min-w-0">
           <label className={labelClass}>Fødselsdato</label>
           <input
             type="date"
@@ -350,7 +361,6 @@ function Step1({
           onChangeText={onLocationTextChange}
           onSelect={onLocationSelected}
           includedPrimaryTypes={LOCATION_TYPES}
-          placeholder="2200 København N"
           className={inputClass}
         />
         {hasUnvalidatedLocation && (
@@ -365,7 +375,6 @@ function Step1({
         <input
           type="email"
           className={inputClass}
-          placeholder="maria@email.dk"
           value={form.email}
           onChange={(e) => update("email", e.target.value)}
         />
@@ -375,7 +384,6 @@ function Step1({
         <input
           type="tel"
           className={inputClass}
-          placeholder="+45 20 11 22 33"
           value={form.phone}
           onChange={(e) => update("phone", e.target.value)}
         />
@@ -519,7 +527,6 @@ function Step3({
       <Field label="Om mig / arbejdserfaring">
         <textarea
           className={inputClass + " min-h-[80px] leading-relaxed resize-y"}
-          placeholder="Jeg har 3 års erfaring som tjener og bartender på restauranter i København. Jeg er fleksibel, serviceminded og trives i travle miljøer..."
           value={form.bio}
           onChange={(e) => update("bio", e.target.value)}
         />
@@ -536,7 +543,6 @@ function Step3({
         <input
           type="text"
           className={inputClass}
-          placeholder="https://instagram.com/mariahansen"
           value={form.socialMediaUrl}
           onChange={(e) => update("socialMediaUrl", e.target.value)}
         />
@@ -649,13 +655,13 @@ function SuccessScreen({
   );
 }
 
-function Heading({ title, subtitle }: { title: string; subtitle: string }) {
+function Heading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="mb-5">
       <div className="text-xl font-medium text-pepo-t1 tracking-tight">
         {title}
       </div>
-      <div className="text-sm text-pepo-t2 mt-1">{subtitle}</div>
+      {subtitle && <div className="text-sm text-pepo-t2 mt-1">{subtitle}</div>}
     </div>
   );
 }

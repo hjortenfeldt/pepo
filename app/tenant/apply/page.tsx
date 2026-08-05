@@ -34,7 +34,7 @@ export default async function TenantApplicationPage() {
   const categories = await getTenantWorkCategories();
 
   return (
-    <main className="flex-1 flex items-center justify-center p-8 bg-[#F0EDF8] min-h-screen">
+    <main className="flex-1 flex items-center justify-center px-[var(--page-px)] py-8 bg-[#F0EDF8] min-h-screen">
       <RegistrationForm
         categories={categories}
         companyName={company.name}
