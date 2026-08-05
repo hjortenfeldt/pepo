@@ -323,15 +323,18 @@ function Step1({
         />
       </Field>
 
-      {/* v1-forsøget (min-w-0 på grid-cellerne) løste det IKKE — en native
-          <input type=date> har sit eget OS-rendrede minimumsbredde for
-          dag/måned/år-segmenterne, som CSS ikke kan presse mindre, uanset
-          hvad forælderen/grid-cellen tillader. Derfor stables Køn/Fødselsdato
-          i stedet i én kolonne på mobil (hvor der reelt ikke er plads til to
-          native kontroller side om side) og går kun 2-op fra sm: og opefter,
-          samme mønster mange produktionsapps bruger til netop dette problem
-          (Hjorth 2026-08-06, opfulgt efter skærmbillede der viste feltet
-          stadig skar ud over kortets kant). */}
+      {/* v1 (min-w-0 på grid-cellerne) og v2 (stak i én kolonne på mobil)
+          løste det IKKE alene — det manglende stykke, fundet ved at
+          genbruge den ALLEREDE løste udgave af nøjagtig samme felt i
+          ShiftFormFields.tsx's DateField/FreelancerBoard.tsx's "Opret
+          freelancer": et native <input type=date> skal IKKE strækkes til
+          w-full/hele radens bredde — uden et max-w-loft bliver feltet
+          unødvendigt bredt og ser "i stykker"/overskredet ud på mobil,
+          uanset hvor smal dens omkringliggende container er. Samme
+          max-w-[200px] min-w-0-loft som de to andre steder bruger, ikke kun
+          på cellen men på selve input-elementet (Hjorth 2026-08-06,
+          opfulgt efter endnu et skærmbillede der viste feltet stadig for
+          bredt selv i én kolonne). */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <div className="min-w-0">
           <label className={labelClass}>Køn</label>
@@ -351,7 +354,7 @@ function Step1({
           <label className={labelClass}>Fødselsdato</label>
           <input
             type="date"
-            className={inputClass}
+            className={inputClass + " max-w-[200px]"}
             value={form.birthDate}
             onChange={(e) => update("birthDate", e.target.value)}
           />
