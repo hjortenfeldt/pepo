@@ -323,13 +323,16 @@ function Step1({
         />
       </Field>
 
-      {/* min-w-0 på begge grid-celler forhindrer den native date-input i at
-          presse sig ud over sin celle på smalle mobilskærme — grid-celler
-          (ligesom flex-celler) har som standard en min-bredde svarende til
-          deres indholds "min-content", og date-inputtens indbyggede
-          dag/måned/år-segmenter kan være bredere end det, uden dette
-          (Hjorth 2026-08-06: "Fødselsdato er for bred og ødelægger designet"). */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      {/* v1-forsøget (min-w-0 på grid-cellerne) løste det IKKE — en native
+          <input type=date> har sit eget OS-rendrede minimumsbredde for
+          dag/måned/år-segmenterne, som CSS ikke kan presse mindre, uanset
+          hvad forælderen/grid-cellen tillader. Derfor stables Køn/Fødselsdato
+          i stedet i én kolonne på mobil (hvor der reelt ikke er plads til to
+          native kontroller side om side) og går kun 2-op fra sm: og opefter,
+          samme mønster mange produktionsapps bruger til netop dette problem
+          (Hjorth 2026-08-06, opfulgt efter skærmbillede der viste feltet
+          stadig skar ud over kortets kant). */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <div className="min-w-0">
           <label className={labelClass}>Køn</label>
           <select
