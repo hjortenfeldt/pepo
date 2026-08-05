@@ -250,6 +250,8 @@ export type EventRequestDetail = {
   venueAddress: string | null;
   venuePostalCode: string | null;
   venueCity: string | null;
+  venueLatitude: number | null;
+  venueLongitude: number | null;
   venueDistanceKm: number | null;
   labourSubtotalKr: number | null;
   transportSurchargeKr: number | null;
@@ -282,7 +284,8 @@ export async function getEventRequestByToken(companyId: string, token: string): 
       `id, access_token, status, title, event_date, description,
        customer_type, client_name, client_cvr_number, client_contact_person,
        client_contact_phone, client_contact_email, client_notes,
-       venue_name, venue_address, venue_postal_code, venue_city, venue_distance_from_company_km,
+       venue_name, venue_address, venue_postal_code, venue_city,
+       venue_latitude, venue_longitude, venue_distance_from_company_km,
        labour_subtotal_kr, transport_surcharge_kr, total_kr, created_event_id, created_at`
     )
     .eq("access_token", token)
@@ -308,7 +311,8 @@ export async function getEventRequestById(companyId: string, id: string): Promis
       `id, access_token, status, title, event_date, description,
        customer_type, client_name, client_cvr_number, client_contact_person,
        client_contact_phone, client_contact_email, client_notes,
-       venue_name, venue_address, venue_postal_code, venue_city, venue_distance_from_company_km,
+       venue_name, venue_address, venue_postal_code, venue_city,
+       venue_latitude, venue_longitude, venue_distance_from_company_km,
        labour_subtotal_kr, transport_surcharge_kr, total_kr, created_event_id, created_at`
     )
     .eq("id", id)
@@ -382,7 +386,9 @@ async function buildEventRequestDetail(
     venueAddress: request.venue_address as string | null,
     venuePostalCode: request.venue_postal_code as string | null,
     venueCity: request.venue_city as string | null,
-    venueDistanceKm: request.venue_distance_from_company_km as number | null,
+    venueLatitude: request.venue_latitude != null ? Number(request.venue_latitude) : null,
+    venueLongitude: request.venue_longitude != null ? Number(request.venue_longitude) : null,
+    venueDistanceKm: request.venue_distance_from_company_km != null ? Number(request.venue_distance_from_company_km) : null,
     labourSubtotalKr: request.labour_subtotal_kr != null ? Number(request.labour_subtotal_kr) : null,
     transportSurchargeKr: request.transport_surcharge_kr != null ? Number(request.transport_surcharge_kr) : null,
     totalKr: request.total_kr != null ? Number(request.total_kr) : null,

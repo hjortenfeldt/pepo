@@ -4,7 +4,7 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { getEventRequestById, type EventRequestDetail } from "@/lib/event-requests";
-import { createVenue, createEventWithShifts, type EventFormInput, type ShiftCreateRowInput } from "@/app/tenant/(protected)/shifts/actions";
+import { createEventWithShifts, type EventFormInput, type ShiftCreateRowInput } from "@/app/tenant/(protected)/shifts/actions";
 
 // Se shifts/actions.ts for hvorfor company.id skal sættes/filtreres
 // eksplicit i stedet for at stole på RLS/databasetriggerens fallback.
@@ -221,18 +221,35 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
     clientId = newClient.id as string;
   }
 
-  // Eventstedet oprettes altid som ét NYT venue på den valgte kunde
-  // (uanset om kunden var eksisterende eller ny) — createVenue geokoder og
-  // beregner afstanden selv igen, så event/shifts-oversigten viser samme
-  // transporttillæg som klienten så på /request.
-  const venueResult = await createVenue(clientId, {
-    name: request.venueName ?? "",
-    address: request.venueAddress ?? "",
-    postalCode: request.venuePostalCode ?? "",
-    city: request.venueCity ?? "",
-  });
-  if (!venueResult.success) {
-    return { success: false as const, error: venueResult.error };
+  // Eventstedet oprettes altid som ét NYT venue på den valgte kunde (uanset
+  // om kunden var eksisterende eller ny) — men BEVIDST uden at kalde
+  // createVenue(), som ville geokode adressen igen fra bunden. Et helt nyt
+  // Google-opslag kan returnere en (ganske lidt) anden koordinat/rute end
+  // det allerede-gemte opslag fra selve /request-indsendelsen, hvilket gav
+  // et forkert, uforklarligt afvigende transporttillæg mellem klientens
+  // pris og admin-systemets (Hjorth 2026-08-06, "27 kr. vs 25 kr."). I
+  // stedet genbruges request.venueLatitude/venueLongitude/venueDistanceKm
+  // uændret — nøjagtig samme tal klienten allerede har set.
+  const { data: venueRow, error: venueError } = await supabase
+    .from("client_venues")
+    .insert({
+      company_id: company.id,
+      client_id: clientId,
+      name: request.venueName || null,
+      address: request.venueAddress || null,
+      postal_code: request.venuePostalCode || null,
+      city: request.venueCity || null,
+      latitude: request.venueLatitude,
+      longitude: request.venueLongitude,
+      distance_from_company_km: request.venueDistanceKm,
+      distance_calculated_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (venueError || !venueRow) {
+    console.error("acceptEventRequest: kunne ikke oprette eventstedet", venueError);
+    return { success: false as const, error: "Kunne ikke oprette eventstedet. Prøv igen." };
   }
 
   const eventInput: EventFormInput = {
@@ -240,7 +257,7 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
     eventDate: request.eventDate,
     description: request.description ?? "",
     clientId,
-    venueId: venueResult.venue.id,
+    venueId: venueRow.id as string,
   };
   const rows: ShiftCreateRowInput[] = request.jobLines.map((line) => ({
     id: null,
