@@ -19,6 +19,10 @@ type Props = {
   // Vises i logo-rækken og som undertekst — udelades (falder tilbage til
   // "pepo") på Pepos egen ansøgningsside.
   companyName?: string;
+  // Virksomhedens eget logo (uploadet i Indstillinger → Virksomhed). Vises i
+  // stedet for Pepos generiske dobbelt-cirkel-mærke når virksomheden har et;
+  // har den ikke uploadet et, vises kun navnet, uden logo-boks overhovedet.
+  companyLogoUrl?: string | null;
 };
 
 type FormState = {
@@ -58,7 +62,7 @@ function getInitials(fullName: string) {
   return "?";
 }
 
-export default function RegistrationForm({ categories, onSubmit, companyName }: Props) {
+export default function RegistrationForm({ categories, onSubmit, companyName, companyLogoUrl }: Props) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [locationText, setLocationText] = useState("");
@@ -141,16 +145,34 @@ export default function RegistrationForm({ categories, onSubmit, companyName }: 
 
   return (
     <div className="bg-pepo-wh rounded-[20px] w-full max-w-[480px] p-8 shadow-[0_4px_32px_rgba(62,31,138,0.10)]">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 mb-1">
-        <div className="w-10 h-10 rounded-[10px] bg-pepo-p flex items-center justify-center">
-          <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
-            <circle cx="8.5" cy="11" r="5.5" fill="white" />
-            <circle cx="17" cy="11" r="3.5" fill="white" opacity="0.6" />
-          </svg>
+      {/* Logo — virksomhedens eget logo hvis uploadet, ellers kun navnet uden
+          nogen logo-boks (Hjorth 2026-08-05). Pepos generiske
+          dobbelt-cirkel-mærke er nu KUN et fallback for Pepos egen
+          ansøgningsside (ingen companyName i scope), ikke for tenants uden
+          eget logo. */}
+      {companyLogoUrl ? (
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="w-10 h-10 rounded-[10px] bg-pepo-su border border-pepo-bd flex items-center justify-center overflow-hidden flex-shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={companyLogoUrl} alt="" className="w-full h-full object-contain" />
+          </div>
+          <span className="text-xl font-medium text-pepo-t1 truncate">{companyName}</span>
         </div>
-        <span className="text-xl font-medium text-pepo-t1">{companyName ?? "pepo"}</span>
-      </div>
+      ) : companyName ? (
+        <div className="mb-1">
+          <span className="text-xl font-medium text-pepo-t1">{companyName}</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="w-10 h-10 rounded-[10px] bg-pepo-p flex items-center justify-center">
+            <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+              <circle cx="8.5" cy="11" r="5.5" fill="white" />
+              <circle cx="17" cy="11" r="3.5" fill="white" opacity="0.6" />
+            </svg>
+          </div>
+          <span className="text-xl font-medium text-pepo-t1">pepo</span>
+        </div>
+      )}
       {companyName && (
         <div className="text-[13px] text-pepo-t2 mb-6">Ansøg som freelancer hos {companyName}</div>
       )}

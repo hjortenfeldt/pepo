@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { isMobileDevice } from "@/lib/device-detection";
 import AdminInstallGuide, { type Platform } from "./AdminInstallGuide";
 
@@ -57,8 +58,18 @@ function detectPlatform(): Platform {
  * app/freelancer/layout.tsx — dvs. FØR (protected)/layout.tsx's sidebar/
  * topbar, så guiden (når den vises) dækker hele skærmen inkl. sidebaren, se
  * [[project_admin_appen_pwa_parity]] for Hjorths eksplicitte valg om dette.
+ *
+ * UNDTAGELSE — /apply (Hjorth 2026-08-05): samme layout dækker også den
+ * offentlige ansøgningsside, som tenants selv linker til fra deres egen
+ * hjemmeside for at freelancere kan tilmelde sig. En ekstern freelancer, der
+ * rammer det link på sin telefon, skal se ansøgningsformularen med det
+ * samme, ikke en fuldskærms "installér Admin Appen"-guide — de er jo netop
+ * IKKE en admin. usePathname() tjekkes derfor FØR device/standalone-tjekket
+ * nedenfor, og gate'er aldrig denne ene route, uanset enhed.
  */
 export default function AdminInstallGate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isPublicApplicationPage = pathname === "/apply";
   const [state, setState] = useState<"checking" | "guide" | "app">("checking");
   const [platform, setPlatform] = useState<Platform>("ios-safari");
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -71,7 +82,7 @@ export default function AdminInstallGate({ children }: { children: React.ReactNo
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
     Promise.resolve().then(() => {
-      if (!isMobileDevice()) {
+      if (isPublicApplicationPage || !isMobileDevice()) {
         setState("app");
         return;
       }
@@ -85,7 +96,7 @@ export default function AdminInstallGate({ children }: { children: React.ReactNo
     });
 
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-  }, []);
+  }, [isPublicApplicationPage]);
 
   function skip() {
     window.localStorage.setItem(ADMIN_DISMISS_KEY, "true");

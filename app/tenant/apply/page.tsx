@@ -38,6 +38,7 @@ export default async function TenantApplicationPage() {
       <RegistrationForm
         categories={categories}
         companyName={company.name}
+        companyLogoUrl={company.logo_url}
         onSubmit={submitTenantApplication}
       />
     </main>

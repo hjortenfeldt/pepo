@@ -10,7 +10,7 @@ export async function getCurrentSubdomain(): Promise<string | null> {
   return h.get(SUBDOMAIN_HEADER);
 }
 
-export type CurrentCompany = { id: string; name: string; slug: string };
+export type CurrentCompany = { id: string; name: string; slug: string; logo_url: string | null };
 
 /**
  * Slår virksomheden op ud fra subdomænet i den indkommende request.
@@ -25,7 +25,7 @@ export async function getCompanyBySubdomain(): Promise<CurrentCompany | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("companies")
-    .select("id, name, slug")
+    .select("id, name, slug, logo_url")
     .eq("slug", slug)
     .maybeSingle();
 
