@@ -1,0 +1,271 @@
+"use server";
+
+import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getCompanyBySubdomain } from "@/lib/tenant";
+import { revalidatePath } from "next/cache";
+import { getEventRequestById, type EventRequestDetail } from "@/lib/event-requests";
+import { createVenue, createEventWithShifts, type EventFormInput, type ShiftCreateRowInput } from "@/app/tenant/(protected)/shifts/actions";
+
+// Se shifts/actions.ts for hvorfor company.id skal sættes/filtreres
+// eksplicit i stedet for at stole på RLS/databasetriggerens fallback.
+async function requireCompany() {
+  return getCompanyBySubdomain();
+}
+
+export type EventRequestListItem = {
+  id: string;
+  title: string;
+  eventDate: string;
+  status: EventRequestDetail["status"];
+  customerType: "company" | "private";
+  displayName: string;
+  totalKr: number | null;
+  unreadCount: number;
+  createdAt: string;
+};
+
+/** "Eventforespørgsler"-sidens liste — nyeste først, med et uåbnet-tal pr. forespørgsel. */
+export async function listEventRequests(): Promise<EventRequestListItem[]> {
+  const company = await requireCompany();
+  if (!company) return [];
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("event_requests")
+    .select(
+      `id, title, event_date, status, customer_type, client_name, client_contact_person, total_kr, created_at,
+       event_request_messages(sender, read_by_admin)`
+    )
+    .eq("company_id", company.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("listEventRequests fejlede", error);
+    return [];
+  }
+
+  return (data ?? []).map((r) => {
+    const messages = (r.event_request_messages ?? []) as { sender: string; read_by_admin: boolean }[];
+    const unreadCount = messages.filter((m) => m.sender === "client" && !m.read_by_admin).length;
+    return {
+      id: r.id as string,
+      title: r.title as string,
+      eventDate: r.event_date as string,
+      status: r.status as EventRequestDetail["status"],
+      customerType: r.customer_type as "company" | "private",
+      displayName: (r.customer_type === "company" ? (r.client_name as string | null) : (r.client_contact_person as string | null)) || "(uden navn)",
+      totalKr: r.total_kr != null ? Number(r.total_kr) : null,
+      unreadCount,
+      createdAt: r.created_at as string,
+    };
+  });
+}
+
+/** Detaljesiden — markerer samtidig alle klient-beskeder som læst af admin. */
+export async function getEventRequestDetailForAdmin(id: string): Promise<EventRequestDetail | null> {
+  const company = await requireCompany();
+  if (!company) return null;
+
+  const supabase = await createSupabaseClient();
+  await supabase
+    .from("event_request_messages")
+    .update({ read_by_admin: true })
+    .eq("event_request_id", id)
+    .eq("company_id", company.id)
+    .eq("sender", "client");
+
+  return getEventRequestById(company.id, id);
+}
+
+export async function replyAsAdmin(requestId: string, body: string) {
+  const trimmed = body.trim();
+  if (!trimmed) return { success: false as const, error: "Skriv en besked først." };
+
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
+  const supabase = await createSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: admin } = user
+    ? await supabase.from("admin_users").select("full_name").eq("id", user.id).maybeSingle()
+    : { data: null };
+
+  const { error } = await supabase.from("event_request_messages").insert({
+    event_request_id: requestId,
+    company_id: company.id,
+    sender: "admin",
+    sender_name: admin?.full_name ?? null,
+    body: trimmed,
+    read_by_admin: true,
+    read_by_client: false,
+  });
+
+  if (error) {
+    console.error("replyAsAdmin fejlede", error);
+    return { success: false as const, error: "Kunne ikke sende beskeden. Prøv igen." };
+  }
+
+  await supabase
+    .from("event_requests")
+    .update({ status: "in_dialog" })
+    .eq("id", requestId)
+    .eq("company_id", company.id)
+    .eq("status", "new");
+
+  revalidatePath("/event-requests");
+  return { success: true as const };
+}
+
+export async function rejectEventRequest(requestId: string) {
+  const company = await requireCompany();
+  if (!company) return { success: false, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase
+    .from("event_requests")
+    .update({ status: "rejected" })
+    .eq("id", requestId)
+    .eq("company_id", company.id);
+
+  if (error) {
+    console.error("rejectEventRequest fejlede", error);
+    return { success: false, error: "Kunne ikke afvise forespørgslen. Prøv igen." };
+  }
+
+  revalidatePath("/event-requests");
+  return { success: true };
+}
+
+export type ClientMatchOption = {
+  id: string;
+  name: string | null;
+  contactPerson: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+};
+
+/** Frit-tekst-søgning på tværs af navn/kontaktperson/email/telefon/CVR — til "match eksisterende kunde"-trinnet ved accept. */
+export async function searchClientsForMatch(query: string): Promise<ClientMatchOption[]> {
+  const company = await requireCompany();
+  if (!company || !query.trim()) return [];
+
+  const supabase = await createSupabaseClient();
+  const term = `%${query.trim()}%`;
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, name, contact_person, contact_phone, contact_email")
+    .eq("company_id", company.id)
+    .or(`name.ilike.${term},contact_person.ilike.${term},contact_email.ilike.${term},contact_phone.ilike.${term},cvr_number.ilike.${term}`)
+    .limit(10);
+
+  if (error) {
+    console.error("searchClientsForMatch fejlede", error);
+    return [];
+  }
+
+  return (data ?? []).map((c) => ({
+    id: c.id as string,
+    name: c.name as string | null,
+    contactPerson: c.contact_person as string | null,
+    contactPhone: c.contact_phone as string | null,
+    contactEmail: c.contact_email as string | null,
+  }));
+}
+
+export type AcceptClientChoice = { mode: "existing"; clientId: string } | { mode: "new" };
+
+/**
+ * Accepterer en eventforespørgsel: kobler den på en (evt. ny) kunde, opretter
+ * det rigtige event+vagter via den EKSISTERENDE createEventWithShifts()
+ * (som allerede automatisk lægger "ny ledig vagt"-notifikationer i kø til
+ * matchende freelancere pr. oprettet vagt — ingen ny notifikationskode
+ * nødvendig her). Se [[project_event_request_feature]].
+ */
+export async function acceptEventRequest(requestId: string, clientChoice: AcceptClientChoice) {
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
+  const request = await getEventRequestById(company.id, requestId);
+  if (!request) return { success: false as const, error: "Kunne ikke finde forespørgslen." };
+  if (request.status === "accepted") {
+    return { success: false as const, error: "Forespørgslen er allerede accepteret." };
+  }
+
+  const supabase = await createSupabaseClient();
+
+  let clientId: string;
+  if (clientChoice.mode === "existing") {
+    clientId = clientChoice.clientId;
+  } else {
+    const { data: newClient, error: clientError } = await supabase
+      .from("clients")
+      .insert({
+        company_id: company.id,
+        name: request.customerType === "company" ? request.clientName : null,
+        cvr_number: request.customerType === "company" ? request.cvrNumber : null,
+        contact_person: request.contactPerson,
+        contact_phone: request.contactPhone,
+        contact_email: request.contactEmail,
+        notes: request.notes,
+      })
+      .select("id")
+      .single();
+
+    if (clientError || !newClient) {
+      console.error("acceptEventRequest: kunne ikke oprette kunden", clientError);
+      return { success: false as const, error: "Kunne ikke oprette kunden. Prøv igen." };
+    }
+    clientId = newClient.id as string;
+  }
+
+  // Eventstedet oprettes altid som ét NYT venue på den valgte kunde
+  // (uanset om kunden var eksisterende eller ny) — createVenue geokoder og
+  // beregner afstanden selv igen, så event/shifts-oversigten viser samme
+  // transporttillæg som klienten så på /request.
+  const venueResult = await createVenue(clientId, {
+    name: request.venueName ?? "",
+    address: request.venueAddress ?? "",
+    postalCode: request.venuePostalCode ?? "",
+    city: request.venueCity ?? "",
+  });
+  if (!venueResult.success) {
+    return { success: false as const, error: venueResult.error };
+  }
+
+  const eventInput: EventFormInput = {
+    title: request.title,
+    eventDate: request.eventDate,
+    description: request.description ?? "",
+    clientId,
+    venueId: venueResult.venue.id,
+  };
+  const rows: ShiftCreateRowInput[] = request.jobLines.map((line) => ({
+    id: null,
+    categoryId: line.categoryId,
+    startTime: line.startTime,
+    endTime: line.endTime,
+    freelancerId: null,
+  }));
+
+  const createResult = await createEventWithShifts(eventInput, rows);
+  if (!createResult.success) {
+    return { success: false as const, error: createResult.error };
+  }
+
+  const { error: updateError } = await supabase
+    .from("event_requests")
+    .update({ status: "accepted", created_event_id: createResult.eventId, created_client_id: clientId })
+    .eq("id", requestId)
+    .eq("company_id", company.id);
+
+  if (updateError) {
+    console.error("acceptEventRequest: kunne ikke opdatere forespørgslens status", updateError);
+  }
+
+  revalidatePath("/event-requests");
+  revalidatePath("/shifts");
+  return { success: true as const, eventId: createResult.eventId };
+}

@@ -124,6 +124,13 @@ export async function proxy(request: NextRequest) {
   // indtaste eller vælge en organisations-URL.
   const isPublicApplicationPage = pathname === "/apply";
 
+  // Samme mønster for eventforespørgsler (fx kulturbyen.pepo.team/request) —
+  // potentielle/kommende kunder skal kunne bede om personale til et event
+  // uden login, og /request/status/[token] er klientens egen (unguessable
+  // token-baseret, ikke login-baseret) side til at følge og svare på
+  // forespørgslen bagefter (se app/tenant/request/actions.ts).
+  const isPublicEventRequestPage = pathname === "/request" || pathname.startsWith("/request/status/");
+
   // admin.pepo.team — Pepos eget super-admin-system.
   if (subdomain === SUPER_ADMIN_SUBDOMAIN) {
     if (!isLoginRoute && !user) {
@@ -167,7 +174,7 @@ export async function proxy(request: NextRequest) {
 
   // Alle andre subdomæner er en virksomheds eget adminsystem, fx
   // kulturbyen.pepo.team eller pepo.pepo.team (Pepo selv).
-  if (!isLoginRoute && !isPublicCalendarFeed && !isPublicApplicationPage && !user) {
+  if (!isLoginRoute && !isPublicCalendarFeed && !isPublicApplicationPage && !isPublicEventRequestPage && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return withRefreshedCookies(NextResponse.redirect(url), refreshed);

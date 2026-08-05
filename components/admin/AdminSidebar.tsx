@@ -37,6 +37,7 @@ type NavItem = {
 // Firmaoplysninger/Variabler/Admin brugere/Sync admin-kalender/URL'er.
 export const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "layout-dashboard", active: true },
+  { href: "/event-requests", label: "Eventforespørgsler", icon: "clipboard-list", active: true },
   { href: "/shifts", label: "Events & vagter", icon: "calendar-event", active: true },
   { href: "/freelancers", label: "Freelancere", icon: "users", active: true },
   { href: "/clients", label: "Kunder", icon: "building-store", active: true },

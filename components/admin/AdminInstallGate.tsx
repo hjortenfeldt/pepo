@@ -59,17 +59,18 @@ function detectPlatform(): Platform {
  * topbar, så guiden (når den vises) dækker hele skærmen inkl. sidebaren, se
  * [[project_admin_appen_pwa_parity]] for Hjorths eksplicitte valg om dette.
  *
- * UNDTAGELSE — /apply (Hjorth 2026-08-05): samme layout dækker også den
- * offentlige ansøgningsside, som tenants selv linker til fra deres egen
- * hjemmeside for at freelancere kan tilmelde sig. En ekstern freelancer, der
- * rammer det link på sin telefon, skal se ansøgningsformularen med det
+ * UNDTAGELSE — /apply (Hjorth 2026-08-05) og /request (Hjorth 2026-08-06):
+ * samme layout dækker også de offentlige ansøgnings-/eventforespørgselssider,
+ * som tenants selv linker til fra deres egen hjemmeside for at freelancere
+ * kan tilmelde sig, hhv. kommende kunder kan bede om personale. En ekstern
+ * besøgende, der rammer det link på sin telefon, skal se formularen med det
  * samme, ikke en fuldskærms "installér Admin Appen"-guide — de er jo netop
  * IKKE en admin. usePathname() tjekkes derfor FØR device/standalone-tjekket
- * nedenfor, og gate'er aldrig denne ene route, uanset enhed.
+ * nedenfor, og gate'er aldrig disse routes, uanset enhed.
  */
 export default function AdminInstallGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublicApplicationPage = pathname === "/apply";
+  const isPublicApplicationPage = pathname === "/apply" || pathname.startsWith("/request");
   const [state, setState] = useState<"checking" | "guide" | "app">("checking");
   const [platform, setPlatform] = useState<Platform>("ios-safari");
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
