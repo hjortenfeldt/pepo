@@ -182,12 +182,12 @@ export default function AdminTopBar({
               smalle skærme, i stedet for at stole på at min-w-0 alene
               begrænser bredden korrekt hele vejen op gennem flex-kæden. */}
           <div className="min-w-0 max-w-[110px] sm:max-w-[180px] text-left">
+            <div className="text-[12.5px] font-medium text-pepo-t1 leading-tight truncate">{name}</div>
             {companyName && (
-              <div className="hidden sm:block text-[10px] font-medium text-pepo-t3 uppercase tracking-wide truncate">
+              <div className="text-[10px] font-medium text-pepo-t3 uppercase tracking-wide leading-tight truncate">
                 {companyName}
               </div>
             )}
-            <div className="text-[12.5px] font-medium text-pepo-t1 truncate">{name}</div>
           </div>
           <Icon name="chevron-down" size={16} className="text-pepo-t3 flex-shrink-0" />
         </button>
