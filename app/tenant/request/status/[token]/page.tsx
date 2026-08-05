@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { getEventRequestStatus } from "./actions";
 import EventRequestStatusClient from "@/components/EventRequestStatusClient";
+
+// Samme begrundelse som /request/page.tsx — ellers arver browserfanen root
+// layout.tsx's "Pepo – Bliv freelancer"-titel, skrevet til /apply.
+export const metadata: Metadata = { title: "Pepo – Forespørgsel" };
 
 export const dynamic = "force-dynamic";
 

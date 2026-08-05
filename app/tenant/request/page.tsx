@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { getCategoriesForRequest, submitEventRequest } from "./actions";
 import EventRequestForm from "@/components/EventRequestForm";
+
+// Uden denne ville browserfanens titel falde tilbage til root layout.tsx's
+// default ("Pepo – Bliv freelancer", skrevet til /apply) — helt misvisende
+// for en kundes eventforespørgsel (Hjorth 2026-08-06).
+export const metadata: Metadata = { title: "Pepo – Forespørgsel" };
 
 // Jobfunktioner/priser kan ændres i adminsystemet når som helst, og
 // virksomheden afgøres af subdomænet på selve requestet — ingen statisk
