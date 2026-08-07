@@ -4,6 +4,7 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { getEventRequestById, type EventRequestDetail } from "@/lib/event-requests";
+import { insertEventMessage, getCurrentAdminName, uploadMessageAttachment, type NewMessageAttachment } from "@/lib/event-messages";
 import { createEventWithShifts, type EventFormInput, type ShiftCreateRowInput } from "@/app/tenant/(protected)/shifts/actions";
 
 // Se shifts/actions.ts for hvorfor company.id skal sættes/filtreres
@@ -34,7 +35,7 @@ export async function listEventRequests(): Promise<EventRequestListItem[]> {
     .from("event_requests")
     .select(
       `id, title, event_date, status, customer_type, client_name, client_contact_person, total_kr, created_at,
-       event_request_messages(sender, read_by_admin)`
+       event_messages(sender, read_by_admin)`
     )
     .eq("company_id", company.id)
     .order("created_at", { ascending: false });
@@ -45,7 +46,7 @@ export async function listEventRequests(): Promise<EventRequestListItem[]> {
   }
 
   return (data ?? []).map((r) => {
-    const messages = (r.event_request_messages ?? []) as { sender: string; read_by_admin: boolean }[];
+    const messages = (r.event_messages ?? []) as { sender: string; read_by_admin: boolean }[];
     const unreadCount = messages.filter((m) => m.sender === "client" && !m.read_by_admin).length;
     return {
       id: r.id as string,
@@ -68,7 +69,7 @@ export async function getEventRequestDetailForAdmin(id: string): Promise<EventRe
 
   const supabase = await createSupabaseClient();
   await supabase
-    .from("event_request_messages")
+    .from("event_messages")
     .update({ read_by_admin: true })
     .eq("event_request_id", id)
     .eq("company_id", company.id)
@@ -77,35 +78,39 @@ export async function getEventRequestDetailForAdmin(id: string): Promise<EventRe
   return getEventRequestById(company.id, id);
 }
 
-export async function replyAsAdmin(requestId: string, body: string) {
+export async function replyAsAdmin(requestId: string, body: string, attachments?: NewMessageAttachment[]) {
   const trimmed = body.trim();
-  if (!trimmed) return { success: false as const, error: "Skriv en besked først." };
+  if (!trimmed && (!attachments || attachments.length === 0)) {
+    return { success: false as const, error: "Skriv en besked først." };
+  }
 
   const company = await requireCompany();
   if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
 
   const supabase = await createSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const adminName = await getCurrentAdminName(supabase);
 
-  const { data: admin } = user
-    ? await supabase.from("admin_users").select("full_name").eq("id", user.id).maybeSingle()
-    : { data: null };
+  // Genbrug event_id, hvis forespørgslen allerede er accepteret — så svaret
+  // også dukker op i eventets egen "Korrespondance"-tråd, ikke kun her.
+  const { data: existing } = await supabase
+    .from("event_requests")
+    .select("created_event_id")
+    .eq("id", requestId)
+    .eq("company_id", company.id)
+    .maybeSingle();
 
-  const { error } = await supabase.from("event_request_messages").insert({
-    event_request_id: requestId,
-    company_id: company.id,
+  const insertResult = await insertEventMessage({
+    companyId: company.id,
+    eventRequestId: requestId,
+    eventId: (existing?.created_event_id as string | null) ?? null,
     sender: "admin",
-    sender_name: admin?.full_name ?? null,
+    senderName: adminName,
     body: trimmed,
-    read_by_admin: true,
-    read_by_client: false,
+    attachments,
   });
 
-  if (error) {
-    console.error("replyAsAdmin fejlede", error);
-    return { success: false as const, error: "Kunne ikke sende beskeden. Prøv igen." };
+  if (!insertResult.success) {
+    return { success: false as const, error: insertResult.error };
   }
 
   await supabase
@@ -117,6 +122,13 @@ export async function replyAsAdmin(requestId: string, body: string) {
 
   revalidatePath("/event-requests");
   return { success: true as const };
+}
+
+/** Uploader én vedhæftning til admins svar, FØR selve beskeden sendes — se uploadMessageAttachment. */
+export async function uploadEventMessageAttachmentAsAdmin(requestId: string, file: File) {
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+  return uploadMessageAttachment(company.id, requestId, file);
 }
 
 export async function rejectEventRequest(requestId: string) {
@@ -267,7 +279,7 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
     freelancerId: null,
   }));
 
-  const createResult = await createEventWithShifts(eventInput, rows);
+  const createResult = await createEventWithShifts(eventInput, rows, { skipCreationLog: true });
   if (!createResult.success) {
     return { success: false as const, error: createResult.error };
   }
@@ -281,6 +293,41 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
   if (updateError) {
     console.error("acceptEventRequest: kunne ikke opdatere forespørgslens status", updateError);
   }
+
+  // Genbrug forespørgslens EGET access_token som eventets correspondence_token
+  // — klientens allerede bogmærkede /status/[token]-link fortsætter dermed
+  // med at virke uændret, den viser nu bare eventets (accepterede) status i
+  // stedet for forespørgslens. Se [[project_event_correspondence_and_system_log]].
+  const { error: tokenError } = await supabase
+    .from("events")
+    .update({ correspondence_token: request.accessToken })
+    .eq("id", createResult.eventId)
+    .eq("company_id", company.id);
+  if (tokenError) {
+    console.error("acceptEventRequest: kunne ikke overføre correspondence_token", tokenError);
+  }
+
+  // Al tidligere dialog (fra mens det stadig kun var en forespørgsel) får nu
+  // også event_id sat, så den fremstår som ét sammenhængende forløb i
+  // eventets egen "Korrespondance"-tråd, ikke kun i forespørgslens historik.
+  const { error: backfillError } = await supabase
+    .from("event_messages")
+    .update({ event_id: createResult.eventId })
+    .eq("event_request_id", requestId)
+    .eq("company_id", company.id);
+  if (backfillError) {
+    console.error("acceptEventRequest: kunne ikke overføre beskeder til eventet", backfillError);
+  }
+
+  const adminName = await getCurrentAdminName(supabase);
+  await insertEventMessage({
+    companyId: company.id,
+    eventRequestId: requestId,
+    eventId: createResult.eventId,
+    sender: "system",
+    senderName: adminName,
+    body: "accepterede forespørgslen og oprettede eventet.",
+  });
 
   revalidatePath("/event-requests");
   revalidatePath("/shifts");

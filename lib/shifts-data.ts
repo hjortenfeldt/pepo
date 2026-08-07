@@ -68,6 +68,7 @@ function pickClockEntry(entries: RawTimeClockRow[] | null | undefined): RawTimeC
   if (open) return open;
   return [...entries].sort((a, b) => (b.clock_in_at ?? "").localeCompare(a.clock_in_at ?? ""))[0];
 }
+type RawEventMessageFlagRow = { sender: string; read_by_admin: boolean };
 type RawEventRow = {
   id: string;
   title: string;
@@ -79,6 +80,7 @@ type RawEventRow = {
   client_venues: RawVenueRef | RawVenueRef[] | null;
   shift_attachments: RawAttachmentRow[] | null;
   shifts: RawShiftRow[] | null;
+  event_messages: RawEventMessageFlagRow[] | null;
 };
 type RawClientWithVenuesRow = {
   id: string;
@@ -131,7 +133,8 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
            assigned_freelancer_id,
            work_categories(name, icon),
            shift_interests(freelancer_id, status),
-           time_clock_entries(id, clock_in_at, clock_out_at))`
+           time_clock_entries(id, clock_in_at, clock_out_at)),
+         event_messages(sender, read_by_admin)`
       )
       .eq("company_id", companyId)
       .order("event_date", { ascending: true }),
@@ -265,6 +268,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
         : null,
       venueDistanceKm: venue?.distance_from_company_km ?? null,
       transportSurchargeKr,
+      unreadMessageCount: (e.event_messages ?? []).filter((m) => m.sender === "client" && !m.read_by_admin).length,
       attachments: (e.shift_attachments ?? []).map((a) => ({
         id: a.id,
         fileName: a.file_name,

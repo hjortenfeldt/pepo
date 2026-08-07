@@ -126,10 +126,13 @@ export async function proxy(request: NextRequest) {
 
   // Samme mønster for eventforespørgsler (fx kulturbyen.pepo.team/request) —
   // potentielle/kommende kunder skal kunne bede om personale til et event
-  // uden login, og /request/status/[token] er klientens egen (unguessable
-  // token-baseret, ikke login-baseret) side til at følge og svare på
-  // forespørgslen bagefter (se app/tenant/request/actions.ts).
-  const isPublicEventRequestPage = pathname === "/request" || pathname.startsWith("/request/status/");
+  // uden login. /status/[token] er klientens egen (unguessable token-baseret,
+  // ikke login-baseret) side til at følge og svare på ENTEN en forespørgsel
+  // ELLER et event oprettet helt uden om forespørgsler (se lib/event-status.ts)
+  // — /request/status/[token] beholdes udelukkende som redirect til den, se
+  // dens page.tsx.
+  const isPublicEventRequestPage =
+    pathname === "/request" || pathname.startsWith("/request/status/") || pathname.startsWith("/status/");
 
   // admin.pepo.team — Pepos eget super-admin-system.
   if (subdomain === SUPER_ADMIN_SUBDOMAIN) {

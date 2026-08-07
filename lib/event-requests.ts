@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getDrivingDistanceKm } from "@/lib/maps";
 import { calculateLabourSubtotal, calculateTransportSurcharge, calculateTotal, type CategoryRateMap } from "@/lib/pricing";
 import { sendPushToCompanyAdmins } from "@/lib/admin-push";
+import { getMessagesForRequest, insertEventMessage, type EventMessageItem, type NewMessageAttachment } from "@/lib/event-messages";
 
 /**
  * Delt kerne-logik for den offentlige "/request"-side (klienter/kommende
@@ -216,13 +217,7 @@ export async function submitEventRequestForCompany(companyId: string, input: Eve
   return { success: true as const, accessToken: request.access_token as string };
 }
 
-export type EventRequestMessageItem = {
-  id: string;
-  sender: "admin" | "client";
-  senderName: string | null;
-  body: string;
-  createdAt: string;
-};
+export type EventRequestMessageItem = EventMessageItem;
 
 export type EventRequestJobLineItem = {
   id: string;
@@ -281,7 +276,7 @@ export async function getEventRequestByToken(companyId: string, token: string): 
   const { data: request, error } = await supabase
     .from("event_requests")
     .select(
-      `id, access_token, status, title, event_date, description,
+      `id, company_id, access_token, status, title, event_date, description,
        customer_type, client_name, client_cvr_number, client_contact_person,
        client_contact_phone, client_contact_email, client_notes,
        venue_name, venue_address, venue_postal_code, venue_city,
@@ -308,7 +303,7 @@ export async function getEventRequestById(companyId: string, id: string): Promis
   const { data: request, error } = await supabase
     .from("event_requests")
     .select(
-      `id, access_token, status, title, event_date, description,
+      `id, company_id, access_token, status, title, event_date, description,
        customer_type, client_name, client_cvr_number, client_contact_person,
        client_contact_phone, client_contact_email, client_notes,
        venue_name, venue_address, venue_postal_code, venue_city,
@@ -332,21 +327,16 @@ async function buildEventRequestDetail(
   supabase: ReturnType<typeof createAdminClient>,
   request: Record<string, unknown>
 ): Promise<EventRequestDetail> {
-  const [shiftsResult, messagesResult] = await Promise.all([
+  const [shiftsResult, messages] = await Promise.all([
     supabase
       .from("event_request_shifts")
       .select("id, category_id, start_time, end_time, work_categories(name)")
       .eq("event_request_id", request.id as string)
       .order("start_time"),
-    supabase
-      .from("event_request_messages")
-      .select("id, sender, sender_name, body, created_at")
-      .eq("event_request_id", request.id as string)
-      .order("created_at"),
+    getMessagesForRequest(request.company_id as string, request.id as string),
   ]);
 
   if (shiftsResult.error) console.error("buildEventRequestDetail: kunne ikke hente jobrækker", shiftsResult.error);
-  if (messagesResult.error) console.error("buildEventRequestDetail: kunne ikke hente beskeder", messagesResult.error);
 
   const jobLines: EventRequestJobLineItem[] = (shiftsResult.data ?? []).map((s) => {
     const cat = s.work_categories as { name: string } | { name: string }[] | null;
@@ -359,14 +349,6 @@ async function buildEventRequestDetail(
       endTime: hhmm(s.end_time as string),
     };
   });
-
-  const messages: EventRequestMessageItem[] = (messagesResult.data ?? []).map((m) => ({
-    id: m.id as string,
-    sender: m.sender as "admin" | "client",
-    senderName: m.sender_name as string | null,
-    body: m.body as string,
-    createdAt: m.created_at as string,
-  }));
 
   return {
     id: request.id as string,
@@ -405,14 +387,21 @@ async function buildEventRequestDetail(
  * noget at reagere på), og lægger en "Ny besked"-push i kø til admins,
  * ligesom pushNewShiftRequestToAdmins-mønsteret.
  */
-export async function addClientMessageByToken(companyId: string, token: string, body: string) {
+export async function addClientMessageByToken(
+  companyId: string,
+  token: string,
+  body: string,
+  attachments?: NewMessageAttachment[]
+) {
   const trimmed = body.trim();
-  if (!trimmed) return { success: false as const, error: "Skriv en besked først." };
+  if (!trimmed && (!attachments || attachments.length === 0)) {
+    return { success: false as const, error: "Skriv en besked først." };
+  }
 
   const supabase = createAdminClient();
   const { data: request, error: findError } = await supabase
     .from("event_requests")
-    .select("id, status, client_name, client_contact_person, title")
+    .select("id, status, client_name, client_contact_person, title, created_event_id")
     .eq("access_token", token)
     .eq("company_id", companyId)
     .maybeSingle();
@@ -424,19 +413,18 @@ export async function addClientMessageByToken(companyId: string, token: string, 
 
   const senderName = (request.client_name as string | null) || (request.client_contact_person as string | null);
 
-  const { error: insertError } = await supabase.from("event_request_messages").insert({
-    event_request_id: request.id,
-    company_id: companyId,
+  const insertResult = await insertEventMessage({
+    companyId,
+    eventRequestId: request.id as string,
+    eventId: (request.created_event_id as string | null) ?? null,
     sender: "client",
-    sender_name: senderName,
+    senderName,
     body: trimmed,
-    read_by_client: true,
-    read_by_admin: false,
+    attachments,
   });
 
-  if (insertError) {
-    console.error("addClientMessageByToken: kunne ikke gemme beskeden", insertError);
-    return { success: false as const, error: "Kunne ikke sende beskeden. Prøv igen." };
+  if (!insertResult.success) {
+    return { success: false as const, error: insertResult.error };
   }
 
   if (request.status === "new") {

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { CategoryOption, ClientOption, EventListItem, FreelancerOption } from "@/lib/admin-types";
 import {
   createEventWithShifts,
@@ -288,8 +289,24 @@ export default function ShiftWizardPanel({
         }
       >
         <div className="flex items-center justify-between px-5 py-[18px] border-b border-pepo-bd flex-shrink-0">
-          <span className="text-sm font-medium">{title}</span>
-          <button onClick={close} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-sm font-medium truncate">{title}</span>
+            {existingEvent && (
+              <Link
+                href={`/shifts/event/${existingEvent.id}#korrespondance`}
+                className="relative inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11.5px] font-medium bg-pepo-su text-pepo-t2 hover:bg-pepo-bd flex-shrink-0"
+              >
+                <Icon name="messages" size={13} />
+                Korrespondance
+                {existingEvent.unreadMessageCount > 0 && (
+                  <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#C0021A] text-white text-[10px] font-semibold flex items-center justify-center">
+                    {existingEvent.unreadMessageCount}
+                  </span>
+                )}
+              </Link>
+            )}
+          </div>
+          <button onClick={close} className="w-7 h-7 rounded-lg flex items-center justify-center text-pepo-t2 hover:bg-pepo-su flex-shrink-0">
             <Icon name="x" size={20} />
           </button>
         </div>

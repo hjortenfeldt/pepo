@@ -696,7 +696,7 @@ function SuccessScreen({ accessToken, email }: { accessToken: string; email: str
       </p>
       <div className="mt-7">
         <Link
-          href={`/request/status/${accessToken}`}
+          href={`/status/${accessToken}`}
           className="inline-block h-[46px] leading-[46px] px-6 rounded-[10px] text-[15px] font-medium bg-pepo-p text-white hover:opacity-90 transition-opacity"
         >
           Se status for forespørgslen

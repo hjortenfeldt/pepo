@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { getShiftsBoardData } from "@/lib/shifts-data";
+import { getMessagesForEvent, markEventMessagesReadByAdmin } from "@/lib/event-messages";
 import EventDeepLinkView from "@/components/admin/EventDeepLinkView";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,12 @@ export default async function EventDeepLinkPage({ params }: { params: Promise<{ 
   const event = events.find((e) => e.id === id);
   if (!event) notFound();
 
+  // Markerer klientens ulæste beskeder som læst FØR selve hentningen, så den
+  // netop-viste tråd og badgen på "Alle events"-listen begge bliver enige om
+  // 0 ulæste — samme rækkefølge som getEventRequestDetailForAdmin.
+  await markEventMessagesReadByAdmin(company.id, id);
+  const messages = await getMessagesForEvent(company.id, id);
+
   return (
     <EventDeepLinkView
       event={event}
@@ -49,6 +56,7 @@ export default async function EventDeepLinkPage({ params }: { params: Promise<{ 
       clients={clients}
       categories={categories}
       freelancers={freelancers}
+      messages={messages}
     />
   );
 }

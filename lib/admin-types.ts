@@ -124,6 +124,10 @@ export type EventListItem = {
   // er geokodet (fx ingen adresse angivet, eller opslaget hos Google
   // fejlede) — vis da ingenting i stedet for et forkert 0 kr.
   transportSurchargeKr: number | null;
+  // Antal ulæste klient-beskeder i eventets "Korrespondance"-tråd (se
+  // [[project_event_correspondence_and_system_log]]) — vist som badge på
+  // "Korrespondance"-knappen i ShiftWizardPanels editEvent-visning.
+  unreadMessageCount: number;
 };
 
 export type ClientOption = {

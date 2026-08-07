@@ -6,6 +6,9 @@ import Icon from "@/components/Icon";
 import type { CategoryOption, ClientOption, EventListItem, FreelancerOption, ShiftListItem } from "@/lib/admin-types";
 import { formatDayHeading } from "@/lib/format";
 import type { BusyShift } from "@/lib/shift-conflicts";
+import type { EventMessageItem } from "@/lib/event-messages";
+import { replyToEventAsAdmin, uploadEventMessageAttachmentForEvent } from "@/app/tenant/(protected)/shifts/actions";
+import CorrespondenceThread from "@/components/CorrespondenceThread";
 import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
 import { EventCard } from "./ShiftBoard";
@@ -35,6 +38,7 @@ export default function EventDeepLinkView({
   clients,
   categories,
   freelancers,
+  messages,
 }: {
   event: EventListItem;
   // Virksomhedens FULDE, ikke-paginerede eventliste (samme data som
@@ -45,6 +49,10 @@ export default function EventDeepLinkView({
   clients: ClientOption[];
   categories: CategoryOption[];
   freelancers: FreelancerOption[];
+  // Eventets fulde korrespondance-tråd (dialog + system-ændringslog) — se
+  // [[project_event_correspondence_and_system_log]]. Hentet server-side af
+  // page.tsx, som også allerede har markeret klient-beskederne som læst.
+  messages: EventMessageItem[];
 }) {
   const [wizard, setWizard] = useState<WizardState | null>(null);
   const [openShift, setOpenShift] = useState<{ shift: ShiftListItem; event: EventListItem } | null>(null);
@@ -130,6 +138,19 @@ export default function EventDeepLinkView({
           onAddShift={() => setWizard({ mode: "addShift", event })}
           onOpenShift={(shift) => setOpenShift({ shift, event })}
         />
+
+        <div id="korrespondance" className="mt-8 scroll-mt-6">
+          <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2">Korrespondance</div>
+          <CorrespondenceThread
+            messages={messages}
+            viewerRole="admin"
+            selfSenderName="Dig"
+            placeholder="Skriv en besked..."
+            maxHeightClassName="max-h-[420px]"
+            onSend={(body, attachments) => replyToEventAsAdmin(event.id, body, attachments)}
+            onUploadAttachment={(file) => uploadEventMessageAttachmentForEvent(event.id, file)}
+          />
+        </div>
       </div>
 
       {wizard && (

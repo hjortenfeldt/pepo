@@ -2,6 +2,7 @@
 
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { getEventRequestByToken, addClientMessageByToken } from "@/lib/event-requests";
+import { uploadMessageAttachment, type NewMessageAttachment } from "@/lib/event-messages";
 
 /**
  * Klientens egen status/dialog-side (/request/status/[token]) — ingen
@@ -15,8 +16,15 @@ export async function getEventRequestStatus(token: string) {
   return getEventRequestByToken(company.id, token);
 }
 
-export async function replyToEventRequest(token: string, body: string) {
+export async function replyToEventRequest(token: string, body: string, attachments?: NewMessageAttachment[]) {
   const company = await getCompanyBySubdomain();
   if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
-  return addClientMessageByToken(company.id, token, body);
+  return addClientMessageByToken(company.id, token, body, attachments);
+}
+
+/** Uploader én vedhæftning til klientens svar, FØR selve beskeden sendes — se uploadMessageAttachment. */
+export async function uploadEventMessageAttachment(token: string, file: File) {
+  const company = await getCompanyBySubdomain();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+  return uploadMessageAttachment(company.id, token, file);
 }

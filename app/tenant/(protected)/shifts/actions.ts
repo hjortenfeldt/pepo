@@ -5,6 +5,14 @@ import { getCompanyBySubdomain } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import type { EventAttachment, ShiftStatus, VenueItem } from "@/lib/admin-types";
 import { geocodeAddress, getDrivingDistanceKm } from "@/lib/maps";
+import { formatDateDisplay, venueLabel } from "@/lib/format";
+import {
+  logEventSystemMessage,
+  getCurrentAdminName,
+  insertEventMessage,
+  uploadMessageAttachment,
+  type NewMessageAttachment,
+} from "@/lib/event-messages";
 import {
   pushShiftAssigned,
   pushShiftReleased,
@@ -12,6 +20,117 @@ import {
   pushShiftChanged,
   queueOpenShiftNotifications,
 } from "@/lib/shift-notifications";
+
+/**
+ * Kronologisk ændringslog i eventets "Korrespondance"-tråd (sender "system",
+ * centreret neutral pille i UI'en, ALDRIG vist for klienten) — indsat af
+ * handlingerne nedenfor EFTER selve ændringen er gemt. Se
+ * [[project_event_correspondence_and_system_log]] og Hjorths uddybning
+ * 2026-08-06 ("who has created the shifts etc."). Fejler aldrig hårdt for
+ * selve handlingen (samme filosofi som push-koden) — logEventSystemMessage
+ * sluger selv sine fejl.
+ */
+async function logShiftChange(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  companyId: string,
+  eventId: string,
+  body: string
+) {
+  const adminName = await getCurrentAdminName(supabase);
+  await logEventSystemMessage(companyId, eventId, adminName, body);
+}
+
+/** Jobfunktionens navn til brug i logbeskeder — én lille opslag, ikke hele CategoryOption-formen. */
+async function getCategoryName(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  categoryId: string
+): Promise<string> {
+  const { data } = await supabase.from("work_categories").select("name").eq("id", categoryId).maybeSingle();
+  return (data?.name as string | undefined) ?? "ukendt jobfunktion";
+}
+
+/** Samler jobfunktion + klokkeslæt til én læsevenlig streng, fx "Tjener, kl. 18:00–23:00". */
+function shiftLabel(categoryName: string, startTime: string, endTime: string): string {
+  return `${categoryName}, kl. ${startTime.slice(0, 5)}–${endTime.slice(0, 5)}`;
+}
+
+/** Tildelt freelancers fulde navn (for DENNE virksomhed) til brug i logbeskeder. */
+async function getFreelancerName(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  companyId: string,
+  authUserId: string
+): Promise<string> {
+  const { data } = await supabase
+    .from("freelancer_profiles")
+    .select("full_name")
+    .eq("company_id", companyId)
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+  return (data?.full_name as string | undefined) ?? "en freelancer";
+}
+
+/** Vagtens jobfunktion + klokkeslæt (+ event_id), til logbeskeder hvor kalderen ikke allerede har hentet dem. */
+async function fetchShiftLogInfo(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  shiftId: string,
+  companyId: string
+): Promise<{ eventId: string; label: string } | null> {
+  const { data } = await supabase
+    .from("shifts")
+    .select("event_id, start_time, end_time, work_categories(name)")
+    .eq("id", shiftId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (!data || !data.event_id) return null;
+  const cat = data.work_categories as { name: string } | { name: string }[] | null;
+  const categoryName = (Array.isArray(cat) ? cat[0]?.name : cat?.name) ?? "ukendt jobfunktion";
+  return {
+    eventId: data.event_id as string,
+    label: shiftLabel(categoryName, data.start_time as string, data.end_time as string),
+  };
+}
+
+/**
+ * Admins svar direkte i ET events "Korrespondance"-tråd (ikke via en
+ * eventforespørgsel — dækker BÅDE accepterede forespørgsler, som allerede
+ * har event_id sat, OG events oprettet helt manuelt uden nogen forespørgsel
+ * overhovedet, se [[project_event_correspondence_and_system_log]]).
+ */
+export async function replyToEventAsAdmin(eventId: string, body: string, attachments?: NewMessageAttachment[]) {
+  const trimmed = body.trim();
+  if (!trimmed && (!attachments || attachments.length === 0)) {
+    return { success: false as const, error: "Skriv en besked først." };
+  }
+
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+
+  const supabase = await createSupabaseClient();
+  const adminName = await getCurrentAdminName(supabase);
+
+  const insertResult = await insertEventMessage({
+    companyId: company.id,
+    eventId,
+    sender: "admin",
+    senderName: adminName,
+    body: trimmed,
+    attachments,
+  });
+
+  if (!insertResult.success) {
+    return { success: false as const, error: insertResult.error };
+  }
+
+  revalidatePath(`/shifts/event/${eventId}`);
+  return { success: true as const };
+}
+
+/** Uploader én vedhæftning til admins svar i eventets egen korrespondance-tråd — se uploadMessageAttachment. */
+export async function uploadEventMessageAttachmentForEvent(eventId: string, file: File) {
+  const company = await requireCompany();
+  if (!company) return { success: false as const, error: "Kunne ikke afgøre virksomheden. Prøv igen." };
+  return uploadMessageAttachment(company.id, eventId, file);
+}
 
 /**
  * Geokoder en venue-adresse og beregner køreafstanden fra virksomhedens
@@ -128,7 +247,15 @@ function eventFieldsForShift(input: EventFormInput) {
   };
 }
 
-export async function createEventWithShifts(input: EventFormInput, rows: ShiftCreateRowInput[]) {
+export async function createEventWithShifts(
+  input: EventFormInput,
+  rows: ShiftCreateRowInput[],
+  // Sat af acceptEventRequest() (event-requests/actions.ts), som selv
+  // indsætter sin egen, mere specifikke "accepterede forespørgslen og
+  // oprettede eventet"-logbesked — undgår at TO system-beskeder ville
+  // dukke op i tråden for præcis samme øjeblik.
+  options?: { skipCreationLog?: boolean }
+) {
   const validationError = validateEvent(input) || validateRows(rows);
   if (validationError) return { success: false as const, error: validationError };
 
@@ -197,6 +324,16 @@ export async function createEventWithShifts(input: EventFormInput, rows: ShiftCr
     })
   );
 
+  if (!options?.skipCreationLog) {
+    const categoryNames = await Promise.all(rows.map((r) => getCategoryName(supabase, r.categoryId)));
+    await logShiftChange(
+      supabase,
+      company.id,
+      event.id as string,
+      `oprettede eventet med ${rows.length} ${rows.length === 1 ? "vagt" : "vagter"} (${categoryNames.join(", ")}).`
+    );
+  }
+
   revalidatePath("/shifts");
   return { success: true as const, eventId: event.id as string };
 }
@@ -231,6 +368,8 @@ export async function createEventOnly(input: EventFormInput) {
     return { success: false as const, error: "Kunne ikke oprette event. Prøv igen." };
   }
 
+  await logShiftChange(supabase, company.id, event.id as string, "oprettede eventet (uden vagter).");
+
   revalidatePath("/shifts");
   return { success: true as const, eventId: event.id as string };
 }
@@ -246,10 +385,12 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
 
   // Hentet FØR opdateringen — bruges til at afgøre om dato/kunde/venue reelt
   // ændrede sig, så allerede tildelte freelancere kun får en #4-push ved
-  // faktiske ændringer, ikke ved enhver gemning af eventet.
+  // faktiske ændringer, ikke ved enhver gemning af eventet (title/description
+  // hentes med til den kronologiske ændringslog nedenfor, som IKKE skal
+  // begrænses til kun de tre push-relevante felter).
   const { data: beforeEvent } = await supabase
     .from("events")
-    .select("event_date, client_id, venue_id")
+    .select("title, event_date, description, client_id, venue_id")
     .eq("id", eventId)
     .eq("company_id", company.id)
     .maybeSingle();
@@ -300,6 +441,57 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
     await Promise.all(
       (assignedShifts ?? []).map((s) => pushShiftChanged(s.id as string, s.assigned_freelancer_id as string))
     );
+  }
+
+  // Kronologisk ændringslog — bygger én samlet sætning af de felter der
+  // FAKTISK ændrede sig (title/description tælles med her, i modsætning til
+  // reallyChanged ovenfor, som kun styrer push-varslingen til freelancere).
+  if (beforeEvent) {
+    const changes: string[] = [];
+    if (beforeEvent.title !== input.title.trim()) {
+      changes.push(`titlen til "${input.title.trim()}"`);
+    }
+    if (beforeEvent.event_date !== input.eventDate) {
+      changes.push(`datoen til ${formatDateDisplay(input.eventDate)}`);
+    }
+    if (beforeEvent.client_id !== input.clientId) {
+      const { data: newClient } = await supabase
+        .from("clients")
+        .select("name, contact_person")
+        .eq("id", input.clientId)
+        .maybeSingle();
+      changes.push(`kunden til ${newClient?.name || newClient?.contact_person || "(uden navn)"}`);
+    }
+    if (beforeEvent.venue_id !== input.venueId) {
+      if (input.venueId) {
+        const { data: newVenue } = await supabase
+          .from("client_venues")
+          .select("name, address, postal_code, city")
+          .eq("id", input.venueId)
+          .maybeSingle();
+        changes.push(
+          `eventstedet til ${
+            newVenue
+              ? venueLabel({
+                  name: newVenue.name,
+                  address: newVenue.address,
+                  postalCode: newVenue.postal_code,
+                  city: newVenue.city,
+                }).replace("\n", ", ")
+              : "et andet sted"
+          }`
+        );
+      } else {
+        changes.push("eventstedet (fjernet)");
+      }
+    }
+    if ((beforeEvent.description ?? "") !== input.description.trim()) {
+      changes.push("briefingen");
+    }
+
+    if (changes.length > 0) {
+      await logShiftChange(supabase, company.id, eventId, `ændrede ${changes.join(", ")}.`);
+    }
   }
 
   revalidatePath("/shifts");
@@ -362,6 +554,14 @@ export async function addShiftsToEvent(eventId: string, rows: ShiftCreateRowInpu
     })
   );
 
+  const addedCategoryNames = await Promise.all(rows.map((r) => getCategoryName(supabase, r.categoryId)));
+  await logShiftChange(
+    supabase,
+    company.id,
+    eventId,
+    `tilføjede ${rows.length} ${rows.length === 1 ? "vagt" : "vagter"} (${addedCategoryNames.join(", ")}).`
+  );
+
   revalidatePath("/shifts");
   return { success: true };
 }
@@ -379,7 +579,7 @@ export async function updateShift(shiftId: string, row: ShiftRowInput) {
   // at sende en #4-push (kun ved faktisk ændrede felter, ikke enhver gemning).
   const { data: before } = await supabase
     .from("shifts")
-    .select("category_id, start_time, end_time, assigned_freelancer_id")
+    .select("event_id, category_id, start_time, end_time, assigned_freelancer_id")
     .eq("id", shiftId)
     .eq("company_id", company.id)
     .maybeSingle();
@@ -403,6 +603,16 @@ export async function updateShift(shiftId: string, row: ShiftRowInput) {
 
   if (reallyChanged && before?.assigned_freelancer_id) {
     await pushShiftChanged(shiftId, before.assigned_freelancer_id);
+  }
+
+  if (reallyChanged && before?.event_id) {
+    const categoryName = await getCategoryName(supabase, row.categoryId);
+    await logShiftChange(
+      supabase,
+      company.id,
+      before.event_id as string,
+      `redigerede vagten til ${shiftLabel(categoryName, row.startTime, row.endTime)}.`
+    );
   }
 
   revalidatePath("/shifts");
@@ -535,6 +745,12 @@ export async function assignFreelancer(shiftId: string, freelancerId: string) {
   // #1 Vagt tildelt.
   await pushShiftAssigned(shiftId, freelancerId);
 
+  const shiftInfo = await fetchShiftLogInfo(supabase, shiftId, company.id);
+  if (shiftInfo) {
+    const freelancerName = await getFreelancerName(supabase, company.id, freelancerId);
+    await logShiftChange(supabase, company.id, shiftInfo.eventId, `tildelte vagten (${shiftInfo.label}) til ${freelancerName}.`);
+  }
+
   revalidatePath("/shifts");
   return { success: true };
 }
@@ -553,6 +769,8 @@ export async function releaseShift(shiftId: string) {
     .eq("id", shiftId)
     .eq("company_id", company.id)
     .maybeSingle();
+
+  const shiftInfoBeforeRelease = await fetchShiftLogInfo(supabase, shiftId, company.id);
 
   const { error } = await supabase
     .from("shifts")
@@ -591,6 +809,11 @@ export async function releaseShift(shiftId: string) {
     await queueOpenShiftNotifications(company.id, before.category_id, shiftId);
   }
 
+  if (shiftInfoBeforeRelease && before?.assigned_freelancer_id) {
+    const freelancerName = await getFreelancerName(supabase, company.id, before.assigned_freelancer_id);
+    await logShiftChange(supabase, company.id, shiftInfoBeforeRelease.eventId, `frigav vagten (${shiftInfoBeforeRelease.label}) fra ${freelancerName}.`);
+  }
+
   revalidatePath("/shifts");
   return { success: true };
 }
@@ -613,6 +836,8 @@ export async function deleteShift(shiftId: string) {
     return { success: false, error: "Kunne ikke slette vagten. Prøv igen." };
   }
 
+  const shiftInfoBeforeDelete = await fetchShiftLogInfo(supabase, shiftId, company.id);
+
   const { error } = await supabase
     .from("shifts")
     .update({ status: "cancelled" as ShiftStatus, previous_status: current.status })
@@ -627,6 +852,10 @@ export async function deleteShift(shiftId: string) {
   // #3 Vagt aflyst — kun hvis vagten rent faktisk var tildelt nogen.
   if (current.assigned_freelancer_id) {
     await pushShiftCancelled(shiftId, current.assigned_freelancer_id);
+  }
+
+  if (shiftInfoBeforeDelete) {
+    await logShiftChange(supabase, company.id, shiftInfoBeforeDelete.eventId, `slettede vagten (${shiftInfoBeforeDelete.label}).`);
   }
 
   revalidatePath("/shifts");
@@ -668,6 +897,11 @@ export async function undeleteShift(shiftId: string) {
   // relevant for den grupperede ny-ledig-vagt-notifikation igen.
   if (restoredStatus === "open") {
     await queueOpenShiftNotifications(company.id, current.category_id, shiftId);
+  }
+
+  const shiftInfoAfterUndelete = await fetchShiftLogInfo(supabase, shiftId, company.id);
+  if (shiftInfoAfterUndelete) {
+    await logShiftChange(supabase, company.id, shiftInfoAfterUndelete.eventId, `fortrød sletningen af vagten (${shiftInfoAfterUndelete.label}).`);
   }
 
   revalidatePath("/shifts");
@@ -712,6 +946,16 @@ export async function duplicateShift(shiftId: string) {
   // #5 — den nye, duplikerede vagt er open og dermed relevant for den
   // grupperede ny-ledig-vagt-notifikation.
   await queueOpenShiftNotifications(company.id, inserted.category_id as string, inserted.id as string);
+
+  if (original.event_id) {
+    const categoryName = await getCategoryName(supabase, original.category_id as string);
+    await logShiftChange(
+      supabase,
+      company.id,
+      original.event_id as string,
+      `duplikerede vagten (${shiftLabel(categoryName, original.start_time as string, original.end_time as string)}).`
+    );
+  }
 
   revalidatePath("/shifts");
   // `id` bruges af ShiftDetailPanel til at lilla-blinke den NYE vagt (ikke
