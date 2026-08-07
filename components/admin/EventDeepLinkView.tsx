@@ -145,6 +145,7 @@ export default function EventDeepLinkView({
             selfSenderName="Dig"
             placeholder="Skriv en besked..."
             maxHeightClassName="max-h-[420px]"
+            enableSortToggle
             onSend={(body, attachments) => replyToEventAsAdmin(event.id, body, attachments)}
             onUploadAttachment={(file) => uploadEventMessageAttachmentForEvent(event.id, file)}
           />

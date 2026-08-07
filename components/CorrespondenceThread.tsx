@@ -30,6 +30,12 @@ export default function CorrespondenceThread({
   selfSenderName,
   placeholder = "Skriv en besked...",
   maxHeightClassName = "max-h-[360px]",
+  // Viser en "Nyeste/Ældste øverst"-skifteknap over selve tråden, og skifter
+  // som en konsekvens også standard-sorteringen til nyeste øverst — kun sat
+  // af EventDeepLinkView.tsx's "Korrespondance"-sektion (Hjorth 2026-08-07).
+  // De to øvrige overflader (forespørgselsdetaljen og klientens status-side)
+  // beholder bevidst den oprindelige, faste kronologiske rækkefølge.
+  enableSortToggle = false,
   onSend,
   onUploadAttachment,
 }: {
@@ -39,6 +45,7 @@ export default function CorrespondenceThread({
   selfSenderName?: string | null;
   placeholder?: string;
   maxHeightClassName?: string;
+  enableSortToggle?: boolean;
   onSend: (body: string, attachments: NewMessageAttachment[]) => Promise<SendResult>;
   onUploadAttachment: (file: File) => Promise<UploadResult>;
 }) {
@@ -48,11 +55,18 @@ export default function CorrespondenceThread({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // Default vendt om til nyeste-øverst, når skifteknappen er slået til —
+  // se enableSortToggle-kommentaren ovenfor.
+  const [newestFirst, setNewestFirst] = useState(enableSortToggle);
 
   const selfSender: EventMessageItem["sender"] = viewerRole;
   // Klienten skal ALDRIG se system-beskeder — de er en ren admin-side
   // ændringslog. Admin-visningerne (forespørgsel og event) viser dem alle.
-  const visibleMessages = viewerRole === "client" ? messages.filter((m) => m.sender !== "system") : messages;
+  const chronologicalMessages = viewerRole === "client" ? messages.filter((m) => m.sender !== "system") : messages;
+  // `messages` er altid kronologisk stigende (ældste først) internt — se
+  // sendReply's append nedenfor — så det er udelukkende VISNINGS-rækkefølgen
+  // der vendes om her, aldrig selve datamodellen.
+  const visibleMessages = newestFirst ? [...chronologicalMessages].reverse() : chronologicalMessages;
 
   async function onAttachFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
@@ -98,6 +112,18 @@ export default function CorrespondenceThread({
 
   return (
     <div>
+      {enableSortToggle && (
+        <div className="flex justify-end mb-2">
+          <button
+            type="button"
+            onClick={() => setNewestFirst((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-pepo-t2 hover:text-pepo-t1 px-2 py-1 rounded-md hover:bg-pepo-su transition-colors"
+          >
+            <Icon name={newestFirst ? "sort-descending" : "sort-ascending"} size={14} />
+            {newestFirst ? "Nyeste øverst" : "Ældste øverst"}
+          </button>
+        </div>
+      )}
       <div className={"flex flex-col gap-2.5 mb-4 overflow-y-auto overscroll-contain " + maxHeightClassName}>
         {visibleMessages.length === 0 ? (
           <p className="text-[13px] text-pepo-t3">Ingen beskeder endnu.</p>
