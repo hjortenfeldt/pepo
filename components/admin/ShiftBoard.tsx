@@ -481,6 +481,19 @@ export default function ShiftBoard({
   );
 }
 
+// Fælles klasse for hver informationslinje i EventCard's info-kolonne
+// (klient/venue/afstand/gæster/kontakt/briefing/vedhæftninger). På
+// "Eventdetaljer"-siden (detailed=true) sidder linjerne i en divide-y-
+// beholder, så py-1.5 GIVER både den ekstra luft og — via divide-y'ens
+// border — 1px-skillelinjen mellem hver brik (Hjorth 2026-08-08). I den
+// kompakte kort-liste (detailed=false) bruges i stedet den oprindelige,
+// tættere mt-0.5-afstand uden nogen skillelinje.
+function infoRowClass(detailed: boolean | undefined, align: "center" | "start"): string {
+  return `text-xs text-pepo-t2 flex ${align === "start" ? "items-start" : "items-center"} gap-1.5 ${
+    detailed ? "py-1.5" : "mt-0.5"
+  }`;
+}
+
 // Eksporteret — genbruges af EventDeepLinkView.tsx (kalender-feedets
 // "REDIGÉR OPLYSNINGER"-link peger på en dedikeret side med kun ÉT event,
 // se app/tenant/(protected)/shifts/event/[id]/page.tsx), så selve
@@ -615,74 +628,115 @@ export function EventCard({
         <div className="flex items-start justify-between gap-2.5">
           <div className="min-w-0 flex-1">
             {showDate && (
-              <div className="text-[12.5px] text-pepo-t2 capitalize mb-1">{formatDayHeading(event.eventDate)}</div>
+              <div className="text-[12.5px] text-pepo-t2 capitalize">{formatDayHeading(event.eventDate)}</div>
             )}
             <div className="text-[13.5px] font-semibold text-pepo-t1 py-px">{event.title}</div>
-            <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-              <Icon name={event.clientIsPrivate ? "user" : "building-store"} size={21} className="text-pepo-t2 flex-shrink-0" />
-              {event.clientName}
-            </div>
-            {event.venueLabel && (
-              // items-start (ikke items-center) så pin-ikonet altid følger
-              // toppen af venue-teksten, i stedet for at flyde midt i hele
-              // linjen når teksten wrapper til to linjer. whitespace-pre-line
-              // gør venueLabel()'s "\n" mellem navn og adresse til et rigtigt
-              // linjeskift i stedet for en bindestreg (se lib/format.ts).
-              <div className="text-xs text-pepo-t2 mt-0.5 flex items-start gap-1.5">
-                <Icon name="map-pin" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
-                <span className="whitespace-pre-line">{event.venueLabel}</span>
+            {/* På selve "Eventdetaljer"-siden (onEventDetailsPage) vises HVER
+                brik af info som sin egen linje adskilt af en 1px linje
+                (divide-y) med rigelig padding, så admin kan se ALT om
+                eventet her uden at åbne "Redigér event" (Hjorth 2026-08-08).
+                Den kompakte kort-liste på "Events & vagter" beholder bevidst
+                sin oprindelige, tættere mt-0.5-opstilling uden linjer — kun
+                client/venue/afstand vises der, resten ville gøre hvert kort
+                alt for langt i en liste med mange events. */}
+            <div className={onEventDetailsPage ? "mt-1.5 divide-y divide-pepo-bd" : undefined}>
+              <div className={infoRowClass(onEventDetailsPage, "center")}>
+                <Icon name={event.clientIsPrivate ? "user" : "building-store"} size={21} className="text-pepo-t2 flex-shrink-0" />
+                {event.clientName}
               </div>
-            )}
-            {(event.venueDistanceKm != null || event.transportSurchargeKr != null) && (
-              // Afstand og transporttillæg slået sammen på én linje (kun ét
-              // route-ikon, bil-ikonet droppet) — ønsket af Hjorth 2026-07-27.
-              <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-                <Icon name="route" size={21} className="text-pepo-t2 flex-shrink-0" />
-                <span>
-                  {event.venueDistanceKm != null && `Afstand: ${kmFmt.format(event.venueDistanceKm)} km.`}
-                  {event.venueDistanceKm != null && event.transportSurchargeKr != null && " — "}
-                  {event.transportSurchargeKr != null &&
-                    `Transporttillæg (t/r): ${krFmt.format(event.transportSurchargeKr)} kr.`}
-                </span>
-              </div>
-            )}
-            {/* Forventet antal gæster/briefing/vedhæftninger — kun på selve
-                "Eventdetaljer"-siden (onEventDetailsPage), IKKE i den
-                kompakte kort-liste på "Events & vagter" (ville gøre hvert
-                kort alt for langt der). Formålet er at admin kan se ALT om
-                eventet her uden at skulle åbne "Redigér event" (Hjorth
-                2026-08-08). */}
-            {onEventDetailsPage && event.expectedGuests && (
-              <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-                <Icon name="users" size={21} className="text-pepo-t2 flex-shrink-0" />
-                <span>Forventet antal gæster: {event.expectedGuests}</span>
-              </div>
-            )}
-            {onEventDetailsPage && event.description && (
-              <div className="text-xs text-pepo-t2 mt-0.5 flex items-start gap-1.5">
-                <Icon name="notes" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
-                <span className="whitespace-pre-line">{event.description}</span>
-              </div>
-            )}
-            {onEventDetailsPage && event.attachments.length > 0 && (
-              <div className="text-xs text-pepo-t2 mt-0.5 flex items-start gap-1.5">
-                <Icon name="paperclip" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  {event.attachments.map((a) => (
-                    <a
-                      key={a.id}
-                      href={a.fileUrl}
-                      target="_blank"
-                      rel="noopener"
-                      onClick={(e) => e.stopPropagation()}
-                      className="truncate hover:text-pepo-p hover:underline"
-                    >
-                      {a.fileName}
-                    </a>
-                  ))}
+              {event.venueLabel && (
+                // items-start (ikke items-center) så pin-ikonet altid følger
+                // toppen af venue-teksten, i stedet for at flyde midt i hele
+                // linjen når teksten wrapper til to linjer. whitespace-pre-line
+                // gør venueLabel()'s "\n" mellem navn og adresse til et rigtigt
+                // linjeskift i stedet for en bindestreg (se lib/format.ts).
+                <div className={infoRowClass(onEventDetailsPage, "start")}>
+                  <Icon name="map-pin" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
+                  <span className="whitespace-pre-line">{event.venueLabel}</span>
                 </div>
-              </div>
-            )}
+              )}
+              {(event.venueDistanceKm != null || event.transportSurchargeKr != null) && (
+                // Afstand og transporttillæg slået sammen på én linje (kun ét
+                // route-ikon, bil-ikonet droppet) — ønsket af Hjorth 2026-07-27.
+                <div className={infoRowClass(onEventDetailsPage, "center")}>
+                  <Icon name="route" size={21} className="text-pepo-t2 flex-shrink-0" />
+                  <span>
+                    {event.venueDistanceKm != null && `Afstand: ${kmFmt.format(event.venueDistanceKm)} km.`}
+                    {event.venueDistanceKm != null && event.transportSurchargeKr != null && " — "}
+                    {event.transportSurchargeKr != null &&
+                      `Transporttillæg (t/r): ${krFmt.format(event.transportSurchargeKr)} kr.`}
+                  </span>
+                </div>
+              )}
+              {onEventDetailsPage && event.expectedGuests && (
+                <div className={infoRowClass(onEventDetailsPage, "center")}>
+                  <Icon name="users" size={21} className="text-pepo-t2 flex-shrink-0" />
+                  <span>Forventet antal gæster: {event.expectedGuests}</span>
+                </div>
+              )}
+              {/* Kontaktperson vises kun for firmakunder — for privatkunder ER
+                  contactPerson allerede clientName selv (se
+                  lib/shifts-data.ts), en ekstra linje ville bare gentage
+                  samme navn. Telefon/email er egne klikbare tel:/mailto:-links
+                  (Hjorth 2026-08-08), IKKE hele rækken, for ikke ved et uheld
+                  at åbne telefon-app'en/mail-klienten ved klik andetsteds på
+                  kortet (som ellers åbner "Redigér event"). */}
+              {onEventDetailsPage && !event.clientIsPrivate && event.contactPerson && (
+                <div className={infoRowClass(onEventDetailsPage, "center")}>
+                  <Icon name="user" size={21} className="text-pepo-t2 flex-shrink-0" />
+                  <span>{event.contactPerson}</span>
+                </div>
+              )}
+              {onEventDetailsPage && event.contactPhone && (
+                <div className={infoRowClass(onEventDetailsPage, "center")}>
+                  <Icon name="phone" size={21} className="text-pepo-t2 flex-shrink-0" />
+                  <a
+                    href={`tel:${event.contactPhone}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:text-pepo-p hover:underline"
+                  >
+                    {event.contactPhone}
+                  </a>
+                </div>
+              )}
+              {onEventDetailsPage && event.contactEmail && (
+                <div className={infoRowClass(onEventDetailsPage, "center")}>
+                  <Icon name="mail" size={21} className="text-pepo-t2 flex-shrink-0" />
+                  <a
+                    href={`mailto:${event.contactEmail}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="truncate hover:text-pepo-p hover:underline"
+                  >
+                    {event.contactEmail}
+                  </a>
+                </div>
+              )}
+              {onEventDetailsPage && event.description && (
+                <div className={infoRowClass(onEventDetailsPage, "start")}>
+                  <Icon name="notes" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
+                  <span className="whitespace-pre-line">{event.description}</span>
+                </div>
+              )}
+              {onEventDetailsPage && event.attachments.length > 0 && (
+                <div className={infoRowClass(onEventDetailsPage, "start")}>
+                  <Icon name="paperclip" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    {event.attachments.map((a) => (
+                      <a
+                        key={a.id}
+                        href={a.fileUrl}
+                        target="_blank"
+                        rel="noopener"
+                        onClick={(e) => e.stopPropagation()}
+                        className="truncate hover:text-pepo-p hover:underline"
+                      >
+                        {a.fileName}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex-shrink-0 flex flex-col gap-1.5">
             {onEventDetailsPage ? (

@@ -114,6 +114,14 @@ export type EventListItem = {
   // udfyldt) — bruges til at vise person-ikonet i stedet for firma-ikonet ud
   // for kundenavnet (EventCard i ShiftBoard.tsx, headeren i ShiftDetailPanel.tsx).
   clientIsPrivate: boolean;
+  // Kundens kontaktoplysninger — for firmakunder er dette en person ADSKILT
+  // fra selve firmanavnet (clientName); for privatkunder er contactPerson
+  // reelt det samme navn som clientName allerede viser (se
+  // shifts-data.ts'ens kommentar), så kaldende UI viser typisk kun denne
+  // linje for firmakunder.
+  contactPerson: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
   venueId: string | null;
   venueLabel: string | null; // fx "Havnelokale — Islands Brygge 26, 2300 København S"
   attachments: EventAttachment[];

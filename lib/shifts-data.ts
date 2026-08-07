@@ -33,7 +33,12 @@ type RawVenueRef = {
   // for den, derfor valgfri her.
   distance_from_company_km?: number | null;
 };
-type RawClientRef = { name: string | null; contact_person: string | null };
+type RawClientRef = {
+  name: string | null;
+  contact_person: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+};
 type RawWorkCategoryRef = { name: string; icon: string | null };
 type RawAttachmentRow = { id: string; file_name: string; file_url: string; file_type: string | null };
 // assigned_freelancer_id og shift_interests.freelancer_id er auth-login-id'er
@@ -127,7 +132,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
       .from("events")
       .select(
         `id, title, event_date, description, expected_guests, client_id, venue_id,
-         clients(name, contact_person),
+         clients(name, contact_person, contact_phone, contact_email),
          client_venues(id, name, address, postal_code, city, distance_from_company_km),
          shift_attachments(id, file_name, file_url, file_type),
          shifts(id, category_id, shift_date, start_time, end_time, status, previous_status,
@@ -259,6 +264,12 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
       clientId: e.client_id,
       clientName: client?.name || client?.contact_person || "(uden navn)",
       clientIsPrivate: !client?.name,
+      // Kun relevant at vise SEPARAT for firmakunder (privatkunders
+      // kontaktperson er allerede clientName selv, se ovenfor) — men hentes
+      // ubetinget, kaldende UI afgør selv om det skal vises.
+      contactPerson: client?.contact_person ?? null,
+      contactPhone: client?.contact_phone ?? null,
+      contactEmail: client?.contact_email ?? null,
       venueId: e.venue_id,
       venueLabel: venue
         ? venueLabel({
