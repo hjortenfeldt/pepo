@@ -99,6 +99,9 @@ export type EventRequestSubmission = {
   jobLines: EventRequestJobLineInput[];
   title: string;
   eventDate: string;
+  // Trin 2 — helt valgfrit, fri tekst klienten selv angiver (Hjorth
+  // 2026-08-08: "cirka"-tal, ikke en valideret optælling).
+  expectedGuests: string;
   // Trin 2 — IKKE eventets "Briefing" (den er admins eget felt til
   // freelancerne, udfyldes aldrig af klienten). Indsættes i stedet som
   // forespørgslens allerførste klient-besked i "Dialog"-tråden, se
@@ -176,6 +179,7 @@ export async function submitEventRequestForCompany(companyId: string, input: Eve
       venue_latitude: input.venueLat,
       venue_longitude: input.venueLng,
       venue_distance_from_company_km: distanceKm,
+      expected_guests: input.expectedGuests.trim() || null,
       labour_subtotal_kr: labourSubtotalKr,
       transport_surcharge_kr: transportSurchargeKr,
       vat_kr: vatKr,
@@ -270,6 +274,7 @@ export type EventRequestDetail = {
   venueLatitude: number | null;
   venueLongitude: number | null;
   venueDistanceKm: number | null;
+  expectedGuests: string | null;
   labourSubtotalKr: number | null;
   transportSurchargeKr: number | null;
   // `null` for privatkunder (ingen moms lagt på, linjen vises slet ikke) —
@@ -305,7 +310,7 @@ export async function getEventRequestByToken(companyId: string, token: string): 
        customer_type, client_name, client_cvr_number, client_contact_person,
        client_contact_phone, client_contact_email,
        venue_name, venue_address, venue_postal_code, venue_city,
-       venue_latitude, venue_longitude, venue_distance_from_company_km,
+       venue_latitude, venue_longitude, venue_distance_from_company_km, expected_guests,
        labour_subtotal_kr, transport_surcharge_kr, vat_kr, total_kr, created_event_id, created_at`
     )
     .eq("access_token", token)
@@ -332,7 +337,7 @@ export async function getEventRequestById(companyId: string, id: string): Promis
        customer_type, client_name, client_cvr_number, client_contact_person,
        client_contact_phone, client_contact_email,
        venue_name, venue_address, venue_postal_code, venue_city,
-       venue_latitude, venue_longitude, venue_distance_from_company_km,
+       venue_latitude, venue_longitude, venue_distance_from_company_km, expected_guests,
        labour_subtotal_kr, transport_surcharge_kr, vat_kr, total_kr, created_event_id, created_at`
     )
     .eq("id", id)
@@ -394,6 +399,7 @@ async function buildEventRequestDetail(
     venueLatitude: request.venue_latitude != null ? Number(request.venue_latitude) : null,
     venueLongitude: request.venue_longitude != null ? Number(request.venue_longitude) : null,
     venueDistanceKm: request.venue_distance_from_company_km != null ? Number(request.venue_distance_from_company_km) : null,
+    expectedGuests: request.expected_guests as string | null,
     labourSubtotalKr: request.labour_subtotal_kr != null ? Number(request.labour_subtotal_kr) : null,
     transportSurchargeKr: request.transport_surcharge_kr != null ? Number(request.transport_surcharge_kr) : null,
     vatKr: request.vat_kr != null ? Number(request.vat_kr) : null,

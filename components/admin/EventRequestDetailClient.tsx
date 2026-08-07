@@ -87,6 +87,9 @@ export default function EventRequestDetailClient({ request }: { request: EventRe
 
       <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] px-4 py-3.5 mb-4">
         <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2">Personale</div>
+        {request.expectedGuests && (
+          <div className="text-[12.5px] text-pepo-t2 mb-2">Forventet antal gæster: {request.expectedGuests}</div>
+        )}
         {request.jobLines.map((line) => (
           <div key={line.id} className="text-sm text-pepo-t1 py-1">
             {line.categoryName} <span className="text-pepo-t2">· {line.startTime}–{line.endTime}</span>

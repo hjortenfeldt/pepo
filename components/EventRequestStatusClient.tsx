@@ -70,6 +70,9 @@ export default function EventRequestStatusClient({
         />
         <div className="py-2.5">
           <div className="text-[11px] text-pepo-t3 uppercase tracking-wide mb-1">Personale</div>
+          {request.expectedGuests && (
+            <div className="text-sm text-pepo-t1 mb-1">Forventet antal gæster: {request.expectedGuests}</div>
+          )}
           {request.jobLines.map((line) => (
             <div key={line.id} className="text-sm text-pepo-t1">
               {line.categoryName} <span className="text-pepo-t2">· {line.startTime}–{line.endTime}</span>
@@ -82,11 +85,11 @@ export default function EventRequestStatusClient({
         <Row label="Personale i alt" value={request.labourSubtotalKr != null ? formatKr(request.labourSubtotalKr) : "—"} plain />
         <Row
           label="Transporttillæg"
-          value={request.transportSurchargeKr != null ? formatKr(request.transportSurchargeKr) : "Beregnes"}
+          value={request.transportSurchargeKr != null ? formatKr(request.transportSurchargeKr) : "Ukendt"}
           plain
         />
         {request.customerType === "company" && (
-          <Row label="Moms" value={request.vatKr != null ? formatKr(request.vatKr) : "Beregnes"} plain />
+          <Row label="Moms" value={request.vatKr != null ? formatKr(request.vatKr) : "Ukendt"} plain />
         )}
         <div className="border-t border-pepo-p/15 my-2" />
         <div className="flex items-center justify-between">

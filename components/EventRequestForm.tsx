@@ -36,6 +36,8 @@ function blankJobLine(): JobLineState {
 type FormState = {
   title: string;
   eventDate: string;
+  // Trin 2 — helt valgfrit "cirka"-tal, fri tekst (ikke en optælling).
+  expectedGuests: string;
   // Trin 2's frie tekst — bliver forespørgslens allerførste besked i
   // "Dialog"-tråden ved indsendelse, IKKE eventets "Briefing" (det er admins
   // eget felt til freelancerne, se lib/event-requests.ts's
@@ -53,6 +55,7 @@ type FormState = {
 const EMPTY_FORM: FormState = {
   title: "",
   eventDate: "",
+  expectedGuests: "",
   initialMessage: "",
   customerType: "company",
   clientName: "",
@@ -153,6 +156,7 @@ export default function EventRequestForm({ categories, companyName, companyLogoU
       jobLines: jobLines.map((r) => ({ categoryId: r.categoryId, startTime: r.startTime, endTime: r.endTime })),
       title: form.title.trim(),
       eventDate: form.eventDate,
+      expectedGuests: form.expectedGuests.trim(),
       initialMessage: form.initialMessage.trim(),
       customerType: form.customerType,
       clientName: form.clientName.trim(),
@@ -206,10 +210,7 @@ export default function EventRequestForm({ categories, companyName, companyLogoU
           <span className="text-xl font-medium text-pepo-t1">pepo</span>
         </div>
       )}
-      {companyName && (
-        <div className="text-[13px] text-pepo-t2 mb-6">Bed om personale til dit event hos {companyName}</div>
-      )}
-      {!companyName && <div className="mb-6" />}
+      <div className="text-[13px] text-pepo-t2 mb-6">Forespørgsel om personale</div>
 
       {submitResult ? (
         <SuccessScreen accessToken={submitResult.accessToken} email={form.contactEmail} />
@@ -429,7 +430,18 @@ function Step2({
 }) {
   return (
     <div>
-      <Heading title="Om eventet" />
+      <Heading title={`Flere detaljer om ${form.title}`} />
+
+      {/* Helt valgfrit "cirka"-tal — fri tekst, ingen validering (se
+          FormState.expectedGuests). */}
+      <Field label="Forventet antal gæster (cirka):">
+        <input
+          type="text"
+          className={inputClass}
+          value={form.expectedGuests}
+          onChange={(e) => update("expectedGuests", e.target.value)}
+        />
+      </Field>
 
       {/* Rent frit-tekst-felt — helt valgfrit, ingen validering. Bliver
           forespørgslens allerførste besked i "Dialog"-tråden, synlig for
@@ -631,23 +643,34 @@ function Step4({
       <div className="bg-pepo-su rounded-xl px-4 py-3.5 mb-4">
         <Row label="Event" value={form.title || "—"} />
         <Row label="Dato" value={form.eventDate || "—"} />
+        {form.expectedGuests.trim() && <Row label="Forventet antal gæster" value={form.expectedGuests.trim()} />}
         <Row label="Eventsted" value={venueAddressText || "—"} />
         <Row
           label={form.customerType === "company" ? "Firma" : "Navn"}
           value={(form.customerType === "company" ? form.clientName : form.contactPerson) || "—"}
         />
-        <Row label="Email" value={form.contactEmail || "—"} last />
+        <Row label="Email" value={form.contactEmail || "—"} last={!form.initialMessage.trim()} />
+        {form.initialMessage.trim() && (
+          <div className="pt-2.5">
+            <div className="text-[11px] text-pepo-t3 uppercase tracking-wide">Besked</div>
+            <div className="text-sm text-pepo-t1 mt-0.5 whitespace-pre-wrap">{form.initialMessage.trim()}</div>
+          </div>
+        )}
       </div>
 
       <div className="bg-pepo-pl rounded-xl px-4 py-3.5 mb-5">
         <Row label="Personale i alt" value={formatKr(labourSubtotalKr)} plain />
         <Row
           label="Transporttillæg"
-          value={isEstimating ? "Beregner..." : transportSurchargeKr != null ? formatKr(transportSurchargeKr) : "Beregnes"}
+          // "Ukendt" (ikke "Beregnes") når Google reelt ikke kunne finde en køreafstand
+          // (fx samme adresse som virksomhedens egen, se lib/maps.ts's
+          // getDrivingDistanceKm) — undgår at antyde et beløb er på vej, når
+          // opslaget rent faktisk er færdigt og bare ikke gav noget brugbart.
+          value={isEstimating ? "Beregner..." : transportSurchargeKr != null ? formatKr(transportSurchargeKr) : "Ukendt"}
           plain
         />
         {form.customerType === "company" && (
-          <Row label="Moms" value={isEstimating ? "Beregner..." : vatKr != null ? formatKr(vatKr) : "Beregnes"} plain />
+          <Row label="Moms" value={isEstimating ? "Beregner..." : vatKr != null ? formatKr(vatKr) : "Ukendt"} plain />
         )}
         <div className="border-t border-pepo-p/15 my-2" />
         <div className="flex items-center justify-between">
