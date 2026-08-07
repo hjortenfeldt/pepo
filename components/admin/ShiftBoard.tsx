@@ -646,6 +646,43 @@ export function EventCard({
                 </span>
               </div>
             )}
+            {/* Forventet antal gæster/briefing/vedhæftninger — kun på selve
+                "Eventdetaljer"-siden (onEventDetailsPage), IKKE i den
+                kompakte kort-liste på "Events & vagter" (ville gøre hvert
+                kort alt for langt der). Formålet er at admin kan se ALT om
+                eventet her uden at skulle åbne "Redigér event" (Hjorth
+                2026-08-08). */}
+            {onEventDetailsPage && event.expectedGuests && (
+              <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
+                <Icon name="users" size={21} className="text-pepo-t2 flex-shrink-0" />
+                <span>Forventet antal gæster: {event.expectedGuests}</span>
+              </div>
+            )}
+            {onEventDetailsPage && event.description && (
+              <div className="text-xs text-pepo-t2 mt-0.5 flex items-start gap-1.5">
+                <Icon name="notes" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
+                <span className="whitespace-pre-line">{event.description}</span>
+              </div>
+            )}
+            {onEventDetailsPage && event.attachments.length > 0 && (
+              <div className="text-xs text-pepo-t2 mt-0.5 flex items-start gap-1.5">
+                <Icon name="paperclip" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  {event.attachments.map((a) => (
+                    <a
+                      key={a.id}
+                      href={a.fileUrl}
+                      target="_blank"
+                      rel="noopener"
+                      onClick={(e) => e.stopPropagation()}
+                      className="truncate hover:text-pepo-p hover:underline"
+                    >
+                      {a.fileName}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex-shrink-0 flex flex-col gap-1.5">
             {onEventDetailsPage ? (

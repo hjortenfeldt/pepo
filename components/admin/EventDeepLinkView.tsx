@@ -138,7 +138,10 @@ export default function EventDeepLinkView({
           onOpenShift={(shift) => setOpenShift({ shift, event })}
         />
 
-        <div id="korrespondance" className="mt-8 scroll-mt-6">
+        <div
+          id="korrespondance"
+          className="mt-8 scroll-mt-6 bg-pepo-wh border border-pepo-bd rounded-[14px] px-4 py-3.5"
+        >
           <div className="text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-2">Korrespondance</div>
           <CorrespondenceThread
             messages={messages}
