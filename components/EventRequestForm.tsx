@@ -7,7 +7,7 @@ import { DateField, TimeField } from "@/components/admin/ShiftFormFields";
 import { VenueAddressFields } from "@/components/admin/VenueAddressFields";
 import type { ResolvedAddressResult } from "@/components/AddressAutocompleteInput";
 import { getTransportEstimateForRequest } from "@/app/tenant/request/actions";
-import { calculateLabourSubtotal, calculateTransportSurcharge, calculateTotal } from "@/lib/pricing";
+import { calculateLabourSubtotal, calculateTransportSurcharge, calculateVat, calculateTotal } from "@/lib/pricing";
 import type { CategoryOptionWithRate, EventRequestSubmission } from "@/lib/event-requests";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,28 +36,30 @@ function blankJobLine(): JobLineState {
 type FormState = {
   title: string;
   eventDate: string;
-  description: string;
+  // Trin 2's frie tekst — bliver forespørgslens allerførste besked i
+  // "Dialog"-tråden ved indsendelse, IKKE eventets "Briefing" (det er admins
+  // eget felt til freelancerne, se lib/event-requests.ts's
+  // EventRequestSubmission.initialMessage).
+  initialMessage: string;
   customerType: "company" | "private";
   clientName: string;
   cvrNumber: string;
   contactPerson: string;
   contactPhone: string;
   contactEmail: string;
-  notes: string;
   venueName: string;
 };
 
 const EMPTY_FORM: FormState = {
   title: "",
   eventDate: "",
-  description: "",
+  initialMessage: "",
   customerType: "company",
   clientName: "",
   cvrNumber: "",
   contactPerson: "",
   contactPhone: "",
   contactEmail: "",
-  notes: "",
   venueName: "",
 };
 
@@ -101,7 +103,9 @@ export default function EventRequestForm({ categories, companyName, companyLogoU
   const transportSurchargeKr = transportEstimate
     ? calculateTransportSurcharge(transportEstimate.distanceKm, transportEstimate.transportRatePerKm, jobLines.length)
     : null;
-  const totalKr = calculateTotal(labourSubtotalKr, transportSurchargeKr);
+  // Moms lægges kun på for firmakunder — se calculateVat i lib/pricing.ts.
+  const vatKr = calculateVat(labourSubtotalKr, transportSurchargeKr, form.customerType);
+  const totalKr = calculateTotal(labourSubtotalKr, transportSurchargeKr, vatKr);
 
   function updateJobLine(key: string, patch: Partial<JobLineState>) {
     setJobLines((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -128,10 +132,13 @@ export default function EventRequestForm({ categories, companyName, companyLogoU
     });
   }
 
+  // Dato/Titel flyttet hertil fra det tidligere Trin 2 (Hjorth 2026-08-08) —
+  // Trin 1 er derfor nu det eneste trin der låser "Fortsæt" på dem.
   const canContinueStep1 =
-    jobLines.length > 0 && jobLines.every((r) => r.categoryId && r.startTime && r.endTime);
-
-  const canContinueStep2 = form.title.trim().length > 0 && form.eventDate.length > 0;
+    form.title.trim().length > 0 &&
+    form.eventDate.length > 0 &&
+    jobLines.length > 0 &&
+    jobLines.every((r) => r.categoryId && r.startTime && r.endTime);
 
   const hasUnvalidatedVenue = venueAddressText.trim().length > 0 && !venueValidated;
   const canContinueStep3 =
@@ -146,14 +153,13 @@ export default function EventRequestForm({ categories, companyName, companyLogoU
       jobLines: jobLines.map((r) => ({ categoryId: r.categoryId, startTime: r.startTime, endTime: r.endTime })),
       title: form.title.trim(),
       eventDate: form.eventDate,
-      description: form.description.trim(),
+      initialMessage: form.initialMessage.trim(),
       customerType: form.customerType,
       clientName: form.clientName.trim(),
       cvrNumber: form.cvrNumber.trim(),
       contactPerson: form.contactPerson.trim(),
       contactPhone: form.contactPhone.trim(),
       contactEmail: form.contactEmail.trim(),
-      notes: form.notes.trim(),
       venueName: form.venueName.trim(),
       venueAddress,
       venuePostalCode,
@@ -213,6 +219,8 @@ export default function EventRequestForm({ categories, companyName, companyLogoU
 
           {step === 1 && (
             <Step1
+              form={form}
+              update={update}
               jobLines={jobLines}
               categories={categories}
               labourSubtotalKr={labourSubtotalKr}
@@ -225,7 +233,7 @@ export default function EventRequestForm({ categories, companyName, companyLogoU
           )}
 
           {step === 2 && (
-            <Step2 form={form} update={update} canContinue={canContinueStep2} onBack={() => setStep(1)} onNext={() => setStep(3)} />
+            <Step2 form={form} update={update} onBack={() => setStep(1)} onNext={() => setStep(3)} />
           )}
 
           {step === 3 && (
@@ -253,6 +261,7 @@ export default function EventRequestForm({ categories, companyName, companyLogoU
               categoryName={categoryName}
               labourSubtotalKr={labourSubtotalKr}
               transportSurchargeKr={transportSurchargeKr}
+              vatKr={vatKr}
               isEstimating={isEstimating}
               totalKr={totalKr}
               venueAddressText={venueAddressText}
@@ -303,6 +312,8 @@ const inputClass =
 const labelClass = "block text-[13px] font-medium text-pepo-t1 mb-[5px]";
 
 function Step1({
+  form,
+  update,
   jobLines,
   categories,
   labourSubtotalKr,
@@ -312,6 +323,8 @@ function Step1({
   canContinue,
   onNext,
 }: {
+  form: FormState;
+  update: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   jobLines: JobLineState[];
   categories: CategoryOptionWithRate[];
   labourSubtotalKr: number;
@@ -323,6 +336,21 @@ function Step1({
 }) {
   return (
     <div>
+      {/* Dato + Titel/anledning flyttet hertil fra det tidligere Trin 2
+          (Hjorth 2026-08-08), i den rækkefølge — før selve "Personale &
+          tid"-underoverskriften, som nu udelukkende dækker jobrækkerne. */}
+      <Field label="Dato">
+        <DateField value={form.eventDate} onChange={(v) => update("eventDate", v)} />
+      </Field>
+      <Field label="Titel / anledning">
+        <input
+          type="text"
+          className={inputClass}
+          value={form.title}
+          onChange={(e) => update("title", e.target.value)}
+        />
+      </Field>
+
       <Heading title="Personale & tid" subtitle="Hvilke jobfunktioner har I brug for, og hvornår?" />
 
       {jobLines.map((row) => (
@@ -375,7 +403,7 @@ function Step1({
       </button>
 
       <div className="bg-pepo-su rounded-xl px-4 py-3.5 mb-5 flex items-center justify-between">
-        <span className="text-[13px] text-pepo-t2">Personale i alt (uden transport)</span>
+        <span className="text-[13px] text-pepo-t2">Prisoverslag (uden transport)</span>
         <span className="text-[15px] font-medium text-pepo-t1">{formatKr(labourSubtotalKr)}</span>
       </div>
 
@@ -391,13 +419,11 @@ function Step1({
 function Step2({
   form,
   update,
-  canContinue,
   onBack,
   onNext,
 }: {
   form: FormState;
   update: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
-  canContinue: boolean;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -405,32 +431,21 @@ function Step2({
     <div>
       <Heading title="Om eventet" />
 
-      <Field label="Titel / anledning">
-        <input
-          type="text"
-          className={inputClass}
-          value={form.title}
-          onChange={(e) => update("title", e.target.value)}
-        />
-      </Field>
-
-      <Field label="Dato">
-        <DateField value={form.eventDate} onChange={(v) => update("eventDate", v)} />
-      </Field>
-
-      <Field label="Briefing">
+      {/* Rent frit-tekst-felt — helt valgfrit, ingen validering. Bliver
+          forespørgslens allerførste besked i "Dialog"-tråden, synlig for
+          admin med det samme og på klientens egen status-side, se
+          lib/event-requests.ts's submitEventRequestForCompany. */}
+      <Field label="Yderligere beskrivelse, spørgsmål eller ønsker ifbm. bookingen:">
         <textarea
-          className={inputClass + " min-h-[100px] leading-relaxed resize-y"}
-          value={form.description}
-          onChange={(e) => update("description", e.target.value)}
+          className={inputClass + " min-h-[140px] leading-relaxed resize-y"}
+          value={form.initialMessage}
+          onChange={(e) => update("initialMessage", e.target.value)}
         />
       </Field>
 
       <div className="flex gap-2.5 mt-2">
         <OutlineButton onClick={onBack}>Tilbage</OutlineButton>
-        <PrimaryButton onClick={onNext} disabled={!canContinue}>
-          Fortsæt
-        </PrimaryButton>
+        <PrimaryButton onClick={onNext}>Fortsæt</PrimaryButton>
       </div>
     </div>
   );
@@ -553,14 +568,6 @@ function Step3({
         onAddressSelected={onVenueAddressSelected}
       />
 
-      <Field label="Andet vi bør vide (valgfrit)">
-        <textarea
-          className={inputClass + " min-h-[80px] leading-relaxed resize-y"}
-          value={form.notes}
-          onChange={(e) => update("notes", e.target.value)}
-        />
-      </Field>
-
       <div className="flex gap-2.5 mt-2">
         <OutlineButton onClick={onBack}>Tilbage</OutlineButton>
         <PrimaryButton onClick={onNext} disabled={!canContinue}>
@@ -582,6 +589,7 @@ function Step4({
   categoryName,
   labourSubtotalKr,
   transportSurchargeKr,
+  vatKr,
   isEstimating,
   totalKr,
   venueAddressText,
@@ -595,6 +603,7 @@ function Step4({
   categoryName: (id: string) => string;
   labourSubtotalKr: number;
   transportSurchargeKr: number | null;
+  vatKr: number | null;
   isEstimating: boolean;
   totalKr: number;
   venueAddressText: string;
@@ -637,6 +646,9 @@ function Step4({
           value={isEstimating ? "Beregner..." : transportSurchargeKr != null ? formatKr(transportSurchargeKr) : "Beregnes"}
           plain
         />
+        {form.customerType === "company" && (
+          <Row label="Moms" value={isEstimating ? "Beregner..." : vatKr != null ? formatKr(vatKr) : "Beregnes"} plain />
+        )}
         <div className="border-t border-pepo-p/15 my-2" />
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-pepo-t1">Samlet estimat</span>

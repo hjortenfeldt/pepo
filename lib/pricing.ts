@@ -59,6 +59,27 @@ export function calculateTransportSurcharge(
   return Math.round(distanceKm * 2 * transportRatePerKm * freelancerCount * 100) / 100;
 }
 
-export function calculateTotal(labourSubtotalKr: number, transportSurchargeKr: number | null): number {
-  return Math.round((labourSubtotalKr + (transportSurchargeKr ?? 0)) * 100) / 100;
+/** 25% — hverken konfigurerbar pr. tenant eller pr. jobfunktion (endnu), se calculateVat. */
+export const VAT_RATE = 0.25;
+
+/**
+ * Moms — 25% af (arbejdsløn + transporttillæg), men KUN for firmakunder.
+ * Privatkunder får bevidst intet momstillæg lagt på (Hjorth 2026-08-08:
+ * "Private people effectively get a discount, at least for now" — en
+ * fremtidig pr.-tenant indstilling kan ændre dette senere). `null` for
+ * privatkunder betyder både "ingen moms lagt på totalen" OG "vis slet ikke
+ * linjen" i UI'en, se Step4/EventRequestStatusClient/EventRequestDetailClient.
+ */
+export function calculateVat(
+  labourSubtotalKr: number,
+  transportSurchargeKr: number | null,
+  customerType: "company" | "private"
+): number | null {
+  if (customerType === "private") return null;
+  const subtotal = labourSubtotalKr + (transportSurchargeKr ?? 0);
+  return Math.round(subtotal * VAT_RATE * 100) / 100;
+}
+
+export function calculateTotal(labourSubtotalKr: number, transportSurchargeKr: number | null, vatKr: number | null): number {
+  return Math.round((labourSubtotalKr + (transportSurchargeKr ?? 0) + (vatKr ?? 0)) * 100) / 100;
 }

@@ -221,7 +221,6 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
         contact_person: request.contactPerson,
         contact_phone: request.contactPhone,
         contact_email: request.contactEmail,
-        notes: request.notes,
       })
       .select("id")
       .single();
@@ -267,7 +266,11 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
   const eventInput: EventFormInput = {
     title: request.title,
     eventDate: request.eventDate,
-    description: request.description ?? "",
+    // Eventets "Briefing" til freelancerne er admins eget felt — forespørgslen
+    // har aldrig haft et tilsvarende felt fra klienten (se
+    // EventRequestSubmission.initialMessage), så det starter bevidst tomt her
+    // og udfyldes evt. af admin bagefter via "Redigér event".
+    description: "",
     clientId,
     venueId: venueRow.id as string,
   };

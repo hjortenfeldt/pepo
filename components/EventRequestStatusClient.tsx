@@ -85,6 +85,9 @@ export default function EventRequestStatusClient({
           value={request.transportSurchargeKr != null ? formatKr(request.transportSurchargeKr) : "Beregnes"}
           plain
         />
+        {request.customerType === "company" && (
+          <Row label="Moms" value={request.vatKr != null ? formatKr(request.vatKr) : "Beregnes"} plain />
+        )}
         <div className="border-t border-pepo-p/15 my-2" />
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-pepo-t1">Samlet estimat</span>

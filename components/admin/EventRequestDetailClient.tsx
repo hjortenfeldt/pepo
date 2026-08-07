@@ -70,8 +70,7 @@ export default function EventRequestDetailClient({ request }: { request: EventRe
         {request.customerType === "company" && <Row label="Kontaktperson" value={request.contactPerson || "—"} />}
         {request.customerType === "company" && request.cvrNumber && <Row label="CVR" value={request.cvrNumber} />}
         <Row label="Telefon" value={request.contactPhone || "—"} />
-        <Row label="Email" value={request.contactEmail} />
-        {request.notes && <Row label="Note" value={request.notes} last />}
+        <Row label="Email" value={request.contactEmail} last />
       </div>
 
       <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] px-4 py-3.5 mb-4">
@@ -93,11 +92,6 @@ export default function EventRequestDetailClient({ request }: { request: EventRe
             {line.categoryName} <span className="text-pepo-t2">· {line.startTime}–{line.endTime}</span>
           </div>
         ))}
-        {request.description && (
-          <div className="text-[13px] text-pepo-t2 mt-2.5 pt-2.5 border-t border-pepo-bd whitespace-pre-wrap">
-            {request.description}
-          </div>
-        )}
       </div>
 
       <div className="bg-pepo-pl rounded-[14px] px-4 py-3.5 mb-6">
@@ -106,6 +100,9 @@ export default function EventRequestDetailClient({ request }: { request: EventRe
           label="Transporttillæg"
           value={request.transportSurchargeKr != null ? formatKr(request.transportSurchargeKr) : "Ukendt"}
         />
+        {request.customerType === "company" && (
+          <RowPlain label="Moms" value={request.vatKr != null ? formatKr(request.vatKr) : "Ukendt"} />
+        )}
         <div className="border-t border-pepo-p/15 my-2" />
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-pepo-t1">Samlet estimat</span>

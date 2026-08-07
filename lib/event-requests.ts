@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDrivingDistanceKm } from "@/lib/maps";
-import { calculateLabourSubtotal, calculateTransportSurcharge, calculateTotal, type CategoryRateMap } from "@/lib/pricing";
+import { calculateLabourSubtotal, calculateTransportSurcharge, calculateVat, calculateTotal, type CategoryRateMap } from "@/lib/pricing";
 import { sendPushToCompanyAdmins } from "@/lib/admin-push";
 import { getMessagesForRequest, insertEventMessage, type EventMessageItem, type NewMessageAttachment } from "@/lib/event-messages";
 
@@ -94,12 +94,16 @@ export type EventRequestJobLineInput = {
 };
 
 export type EventRequestSubmission = {
-  // Trin 1
+  // Trin 1 (inkl. Dato/Titel, flyttet hertil fra det tidligere Trin 2 —
+  // Hjorth 2026-08-08)
   jobLines: EventRequestJobLineInput[];
-  // Trin 2 (matcher EventFormInput uden clientId/venueId, som ikke findes endnu)
   title: string;
   eventDate: string;
-  description: string;
+  // Trin 2 — IKKE eventets "Briefing" (den er admins eget felt til
+  // freelancerne, udfyldes aldrig af klienten). Indsættes i stedet som
+  // forespørgslens allerførste klient-besked i "Dialog"-tråden, se
+  // submitEventRequestForCompany nedenfor.
+  initialMessage: string;
   // Trin 3 (matcher ClientFormInput + ét venue)
   customerType: "company" | "private";
   clientName: string;
@@ -107,7 +111,6 @@ export type EventRequestSubmission = {
   contactPerson: string;
   contactPhone: string;
   contactEmail: string;
-  notes: string;
   venueName: string;
   venueAddress: string;
   venuePostalCode: string;
@@ -149,7 +152,9 @@ export async function submitEventRequestForCompany(companyId: string, input: Eve
     input.venueLng as number
   );
   const transportSurchargeKr = calculateTransportSurcharge(distanceKm, transportRatePerKm, input.jobLines.length);
-  const totalKr = calculateTotal(labourSubtotalKr, transportSurchargeKr);
+  // Moms lægges KUN på for firmakunder — se calculateVat.
+  const vatKr = calculateVat(labourSubtotalKr, transportSurchargeKr, input.customerType);
+  const totalKr = calculateTotal(labourSubtotalKr, transportSurchargeKr, vatKr);
 
   const { data: request, error: requestError } = await supabase
     .from("event_requests")
@@ -158,14 +163,12 @@ export async function submitEventRequestForCompany(companyId: string, input: Eve
       status: "new",
       title: input.title.trim(),
       event_date: input.eventDate,
-      description: input.description.trim() || null,
       customer_type: input.customerType,
       client_name: input.customerType === "company" ? input.clientName.trim() : null,
       client_cvr_number: input.customerType === "company" ? input.cvrNumber.trim() || null : null,
       client_contact_person: input.contactPerson.trim() || null,
       client_contact_phone: input.contactPhone.trim() || null,
       client_contact_email: input.contactEmail.trim().toLowerCase(),
-      client_notes: input.notes.trim() || null,
       venue_name: input.venueName.trim() || null,
       venue_address: input.venueAddress.trim() || null,
       venue_postal_code: input.venuePostalCode.trim() || null,
@@ -175,6 +178,7 @@ export async function submitEventRequestForCompany(companyId: string, input: Eve
       venue_distance_from_company_km: distanceKm,
       labour_subtotal_kr: labourSubtotalKr,
       transport_surcharge_kr: transportSurchargeKr,
+      vat_kr: vatKr,
       total_kr: totalKr,
     })
     .select("id, access_token")
@@ -199,6 +203,26 @@ export async function submitEventRequestForCompany(companyId: string, input: Eve
     console.error("submitEventRequestForCompany: kunne ikke oprette jobrækkerne", shiftsError);
     await supabase.from("event_requests").delete().eq("id", request.id);
     return { success: false as const, error: "Der opstod en fejl. Prøv venligst igen om lidt." };
+  }
+
+  // Trin 2's frie tekst bliver forespørgslens allerførste besked i
+  // "Dialog"-tråden (ikke gemt som noget "briefing"-felt, se
+  // EventRequestSubmission.initialMessage) — synlig med det samme for admin
+  // OG på klientens egen status-side. Fejler aldrig hårdt for selve
+  // indsendelsen (samme filosofi som push-koden nedenfor).
+  const initialMessage = input.initialMessage.trim();
+  if (initialMessage) {
+    try {
+      await insertEventMessage({
+        companyId,
+        eventRequestId: request.id as string,
+        sender: "client",
+        senderName: input.customerType === "company" ? input.clientName.trim() : input.contactPerson.trim(),
+        body: initialMessage,
+      });
+    } catch (err) {
+      console.error("submitEventRequestForCompany: kunne ikke gemme den indledende besked", err);
+    }
   }
 
   // Ny eventforespørgsel — se Pepo – Notifikationstyper.xlsx-mønsteret for
@@ -233,14 +257,12 @@ export type EventRequestDetail = {
   status: "new" | "in_dialog" | "accepted" | "rejected";
   title: string;
   eventDate: string;
-  description: string | null;
   customerType: "company" | "private";
   clientName: string | null;
   cvrNumber: string | null;
   contactPerson: string | null;
   contactPhone: string | null;
   contactEmail: string;
-  notes: string | null;
   venueName: string | null;
   venueAddress: string | null;
   venuePostalCode: string | null;
@@ -250,6 +272,9 @@ export type EventRequestDetail = {
   venueDistanceKm: number | null;
   labourSubtotalKr: number | null;
   transportSurchargeKr: number | null;
+  // `null` for privatkunder (ingen moms lagt på, linjen vises slet ikke) —
+  // se calculateVat i lib/pricing.ts.
+  vatKr: number | null;
   totalKr: number | null;
   createdEventId: string | null;
   createdAt: string;
@@ -276,12 +301,12 @@ export async function getEventRequestByToken(companyId: string, token: string): 
   const { data: request, error } = await supabase
     .from("event_requests")
     .select(
-      `id, company_id, access_token, status, title, event_date, description,
+      `id, company_id, access_token, status, title, event_date,
        customer_type, client_name, client_cvr_number, client_contact_person,
-       client_contact_phone, client_contact_email, client_notes,
+       client_contact_phone, client_contact_email,
        venue_name, venue_address, venue_postal_code, venue_city,
        venue_latitude, venue_longitude, venue_distance_from_company_km,
-       labour_subtotal_kr, transport_surcharge_kr, total_kr, created_event_id, created_at`
+       labour_subtotal_kr, transport_surcharge_kr, vat_kr, total_kr, created_event_id, created_at`
     )
     .eq("access_token", token)
     .eq("company_id", companyId)
@@ -303,12 +328,12 @@ export async function getEventRequestById(companyId: string, id: string): Promis
   const { data: request, error } = await supabase
     .from("event_requests")
     .select(
-      `id, company_id, access_token, status, title, event_date, description,
+      `id, company_id, access_token, status, title, event_date,
        customer_type, client_name, client_cvr_number, client_contact_person,
-       client_contact_phone, client_contact_email, client_notes,
+       client_contact_phone, client_contact_email,
        venue_name, venue_address, venue_postal_code, venue_city,
        venue_latitude, venue_longitude, venue_distance_from_company_km,
-       labour_subtotal_kr, transport_surcharge_kr, total_kr, created_event_id, created_at`
+       labour_subtotal_kr, transport_surcharge_kr, vat_kr, total_kr, created_event_id, created_at`
     )
     .eq("id", id)
     .eq("company_id", companyId)
@@ -356,14 +381,12 @@ async function buildEventRequestDetail(
     status: request.status as EventRequestDetail["status"],
     title: request.title as string,
     eventDate: request.event_date as string,
-    description: request.description as string | null,
     customerType: request.customer_type as EventRequestDetail["customerType"],
     clientName: request.client_name as string | null,
     cvrNumber: request.client_cvr_number as string | null,
     contactPerson: request.client_contact_person as string | null,
     contactPhone: request.client_contact_phone as string | null,
     contactEmail: request.client_contact_email as string,
-    notes: request.client_notes as string | null,
     venueName: request.venue_name as string | null,
     venueAddress: request.venue_address as string | null,
     venuePostalCode: request.venue_postal_code as string | null,
@@ -373,6 +396,7 @@ async function buildEventRequestDetail(
     venueDistanceKm: request.venue_distance_from_company_km != null ? Number(request.venue_distance_from_company_km) : null,
     labourSubtotalKr: request.labour_subtotal_kr != null ? Number(request.labour_subtotal_kr) : null,
     transportSurchargeKr: request.transport_surcharge_kr != null ? Number(request.transport_surcharge_kr) : null,
+    vatKr: request.vat_kr != null ? Number(request.vat_kr) : null,
     totalKr: request.total_kr != null ? Number(request.total_kr) : null,
     createdEventId: request.created_event_id as string | null,
     createdAt: request.created_at as string,
