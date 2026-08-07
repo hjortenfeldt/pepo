@@ -3,6 +3,7 @@
 import { Fragment, forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import type { PanInfo } from "motion/react";
+import Link from "next/link";
 import Icon from "@/components/Icon";
 import type {
   CategoryOption,
@@ -594,15 +595,36 @@ export function EventCard({
             sig — ønsket af Hjorth 2026-07-27. */}
         <div className="flex items-start justify-between gap-2.5">
           <div className="min-w-0 flex-1 text-[13.5px] font-semibold text-pepo-t1 py-px">{event.title}</div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddShift();
-            }}
-            className="flex-shrink-0 h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center whitespace-nowrap"
-          >
-            Tilføj vagt
-          </button>
+          <div className="flex-shrink-0 flex flex-col gap-1.5">
+            <Link
+              href={`/shifts/event/${event.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Icon name="list-details" size={14} />
+              Vagtdetaljer
+            </Link>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditEvent();
+              }}
+              className="h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Icon name="pencil" size={14} />
+              Redigér event
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddShift();
+              }}
+              className="h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Icon name="plus" size={14} />
+              Tilføj vagt
+            </button>
+          </div>
         </div>
         <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
           <Icon name={event.clientIsPrivate ? "user" : "building-store"} size={21} className="text-pepo-t2 flex-shrink-0" />
