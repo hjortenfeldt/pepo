@@ -491,6 +491,7 @@ export function EventCard({
   flash,
   removingShiftId,
   removeStage,
+  showDate,
   onEditEvent,
   onAddShift,
   onOpenShift,
@@ -508,6 +509,12 @@ export function EventCard({
   // ShiftBoard.tsx's startRemoving).
   removingShiftId?: string | null;
   removeStage?: "flash" | "fade" | "collapse" | null;
+  // Viser eventets dato ØVERST i selve kortet, over titlen — kun sat af
+  // EventDeepLinkView.tsx (deep-link-siden viser kun ét event, uden en
+  // dato-gruppeoverskrift over sig, i modsætning til ShiftBoard.tsx's
+  // fulde liste, som allerede grupperer kort under sin egen
+  // formatDayHeading-overskrift pr. dag — der ville datoen dubleres).
+  showDate?: boolean;
   onEditEvent: () => void;
   onAddShift: () => void;
   onOpenShift: (shift: ShiftListItem) => void;
@@ -601,6 +608,9 @@ export function EventCard({
             stedet for at skubbe teksten nedad. */}
         <div className="flex items-start justify-between gap-2.5">
           <div className="min-w-0 flex-1">
+            {showDate && (
+              <div className="text-[12.5px] text-pepo-t2 capitalize mb-1">{formatDayHeading(event.eventDate)}</div>
+            )}
             <div className="text-[13.5px] font-semibold text-pepo-t1 py-px">{event.title}</div>
             <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
               <Icon name={event.clientIsPrivate ? "user" : "building-store"} size={21} className="text-pepo-t2 flex-shrink-0" />

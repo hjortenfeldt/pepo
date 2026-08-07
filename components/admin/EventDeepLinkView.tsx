@@ -4,7 +4,6 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
 import type { CategoryOption, ClientOption, EventListItem, FreelancerOption, ShiftListItem } from "@/lib/admin-types";
-import { formatDayHeading } from "@/lib/format";
 import type { BusyShift } from "@/lib/shift-conflicts";
 import type { EventMessageItem } from "@/lib/event-messages";
 import { replyToEventAsAdmin, uploadEventMessageAttachmentForEvent } from "@/app/tenant/(protected)/shifts/actions";
@@ -124,9 +123,7 @@ export default function EventDeepLinkView({
           Alle events
         </Link>
 
-        <div className="text-[18px] font-semibold tracking-tight text-pepo-t1 capitalize mb-4">
-          {formatDayHeading(event.eventDate)}
-        </div>
+        <div className="text-[18px] font-semibold tracking-tight text-pepo-t1 mb-4">Eventdetaljer</div>
 
         <EventCard
           event={event}
@@ -134,6 +131,7 @@ export default function EventDeepLinkView({
           flash={flash}
           removingShiftId={removingShiftId}
           removeStage={removeStage}
+          showDate
           onEditEvent={() => setWizard({ mode: "editEvent", event })}
           onAddShift={() => setWizard({ mode: "addShift", event })}
           onOpenShift={(shift) => setOpenShift({ shift, event })}
