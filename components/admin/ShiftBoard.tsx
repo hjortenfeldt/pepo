@@ -589,12 +589,48 @@ export function EventCard({
         onClick={onEditEvent}
         className="bg-pepo-wh border border-pepo-bd rounded-xl px-[15px] py-[13px] cursor-pointer hover:border-pepo-pm hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] transition-colors"
       >
-        {/* Titel + knap på samme linje, knappen topjusteret (matcher
-            titlens linje), så resten af kort-infoen nedenfor kan bruge hele
-            kortets bredde i stedet for at dele den med en knap ved siden af
-            sig — ønsket af Hjorth 2026-07-27. */}
+        {/* Info-kolonnen (titel + kunde/sted/afstand) og knap-klyngen er BEGGE
+            børn af samme flex-række, i stedet for at knap-klyngen kun deler
+            række med titlen alene — ellers dikterer knap-klyngens højde
+            (tre stablede knapper) rækkens højde, og kunde/sted-linjerne
+            (separate elementer UNDER hele rækken) rykker med ned, hvilket gav
+            et stort, uønsket tomrum under titlen (rapporteret af Hjorth
+            2026-08-07, se skærmbillede). Nu ligger kunde/sted/afstand INDE i
+            info-kolonnen ved siden af knapperne, så et tomrum i stedet havner
+            til HØJRE for en kort info-kolonne (usynligt, bag knapperne) i
+            stedet for at skubbe teksten nedad. */}
         <div className="flex items-start justify-between gap-2.5">
-          <div className="min-w-0 flex-1 text-[13.5px] font-semibold text-pepo-t1 py-px">{event.title}</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-semibold text-pepo-t1 py-px">{event.title}</div>
+            <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
+              <Icon name={event.clientIsPrivate ? "user" : "building-store"} size={21} className="text-pepo-t2 flex-shrink-0" />
+              {event.clientName}
+            </div>
+            {event.venueLabel && (
+              // items-start (ikke items-center) så pin-ikonet altid følger
+              // toppen af venue-teksten, i stedet for at flyde midt i hele
+              // linjen når teksten wrapper til to linjer. whitespace-pre-line
+              // gør venueLabel()'s "\n" mellem navn og adresse til et rigtigt
+              // linjeskift i stedet for en bindestreg (se lib/format.ts).
+              <div className="text-xs text-pepo-t2 mt-0.5 flex items-start gap-1.5">
+                <Icon name="map-pin" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
+                <span className="whitespace-pre-line">{event.venueLabel}</span>
+              </div>
+            )}
+            {(event.venueDistanceKm != null || event.transportSurchargeKr != null) && (
+              // Afstand og transporttillæg slået sammen på én linje (kun ét
+              // route-ikon, bil-ikonet droppet) — ønsket af Hjorth 2026-07-27.
+              <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
+                <Icon name="route" size={21} className="text-pepo-t2 flex-shrink-0" />
+                <span>
+                  {event.venueDistanceKm != null && `Afstand: ${kmFmt.format(event.venueDistanceKm)} km.`}
+                  {event.venueDistanceKm != null && event.transportSurchargeKr != null && " — "}
+                  {event.transportSurchargeKr != null &&
+                    `Transporttillæg (t/r): ${krFmt.format(event.transportSurchargeKr)} kr.`}
+                </span>
+              </div>
+            )}
+          </div>
           <div className="flex-shrink-0 flex flex-col gap-1.5">
             <Link
               href={`/shifts/event/${event.id}`}
@@ -626,34 +662,6 @@ export function EventCard({
             </button>
           </div>
         </div>
-        <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-          <Icon name={event.clientIsPrivate ? "user" : "building-store"} size={21} className="text-pepo-t2 flex-shrink-0" />
-          {event.clientName}
-        </div>
-        {event.venueLabel && (
-          // items-start (ikke items-center) så pin-ikonet altid følger
-          // toppen af venue-teksten, i stedet for at flyde midt i hele
-          // linjen når teksten wrapper til to linjer. whitespace-pre-line
-          // gør venueLabel()'s "\n" mellem navn og adresse til et rigtigt
-          // linjeskift i stedet for en bindestreg (se lib/format.ts).
-          <div className="text-xs text-pepo-t2 mt-0.5 flex items-start gap-1.5">
-            <Icon name="map-pin" size={21} className="text-pepo-t2 flex-shrink-0 mt-px" />
-            <span className="whitespace-pre-line">{event.venueLabel}</span>
-          </div>
-        )}
-        {(event.venueDistanceKm != null || event.transportSurchargeKr != null) && (
-          // Afstand og transporttillæg slået sammen på én linje (kun ét
-          // route-ikon, bil-ikonet droppet) — ønsket af Hjorth 2026-07-27.
-          <div className="text-xs text-pepo-t2 mt-0.5 flex items-center gap-1.5">
-            <Icon name="route" size={21} className="text-pepo-t2 flex-shrink-0" />
-            <span>
-              {event.venueDistanceKm != null && `Afstand: ${kmFmt.format(event.venueDistanceKm)} km.`}
-              {event.venueDistanceKm != null && event.transportSurchargeKr != null && " — "}
-              {event.transportSurchargeKr != null &&
-                `Transporttillæg (t/r): ${krFmt.format(event.transportSurchargeKr)} kr.`}
-            </span>
-          </div>
-        )}
       </div>
       {activeShifts.length > 0 && (
         <div ref={containerRef} className="relative pl-6 flex flex-col gap-2">
