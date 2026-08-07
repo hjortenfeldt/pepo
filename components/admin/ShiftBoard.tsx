@@ -492,6 +492,7 @@ export function EventCard({
   removingShiftId,
   removeStage,
   showDate,
+  onEventDetailsPage,
   onEditEvent,
   onAddShift,
   onOpenShift,
@@ -515,6 +516,11 @@ export function EventCard({
   // fulde liste, som allerede grupperer kort under sin egen
   // formatDayHeading-overskrift pr. dag — der ville datoen dubleres).
   showDate?: boolean;
+  // Sat af EventDeepLinkView.tsx (samme sted som showDate) — vi ER allerede
+  // på "Eventdetaljer"-siden for netop dette event, så knappen der ellers
+  // ville linke derhen vises i stedet fremhævet og ikke-klikbar (ingen grund
+  // til at kunne "navigere" til den side man allerede kigger på).
+  onEventDetailsPage?: boolean;
   onEditEvent: () => void;
   onAddShift: () => void;
   onOpenShift: (shift: ShiftListItem) => void;
@@ -642,14 +648,24 @@ export function EventCard({
             )}
           </div>
           <div className="flex-shrink-0 flex flex-col gap-1.5">
-            <Link
-              href={`/shifts/event/${event.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center gap-1.5 whitespace-nowrap"
-            >
-              <Icon name="list-details" size={14} />
-              Vagtdetaljer
-            </Link>
+            {onEventDetailsPage ? (
+              <div
+                aria-current="page"
+                className="h-[30px] px-3 rounded-[7px] bg-pepo-p text-white text-xs font-medium flex items-center gap-1.5 whitespace-nowrap cursor-default"
+              >
+                <Icon name="list-details" size={14} />
+                Eventdetaljer
+              </div>
+            ) : (
+              <Link
+                href={`/shifts/event/${event.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="h-[30px] px-3 rounded-[7px] border border-pepo-bds text-xs font-medium text-pepo-p hover:bg-pepo-pl hover:border-pepo-pl transition-colors flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <Icon name="list-details" size={14} />
+                Eventdetaljer
+              </Link>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();

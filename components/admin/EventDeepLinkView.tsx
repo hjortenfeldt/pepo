@@ -132,6 +132,7 @@ export default function EventDeepLinkView({
           removingShiftId={removingShiftId}
           removeStage={removeStage}
           showDate
+          onEventDetailsPage
           onEditEvent={() => setWizard({ mode: "editEvent", event })}
           onAddShift={() => setWizard({ mode: "addShift", event })}
           onOpenShift={(shift) => setOpenShift({ shift, event })}

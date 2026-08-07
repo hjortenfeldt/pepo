@@ -263,14 +263,20 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
     return { success: false as const, error: "Kunne ikke oprette eventstedet. Prøv igen." };
   }
 
+  // Eventets "Briefing" til freelancerne er admins eget felt — forespørgslen
+  // har ikke et rigtigt tilsvarende felt fra klienten, MEN vi forudfylder
+  // alligevel med klientens Trin 2-besked (samme tekst som allerede ligger
+  // som forespørgslens allerførste "Dialog"-besked), så freelancere i det
+  // mindste ser klientens egne ord, hvis admin glemmer at skrive en rigtig
+  // briefing (Hjorth 2026-08-08: "bedre end ingenting"). Admin forventes
+  // typisk at overskrive den via "Redigér event". Tom streng hvis klienten
+  // ikke skrev noget på Trin 2.
+  const initialClientMessage = request.messages.find((m) => m.sender === "client")?.body ?? "";
+
   const eventInput: EventFormInput = {
     title: request.title,
     eventDate: request.eventDate,
-    // Eventets "Briefing" til freelancerne er admins eget felt — forespørgslen
-    // har aldrig haft et tilsvarende felt fra klienten (se
-    // EventRequestSubmission.initialMessage), så det starter bevidst tomt her
-    // og udfyldes evt. af admin bagefter via "Redigér event".
-    description: "",
+    description: initialClientMessage,
     // Klientens eget "cirka"-tal fra Trin 2 — genbruges direkte i stedet for
     // at admin skal skrive det ind igen bagefter via "Redigér event" (se
     // [[project_event_request_feature]]).
