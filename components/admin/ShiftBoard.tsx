@@ -639,7 +639,7 @@ export function EventCard({
                 sin oprindelige, tættere mt-0.5-opstilling uden linjer — kun
                 client/venue/afstand vises der, resten ville gøre hvert kort
                 alt for langt i en liste med mange events. */}
-            <div className={onEventDetailsPage ? "mt-1.5 divide-y divide-pepo-bd" : undefined}>
+            <div className={onEventDetailsPage ? "mt-1.5 border-t border-pepo-bd divide-y divide-pepo-bd" : undefined}>
               <div className={infoRowClass(onEventDetailsPage, "center")}>
                 <Icon name={event.clientIsPrivate ? "user" : "building-store"} size={21} className="text-pepo-t2 flex-shrink-0" />
                 {event.clientName}
@@ -674,41 +674,49 @@ export function EventCard({
                   <span>Forventet antal gæster: {event.expectedGuests}</span>
                 </div>
               )}
-              {/* Kontaktperson vises kun for firmakunder — for privatkunder ER
-                  contactPerson allerede clientName selv (se
-                  lib/shifts-data.ts), en ekstra linje ville bare gentage
-                  samme navn. Telefon/email er egne klikbare tel:/mailto:-links
-                  (Hjorth 2026-08-08), IKKE hele rækken, for ikke ved et uheld
-                  at åbne telefon-app'en/mail-klienten ved klik andetsteds på
-                  kortet (som ellers åbner "Redigér event"). */}
-              {onEventDetailsPage && !event.clientIsPrivate && event.contactPerson && (
-                <div className={infoRowClass(onEventDetailsPage, "center")}>
-                  <Icon name="user" size={21} className="text-pepo-t2 flex-shrink-0" />
-                  <span>{event.contactPerson}</span>
-                </div>
-              )}
-              {onEventDetailsPage && event.contactPhone && (
-                <div className={infoRowClass(onEventDetailsPage, "center")}>
-                  <Icon name="phone" size={21} className="text-pepo-t2 flex-shrink-0" />
-                  <a
-                    href={`tel:${event.contactPhone}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="hover:text-pepo-p hover:underline"
-                  >
-                    {event.contactPhone}
-                  </a>
-                </div>
-              )}
-              {onEventDetailsPage && event.contactEmail && (
-                <div className={infoRowClass(onEventDetailsPage, "center")}>
-                  <Icon name="mail" size={21} className="text-pepo-t2 flex-shrink-0" />
-                  <a
-                    href={`mailto:${event.contactEmail}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="truncate hover:text-pepo-p hover:underline"
-                  >
-                    {event.contactEmail}
-                  </a>
+              {/* Kontaktperson, telefon og email slået sammen på ÉN linje —
+                  de tre ikoner fungerer selv som visuelle skilletegn mellem
+                  hver brik i stedet for hver sit felt (Hjorth 2026-08-08).
+                  Kontaktperson vises kun for firmakunder — for privatkunder
+                  ER contactPerson allerede clientName selv (se
+                  lib/shifts-data.ts), det ville bare gentage samme navn.
+                  Telefon/email er egne klikbare tel:/mailto:-links, IKKE
+                  hele linjen, for ikke ved et uheld at åbne telefon-
+                  app'en/mail-klienten ved klik andetsteds på kortet (som
+                  ellers åbner "Redigér event"). flex-wrap så en lang email
+                  ikke skubber kortet i bredden, men i stedet knækker om. */}
+              {onEventDetailsPage && ((!event.clientIsPrivate && event.contactPerson) || event.contactPhone || event.contactEmail) && (
+                <div className={infoRowClass(onEventDetailsPage, "center") + " flex-wrap"}>
+                  {!event.clientIsPrivate && event.contactPerson && (
+                    <>
+                      <Icon name="user" size={21} className="text-pepo-t2 flex-shrink-0" />
+                      <span>{event.contactPerson}</span>
+                    </>
+                  )}
+                  {event.contactPhone && (
+                    <>
+                      <Icon name="phone" size={21} className="text-pepo-t2 flex-shrink-0" />
+                      <a
+                        href={`tel:${event.contactPhone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:text-pepo-p hover:underline"
+                      >
+                        {event.contactPhone}
+                      </a>
+                    </>
+                  )}
+                  {event.contactEmail && (
+                    <>
+                      <Icon name="mail" size={21} className="text-pepo-t2 flex-shrink-0" />
+                      <a
+                        href={`mailto:${event.contactEmail}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:text-pepo-p hover:underline"
+                      >
+                        {event.contactEmail}
+                      </a>
+                    </>
+                  )}
                 </div>
               )}
               {onEventDetailsPage && event.description && (
