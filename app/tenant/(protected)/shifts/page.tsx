@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { getShiftsBoardData } from "@/lib/shifts-data";
-import { countPendingShiftRequests } from "@/lib/shift-request-utils";
 import ShiftBoard from "@/components/admin/ShiftBoard";
 
 export const metadata: Metadata = { title: "Events & vagter" };
@@ -30,19 +29,12 @@ export default async function AdminShiftsPage({
   // (DashboardBoard.tsx), som altid sætter den eksplicit uanset om der reelt
   // er ventende anmodninger (klikker man tallet, vil man se fanen — heller
   // ikke hvis der siden er blevet 0). Uden noget eksplicit ?tab= (dvs. man
-  // klikkede "Events & vagter" i selve hovedmenuen) lander man i stedet
-  // automatisk på "Vagtanmodninger", HVIS der er ventende anmodninger admin
-  // mangler at tage stilling til — ellers "Kommende" som hidtil.
-  const initialTab =
-    tab === "past"
-      ? "past"
-      : tab === "upcoming"
-      ? "upcoming"
-      : tab === "requests"
-      ? "requests"
-      : countPendingShiftRequests(events) > 0
-      ? "requests"
-      : "upcoming";
+  // klikkede "Events & vagter" i selve hovedmenuen) lander man ALTID på
+  // "Kommende" — droppet at auto-hoppe til "Vagtanmodninger" ved ventende
+  // anmodninger (Hjorth 2026-08-08: uforudsigeligt, admin skal selv vælge
+  // fanen). Badge-tallet på selve fanen (se ShiftBoard.tsx's requestsCount)
+  // gør stadig opmærksom på at der er noget at tage stilling til.
+  const initialTab = tab === "past" ? "past" : tab === "requests" ? "requests" : "upcoming";
 
   return (
     <ShiftBoard
