@@ -74,6 +74,7 @@ type RawEventRow = {
   title: string;
   event_date: string;
   description: string | null;
+  expected_guests: string | null;
   client_id: string;
   venue_id: string | null;
   clients: RawClientRef | RawClientRef[] | null;
@@ -125,7 +126,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
     supabase
       .from("events")
       .select(
-        `id, title, event_date, description, client_id, venue_id,
+        `id, title, event_date, description, expected_guests, client_id, venue_id,
          clients(name, contact_person),
          client_venues(id, name, address, postal_code, city, distance_from_company_km),
          shift_attachments(id, file_name, file_url, file_type),
@@ -254,6 +255,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
       title: e.title,
       eventDate: e.event_date,
       description: e.description,
+      expectedGuests: e.expected_guests,
       clientId: e.client_id,
       clientName: client?.name || client?.contact_person || "(uden navn)",
       clientIsPrivate: !client?.name,

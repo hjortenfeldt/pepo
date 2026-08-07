@@ -271,6 +271,10 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
     // EventRequestSubmission.initialMessage), så det starter bevidst tomt her
     // og udfyldes evt. af admin bagefter via "Redigér event".
     description: "",
+    // Klientens eget "cirka"-tal fra Trin 2 — genbruges direkte i stedet for
+    // at admin skal skrive det ind igen bagefter via "Redigér event" (se
+    // [[project_event_request_feature]]).
+    expectedGuests: request.expectedGuests ?? "",
     clientId,
     venueId: venueRow.id as string,
   };

@@ -189,6 +189,11 @@ export type EventFormInput = {
   title: string;
   eventDate: string; // ISO-dato
   description: string;
+  // Forventet antal gæster — helt valgfrit "cirka"-tal, fri tekst (se
+  // FormState.expectedGuests i EventRequestForm.tsx for samme mønster).
+  // Bevidst IKKE denormaliseret ud på shifts (kun eventet selv) — kun
+  // relevant for admins planlægning, ikke noget freelancere skal se.
+  expectedGuests: string;
   clientId: string;
   venueId: string | null;
 };
@@ -271,6 +276,7 @@ export async function createEventWithShifts(
       title: input.title.trim(),
       event_date: input.eventDate,
       description: input.description.trim() || null,
+      expected_guests: input.expectedGuests.trim() || null,
       client_id: input.clientId,
       venue_id: input.venueId,
     })
@@ -357,6 +363,7 @@ export async function createEventOnly(input: EventFormInput) {
       title: input.title.trim(),
       event_date: input.eventDate,
       description: input.description.trim() || null,
+      expected_guests: input.expectedGuests.trim() || null,
       client_id: input.clientId,
       venue_id: input.venueId,
     })
@@ -390,7 +397,7 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
   // begrænses til kun de tre push-relevante felter).
   const { data: beforeEvent } = await supabase
     .from("events")
-    .select("title, event_date, description, client_id, venue_id")
+    .select("title, event_date, description, expected_guests, client_id, venue_id")
     .eq("id", eventId)
     .eq("company_id", company.id)
     .maybeSingle();
@@ -401,6 +408,7 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
       title: input.title.trim(),
       event_date: input.eventDate,
       description: input.description.trim() || null,
+      expected_guests: input.expectedGuests.trim() || null,
       client_id: input.clientId,
       venue_id: input.venueId,
     })
@@ -487,6 +495,9 @@ export async function updateEvent(eventId: string, input: EventFormInput) {
     }
     if ((beforeEvent.description ?? "") !== input.description.trim()) {
       changes.push("briefingen");
+    }
+    if ((beforeEvent.expected_guests ?? "") !== input.expectedGuests.trim()) {
+      changes.push("forventet antal gæster");
     }
 
     if (changes.length > 0) {

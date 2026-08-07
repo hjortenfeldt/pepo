@@ -83,6 +83,7 @@ export default function ShiftDetailPanel({
     title: event.title,
     eventDate: event.eventDate,
     description: event.description ?? "",
+    expectedGuests: event.expectedGuests ?? "",
     clientId: event.clientId,
     venueId: event.venueId,
   });

@@ -67,6 +67,7 @@ export default function ShiftWizardPanel({
     title: existingEvent?.title ?? "",
     eventDate: existingEvent?.eventDate ?? (state.mode === "new" ? state.presetDate ?? "" : ""),
     description: existingEvent?.description ?? "",
+    expectedGuests: existingEvent?.expectedGuests ?? "",
     clientId: existingEvent?.clientId ?? "",
     venueId: existingEvent?.venueId ?? null,
   }));
@@ -324,6 +325,16 @@ export default function ShiftWizardPanel({
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                   placeholder="Fx Firmafest Kanal 4"
+                  className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
+                />
+              </Field>
+
+              <Field label="Forventet antal gæster (cirka)">
+                <input
+                  type="text"
+                  value={form.expectedGuests}
+                  onChange={(e) => setForm((f) => ({ ...f, expectedGuests: e.target.value }))}
+                  placeholder="Valgfrit"
                   className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p"
                 />
               </Field>

@@ -104,6 +104,10 @@ export type EventListItem = {
   title: string;
   eventDate: string; // ISO dato
   description: string | null;
+  // Forventet antal gæster ("cirka"-tal, fri tekst) — udfyldes af admin i
+  // "Ny event"/"Redigér event", evt. forudfyldt fra en accepteret
+  // eventforespørgsel (se [[project_event_request_feature]]).
+  expectedGuests: string | null;
   clientId: string;
   clientName: string;
   // true når kunden er en privatkunde (clients.name er tom, kun contact_person
