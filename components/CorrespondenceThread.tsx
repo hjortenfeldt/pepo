@@ -50,6 +50,20 @@ export default function CorrespondenceThread({
   onUploadAttachment: (file: File) => Promise<UploadResult>;
 }) {
   const [messages, setMessages] = useState(initialMessages);
+  // Synker den lokale kopi med en FRISK `messages`-prop (fx efter et
+  // router.refresh() fra ShiftWizardPanel's "Gem ændringer", som lægger en
+  // ny system-besked i tråden server-side) — uden dette blev de nyeste
+  // beskeder (typisk selve system-log-linjen for den redigering man lige
+  // har foretaget) usynlige indtil et helt manuelt sidegenindlæsning, fordi
+  // useState(initialMessages) kun læser sin startværdi ÉN gang og aldrig selv
+  // opdager at en ny prop er kommet ind (Hjorth 2026-08-07). Justeret under
+  // selve renderingen (ikke i en useEffect), så der ikke opstår et synligt
+  // blink af den forældede liste, før effekten når at køre.
+  const [syncedInitialMessages, setSyncedInitialMessages] = useState(initialMessages);
+  if (initialMessages !== syncedInitialMessages) {
+    setSyncedInitialMessages(initialMessages);
+    setMessages(initialMessages);
+  }
   const [reply, setReply] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<NewMessageAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
