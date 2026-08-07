@@ -5,7 +5,7 @@ import Icon from "@/components/Icon";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
 
-type UrlKey = "apply" | "app";
+type UrlKey = "apply" | "app" | "request";
 
 function CopyableUrl({ id, url, copied, onCopy }: { id: UrlKey; url: string; copied: UrlKey | null; onCopy: (id: UrlKey) => void }) {
   return (
@@ -34,9 +34,10 @@ export default function ImportantUrlsSettings({ tenantSlug }: { tenantSlug: stri
 
   const applyUrl = `https://${tenantSlug}.${ROOT_DOMAIN}/apply`;
   const appUrl = `https://app.${ROOT_DOMAIN}`;
+  const requestUrl = `https://${tenantSlug}.${ROOT_DOMAIN}/request`;
 
   async function copy(id: UrlKey) {
-    const url = id === "apply" ? applyUrl : appUrl;
+    const url = id === "apply" ? applyUrl : id === "app" ? appUrl : requestUrl;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(id);
@@ -95,6 +96,24 @@ export default function ImportantUrlsSettings({ tenantSlug }: { tenantSlug: stri
             Freelancer-app
           </label>
           <CopyableUrl id="app" url={appUrl} copied={copied} onCopy={copy} />
+        </div>
+
+        <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
+          <div className="flex items-start gap-3 mb-5">
+            <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0">
+              <Icon name="calendar-plus" size={20} />
+            </div>
+            <div className="text-[13.5px] text-pepo-t2 leading-relaxed">
+              Vil I have at kommende kunder selv skal kunne bede om personale til et event? Link til
+              adressen herunder fra jeres hjemmeside eller et tilbud — alle forespørgsler her går
+              automatisk til jer, og I gennemgår og accepterer dem under &quot;Eventforespørgsler&quot;.
+            </div>
+          </div>
+
+          <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+            Eventforespørgsel
+          </label>
+          <CopyableUrl id="request" url={requestUrl} copied={copied} onCopy={copy} />
         </div>
       </div>
     </div>
