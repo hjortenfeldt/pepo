@@ -21,7 +21,7 @@ import {
   queueOpenShiftNotifications,
 } from "@/lib/shift-notifications";
 import { sendEmail } from "@/lib/resend";
-import { buildSimpleAuthEmailHtml, buildSimpleAuthEmailText } from "@/lib/email-templates";
+import { buildSimpleAuthEmailHtml, buildSimpleAuthEmailText, firstNameOf } from "@/lib/email-templates";
 
 /**
  * Kronologisk ændringslog i eventets "Korrespondance"-tråd (sender "system",
@@ -149,12 +149,14 @@ export async function replyToEventAsAdmin(eventId: string, body: string, attachm
         .maybeSingle();
       const statusUrl = buildTenantUrl(company.slug, `/status/${eventRow.correspondence_token}`);
       const subject = `Ny besked fra ${company.name}`;
-      const message = `I har fået et svar i jeres dialog om "${eventRow.title}". Se og besvar det her:`;
+      // Se samme begrundelse i event-requests/actions.ts's replyAsAdmin.
+      const greeting = `${firstNameOf(adminName)} fra ${company.name}:`;
+      const cta = { label: "Besvar / Se hele korrespondancen", url: statusUrl };
       await sendEmail({
         to: client.contact_email,
         subject,
-        html: buildSimpleAuthEmailHtml({ greeting: subject, message, cta: { label: "Se beskeden", url: statusUrl } }),
-        text: buildSimpleAuthEmailText({ greeting: subject, message, cta: { label: "Se beskeden", url: statusUrl } }),
+        html: buildSimpleAuthEmailHtml({ greeting, message: trimmed, cta, companyName: company.name }),
+        text: buildSimpleAuthEmailText({ greeting, message: trimmed, cta }),
         fromName: company.name,
         replyTo: companyRow?.contact_email || undefined,
       });

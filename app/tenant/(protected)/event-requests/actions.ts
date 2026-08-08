@@ -150,12 +150,16 @@ export async function replyAsAdmin(requestId: string, body: string, attachments?
         .maybeSingle();
       const statusUrl = buildTenantUrl(company.slug, `/status/${existing.access_token}`);
       const subject = `Ny besked fra ${company.name}`;
-      const message = `I har fået et svar i jeres dialog om "${existing.title}". Se og besvar det her:`;
+      // Headline i selve mailen viser hvem der reelt skrev (admin), ikke
+      // bare virksomhedsnavnet — og brødteksten er nu admins EGEN besked
+      // (trimmed), ikke en fast, uspecifik sætning (Hjorth 2026-08-08).
+      const greeting = `${firstNameOf(adminName)} fra ${company.name}:`;
+      const cta = { label: "Besvar / Se hele korrespondancen", url: statusUrl };
       await sendEmail({
         to: existing.client_contact_email as string,
         subject,
-        html: buildSimpleAuthEmailHtml({ greeting: subject, message, cta: { label: "Se beskeden", url: statusUrl } }),
-        text: buildSimpleAuthEmailText({ greeting: subject, message, cta: { label: "Se beskeden", url: statusUrl } }),
+        html: buildSimpleAuthEmailHtml({ greeting, message: trimmed, cta, companyName: company.name }),
+        text: buildSimpleAuthEmailText({ greeting, message: trimmed, cta }),
         fromName: company.name,
         replyTo: companyRow?.contact_email || undefined,
       });
@@ -439,7 +443,7 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
     await sendEmail({
       to: request.contactEmail,
       subject,
-      html: buildBookingApprovedEmailHtml({ bodyText, companyLogoUrl: company.logo_url, statusUrl }),
+      html: buildBookingApprovedEmailHtml({ bodyText, companyLogoUrl: company.logo_url, statusUrl, companyName: company.name }),
       text: buildBookingApprovedEmailText(bodyText, statusUrl),
       fromName: company.name,
       replyTo: companyRow?.contact_email || undefined,

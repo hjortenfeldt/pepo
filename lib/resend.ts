@@ -30,17 +30,19 @@ function sanitizeHeaderValue(value: string): string {
 /**
  * Bygger "From"-headeren. Uden `fromName` (fx auth-mails uden nogen
  * virksomhedskontekst) er den simpelthen "Pepo <pepo@mail.pepo.team>". Med
- * `fromName` (klientens booking-godkendt/opfølgnings-mails, freelancerens
- * invitationsmail) bliver den "<Virksomhed> via Pepo <pepo@mail.pepo.team>"
- * — samme underliggende, allerede-verificerede adresse, men modtageren ser
- * straks hvilken virksomhed mailen faktisk handler om, ikke bare "Pepo"
- * (Hjorths valg 2026-08-09, se [[project_client_emails_send_wiring_audit]]).
+ * `fromName` (klientens booking-godkendt/opfølgnings-/besked-mails,
+ * freelancerens invitationsmail) bliver den simpelthen "<Virksomhed>
+ * <pepo@mail.pepo.team>" — samme underliggende, allerede-verificerede
+ * adresse, men modtageren ser udelukkende virksomhedens eget navn, ikke
+ * "Pepo" (Hjorths reviderede valg 2026-08-08 — først besluttet som
+ * "<Virksomhed> via Pepo", derefter forenklet til blot "<Virksomhed>", se
+ * [[project_client_emails_send_wiring_audit]]).
  */
 function buildFromHeader(fromName?: string | null): string {
   if (!fromName) return `${DEFAULT_FROM_NAME} <${FROM_EMAIL}>`;
   const clean = sanitizeHeaderValue(fromName);
   if (!clean) return `${DEFAULT_FROM_NAME} <${FROM_EMAIL}>`;
-  return `${clean} via ${DEFAULT_FROM_NAME} <${FROM_EMAIL}>`;
+  return `${clean} <${FROM_EMAIL}>`;
 }
 
 export async function sendEmail({
@@ -55,7 +57,7 @@ export async function sendEmail({
   subject: string;
   html: string;
   text: string;
-  /** Virksomhedens navn, til "<Virksomhed> via Pepo"-afsendernavnet — se buildFromHeader. Udelades for mails uden nogen virksomhedskontekst (auth-mails). */
+  /** Virksomhedens navn, til afsendernavnet ("<Virksomhed> <pepo@mail.pepo.team>") — se buildFromHeader. Udelades for mails uden nogen virksomhedskontekst (auth-mails). */
   fromName?: string | null;
   /** Sætter Reply-To til virksomhedens egen email, så et svar fra klienten lander hos DEM, ikke i en Pepo-postkasse ingen tjekker. Udelades hvis virksomheden ikke har udfyldt en kontakt-email. */
   replyTo?: string | null;

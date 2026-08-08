@@ -321,8 +321,14 @@ export async function sendFreelancerInvitation(freelancerId: string) {
     await sendEmail({
       to: profile.email,
       subject,
-      html: buildInvitationEmailHtml({ bodyText, companyLogoUrl: companyRow.logo_url ?? null }),
+      // fromName/companyName manglede tidligere her — invitationen sendte
+      // dermed som ren "Pepo" uden virksomhedsnavn i afsender/footer, i strid
+      // med den branding der ellers gælder for alle klient-/freelancer-mails
+      // (opdaget og rettet i samme omgang som "ny besked"-notifikationens
+      // headline/footer, se [[project_client_emails_send_wiring_audit]]).
+      html: buildInvitationEmailHtml({ bodyText, companyLogoUrl: companyRow.logo_url ?? null, companyName: companyRow.name }),
       text: buildInvitationEmailText(bodyText),
+      fromName: companyRow.name,
     });
   } catch (err) {
     console.error("sendFreelancerInvitation fejlede", err);

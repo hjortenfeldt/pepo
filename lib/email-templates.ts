@@ -93,8 +93,25 @@ function renderCodeBoxHtml(code: string): string {
 }
 
 /** Fælles HTML-skal (hvid boks, Pepo-footer) delt af alle skabeloner i
- * denne fil — kun det, der ligger MELLEM header og footer, varierer. */
-function renderEmailShell({ headerHtml, bodyHtml, topPadding }: { headerHtml: string; bodyHtml: string; topPadding: string }): string {
+ * denne fil — kun det, der ligger MELLEM header og footer, varierer.
+ * `companyName` er valgfri: sat for alle tenant-kontekst-mails (klient- og
+ * freelancer-mails), UDELADT for de to generiske auth-mails i
+ * app/api/auth/send-email/route.ts, som slet ikke kender nogen virksomhed på
+ * afsendelsestidspunktet — de falder tilbage til den gamle, ubrandede
+ * footer-tekst (Hjorths ønske 2026-08-08, se
+ * [[project_client_emails_send_wiring_audit]]). */
+function renderEmailShell({
+  headerHtml,
+  bodyHtml,
+  topPadding,
+  companyName,
+}: {
+  headerHtml: string;
+  bodyHtml: string;
+  topPadding: string;
+  companyName?: string | null;
+}): string {
+  const footerText = companyName ? `${escapeHtml(companyName)} - powered by Pepo.team` : "Sendt via Pepo – Personaleportalen";
   return `<!DOCTYPE html>
 <html lang="da">
 <head><meta charset="UTF-8" /></head>
@@ -107,7 +124,7 @@ function renderEmailShell({ headerHtml, bodyHtml, topPadding }: { headerHtml: st
     <div style="height:1px;background:#e5e5ea;margin:8px 48px 0;"></div>
     <div style="padding:20px 48px 30px;display:flex;align-items:center;gap:8px;">
       <img src="${pepoLogoUrl()}" alt="Pepo" width="22" height="22" style="width:22px;height:22px;border-radius:6px;display:block;" />
-      <span style="font-size:11.5px;color:#aeaeb2;">Sendt via Pepo – Personaleportalen</span>
+      <span style="font-size:11.5px;color:#aeaeb2;">${footerText}</span>
     </div>
   </div>
 </body>
@@ -188,9 +205,11 @@ function renderBodyHtml(bodyText: string): string {
 export function buildInvitationEmailHtml({
   bodyText,
   companyLogoUrl,
+  companyName,
 }: {
   bodyText: string;
   companyLogoUrl: string | null;
+  companyName?: string | null;
 }): string {
   const header = companyLogoUrl
     ? `<div style="padding:36px 48px 0;display:flex;align-items:center;justify-content:flex-end;">
@@ -201,7 +220,7 @@ export function buildInvitationEmailHtml({
   const body = `${renderBodyHtml(bodyText)}
     ${ctaButtonHtml("Åbn app.pepo.team", "https://app.pepo.team")}`;
 
-  return renderEmailShell({ headerHtml: header, bodyHtml: body, topPadding: companyLogoUrl ? "28px" : "44px" });
+  return renderEmailShell({ headerHtml: header, bodyHtml: body, topPadding: companyLogoUrl ? "28px" : "44px", companyName });
 }
 
 /** Almindelig tekst-udgave (samme brødtekst, uden HTML) — sendes som
@@ -335,10 +354,12 @@ export function buildBookingApprovedEmailHtml({
   bodyText,
   companyLogoUrl,
   statusUrl,
+  companyName,
 }: {
   bodyText: string;
   companyLogoUrl: string | null;
   statusUrl: string;
+  companyName?: string | null;
 }): string {
   const header = companyLogoUrl
     ? `<div style="padding:36px 48px 0;display:flex;align-items:center;justify-content:flex-end;">
@@ -347,7 +368,7 @@ export function buildBookingApprovedEmailHtml({
     : "";
   const body = `${renderBodyHtml(bodyText)}
     ${ctaButtonHtml("Se status for jeres booking", statusUrl)}`;
-  return renderEmailShell({ headerHtml: header, bodyHtml: body, topPadding: companyLogoUrl ? "28px" : "44px" });
+  return renderEmailShell({ headerHtml: header, bodyHtml: body, topPadding: companyLogoUrl ? "28px" : "44px", companyName });
 }
 
 export function buildBookingApprovedEmailText(bodyText: string, statusUrl: string): string {
@@ -358,10 +379,12 @@ export function buildEventFollowupEmailHtml({
   bodyText,
   companyLogoUrl,
   statusUrl,
+  companyName,
 }: {
   bodyText: string;
   companyLogoUrl: string | null;
   statusUrl: string;
+  companyName?: string | null;
 }): string {
   const header = companyLogoUrl
     ? `<div style="padding:36px 48px 0;display:flex;align-items:center;justify-content:flex-end;">
@@ -370,7 +393,7 @@ export function buildEventFollowupEmailHtml({
     : "";
   const body = `${renderBodyHtml(bodyText)}
     ${ctaButtonHtml("Giv os din feedback", statusUrl)}`;
-  return renderEmailShell({ headerHtml: header, bodyHtml: body, topPadding: companyLogoUrl ? "28px" : "44px" });
+  return renderEmailShell({ headerHtml: header, bodyHtml: body, topPadding: companyLogoUrl ? "28px" : "44px", companyName });
 }
 
 export function buildEventFollowupEmailText(bodyText: string, statusUrl: string): string {
@@ -378,30 +401,38 @@ export function buildEventFollowupEmailText(bodyText: string, statusUrl: string)
 }
 
 /**
- * Generisk, IKKE tenant-tilpasset skabelon — brugt til de to sjældnere
- * auth-mails der (endnu) ikke har nogen "Tekster"-side at hente egen
- * ordlyd fra: en almindelig freelancer-login-kode (selvbetjent "Send
- * kode" på /login, uden invitations-kontekst) og en ny tenant-admins
- * "sæt din adgangskode"-link (inviteAdmin/inviteCompanyAdmin). Samme
- * Pepo-skal (footer/branding), ingen firmalogo-header.
+ * Generisk skabelon, brugt til dels de to helt tenant-uafhængige auth-mails
+ * (endnu ingen "Tekster"-side): en almindelig freelancer-login-kode
+ * (selvbetjent "Send kode" på /login, uden invitations-kontekst) og en ny
+ * tenant-admins "sæt din adgangskode"-link (inviteAdmin/inviteCompanyAdmin)
+ * — INGEN `companyName` her, footeren falder tilbage til den ubrandede
+ * Pepo-tekst. Genbruges også (med `companyName` sat) til klientens "ny
+ * besked fra admin"-notifikation (replyAsAdmin/replyToEventAsAdmin), som
+ * ELLERS ville have krævet sin egen skabelon for bare denne ene mail. Samme
+ * skal/branding som resten af filen, ingen firmalogo-header.
  */
 export function buildSimpleAuthEmailHtml({
   greeting,
   message,
   otpCode,
   cta,
+  companyName,
 }: {
   greeting: string;
   message: string;
   otpCode?: string;
   cta?: { label: string; url: string };
+  companyName?: string | null;
 }): string {
+  // `message` kan (for "ny besked"-notifikationen) være en admins egen,
+  // evt. flerlinjede fritekst — bevar linjeskift som <br/>, samme
+  // "escape først, konverter bagefter" mønster som renderBodyHtml.
   const body = `<p style="font-size:19px;font-weight:600;color:#1d1d1f;letter-spacing:-0.01em;margin:0 0 20px;">${escapeHtml(greeting)}</p>
-    <p style="font-size:14.5px;line-height:1.65;color:#3a3a3d;margin:0 0 20px;">${escapeHtml(message)}</p>
+    <p style="font-size:14.5px;line-height:1.65;color:#3a3a3d;margin:0 0 20px;">${escapeHtml(message).replace(/\n/g, "<br/>")}</p>
     ${otpCode ? renderCodeBoxHtml(otpCode) : ""}
     ${cta ? ctaButtonHtml(cta.label, cta.url) : ""}`;
 
-  return renderEmailShell({ headerHtml: "", bodyHtml: body, topPadding: "44px" });
+  return renderEmailShell({ headerHtml: "", bodyHtml: body, topPadding: "44px", companyName });
 }
 
 export function buildSimpleAuthEmailText({

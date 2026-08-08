@@ -115,7 +115,7 @@ export async function POST(request: Request) {
       await sendEmail({
         to: row.client_contact_email,
         subject,
-        html: buildEventFollowupEmailHtml({ bodyText, companyLogoUrl: row.company_logo_url, statusUrl }),
+        html: buildEventFollowupEmailHtml({ bodyText, companyLogoUrl: row.company_logo_url, statusUrl, companyName: row.company_name }),
         text: buildEventFollowupEmailText(bodyText, statusUrl),
         fromName: row.company_name,
         replyTo: row.company_contact_email || undefined,
