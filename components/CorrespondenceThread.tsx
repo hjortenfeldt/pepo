@@ -162,7 +162,10 @@ export default function CorrespondenceThread({
                   {m.senderName ?? (m.sender === selfSender ? "Dig" : otherPartyLabel ?? (viewerRole === "admin" ? "Klient" : "Virksomheden"))} ·{" "}
                   {formatMessageTime(m.createdAt)}
                 </div>
-                {m.body && <div>{m.body}</div>}
+                {/* whitespace-pre-wrap bevarer klientens/admins egne linjeskift i
+                    boblen — uden denne klasse collapser browseren almindelige
+                    "\n" i almindelig HTML-tekst til ét mellemrum (Hjorth 2026-08-08). */}
+                {m.body && <div className="whitespace-pre-wrap">{m.body}</div>}
                 {m.attachments.length > 0 && (
                   <div className={"flex flex-col gap-1 " + (m.body ? "mt-1.5" : "")}>
                     {m.attachments.map((a) => (
