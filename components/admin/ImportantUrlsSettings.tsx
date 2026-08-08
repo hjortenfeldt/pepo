@@ -195,6 +195,56 @@ export default function ImportantUrlsSettings({
           />
         </div>
 
+        <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
+          <div className="flex items-start gap-3 mb-5">
+            <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0">
+              <Icon name="file-text" size={20} />
+            </div>
+            <div className="text-[13.5px] text-pepo-t2 leading-relaxed">
+              Link til jeres lejebestemmelser. Bruges i kort-koden{" "}
+              <code className="bg-pepo-su border border-pepo-bds rounded px-1.5 py-0.5 text-pepo-p font-mono text-[11.5px]">
+                [rental-terms-url]
+              </code>{" "}
+              i klient-mailene under &quot;Tekster&quot;.
+            </div>
+          </div>
+
+          <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+            Lejebestemmelser
+          </label>
+          <input
+            value={form.rentalTermsUrl}
+            onChange={(e) => setForm((f) => ({ ...f, rentalTermsUrl: e.target.value }))}
+            placeholder="https://jeresfirma.dk/lejebestemmelser"
+            className={inputClass}
+          />
+        </div>
+
+        <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
+          <div className="flex items-start gap-3 mb-5">
+            <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0">
+              <Icon name="help-circle" size={20} />
+            </div>
+            <div className="text-[13.5px] text-pepo-t2 leading-relaxed">
+              Link til jeres FAQ. Bruges i kort-koden{" "}
+              <code className="bg-pepo-su border border-pepo-bds rounded px-1.5 py-0.5 text-pepo-p font-mono text-[11.5px]">
+                [faq-url]
+              </code>{" "}
+              i klient-mailene under &quot;Tekster&quot;.
+            </div>
+          </div>
+
+          <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+            FAQ
+          </label>
+          <input
+            value={form.faqUrl}
+            onChange={(e) => setForm((f) => ({ ...f, faqUrl: e.target.value }))}
+            placeholder="https://jeresfirma.dk/faq"
+            className={inputClass}
+          />
+        </div>
+
         {saveError && (
           <p className="text-[12.5px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             {saveError}

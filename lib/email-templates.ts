@@ -234,6 +234,8 @@ export const EVENT_EMAIL_TOKENS: { token: string; description: string }[] = [
   { token: "[approved-by-name]", description: "Navnet på den admin, der godkendte bookingen" },
   { token: "[google-review-link]", description: "Jeres Google-anmeldelseslink (indstilles under Vigtige URL'er)" },
   { token: "[company-website-url]", description: "Jeres hjemmeside-adresse (indstilles under Vigtige URL'er)" },
+  { token: "[rental-terms-url]", description: "Link til jeres lejebestemmelser (indstilles under Vigtige URL'er)" },
+  { token: "[faq-url]", description: "Link til jeres FAQ (indstilles under Vigtige URL'er)" },
 ];
 
 export type EventEmailTokenValues = {
@@ -250,6 +252,8 @@ export type EventEmailTokenValues = {
   approvedByName: string;
   googleReviewLink: string;
   companyWebsiteUrl: string;
+  rentalTermsUrl: string;
+  faqUrl: string;
 };
 
 /** Samme "simpel find/erstat"-tilgang som renderInvitationTokens — se dens
@@ -268,7 +272,9 @@ export function renderEventEmailTokens(text: string, values: EventEmailTokenValu
     .replaceAll("[event-status-url]", values.eventStatusUrl)
     .replaceAll("[approved-by-name]", values.approvedByName)
     .replaceAll("[google-review-link]", values.googleReviewLink)
-    .replaceAll("[company-website-url]", values.companyWebsiteUrl);
+    .replaceAll("[company-website-url]", values.companyWebsiteUrl)
+    .replaceAll("[rental-terms-url]", values.rentalTermsUrl)
+    .replaceAll("[faq-url]", values.faqUrl);
 }
 
 /** Splitter et fuldt navn til fornavn — samme inline-mønster som

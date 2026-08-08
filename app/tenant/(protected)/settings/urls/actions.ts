@@ -17,6 +17,8 @@ import { revalidatePath } from "next/cache";
 export type ImportantUrlsInput = {
   googleReviewUrl: string;
   websiteUrl: string;
+  rentalTermsUrl: string;
+  faqUrl: string;
 };
 
 export async function updateImportantUrls(input: ImportantUrlsInput) {
@@ -31,6 +33,8 @@ export async function updateImportantUrls(input: ImportantUrlsInput) {
     .update({
       google_review_url: input.googleReviewUrl.trim() || null,
       website_url: input.websiteUrl.trim() || null,
+      rental_terms_url: input.rentalTermsUrl.trim() || null,
+      faq_url: input.faqUrl.trim() || null,
     })
     .eq("id", company.id);
 

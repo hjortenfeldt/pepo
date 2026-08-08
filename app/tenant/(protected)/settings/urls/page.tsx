@@ -15,7 +15,7 @@ export default async function ImportantUrlsPage() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("companies")
-    .select("google_review_url, website_url")
+    .select("google_review_url, website_url, rental_terms_url, faq_url")
     .eq("id", company.id)
     .single();
 
@@ -30,6 +30,8 @@ export default async function ImportantUrlsPage() {
       initial={{
         googleReviewUrl: data.google_review_url ?? "",
         websiteUrl: data.website_url ?? "",
+        rentalTermsUrl: data.rental_terms_url ?? "",
+        faqUrl: data.faq_url ?? "",
       }}
     />
   );
