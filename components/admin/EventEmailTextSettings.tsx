@@ -3,23 +3,46 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import Icon from "@/components/Icon";
+import { EVENT_EMAIL_TOKENS } from "@/lib/email-templates";
 import {
-  updateFreelancerInvitationText,
-  resetFreelancerInvitationText,
+  updateBookingApprovedText,
+  resetBookingApprovedText,
+  updateEventFollowupText,
+  resetEventFollowupText,
 } from "@/app/tenant/(protected)/settings/texts/actions";
-import {
-  INVITATION_EMAIL_TOKENS,
-  DEFAULT_FREELANCER_INVITATION_SUBJECT,
-  DEFAULT_FREELANCER_INVITATION_BODY,
-} from "@/lib/email-templates";
 
 const inputClass =
   "w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p";
 
-export default function InvitationTextSettings({
+type TextInput = { subject: string; body: string };
+export type EventEmailTemplateKind = "booking-approved" | "event-followup";
+
+/**
+ * Generisk udgave af InvitationTextSettings.tsx — bruges af de to nyere
+ * klient-mail-skabeloner (booking-godkendt, event-opfølgning, se
+ * [[project_texts_settings_next_steps]]), som deler nøjagtig samme kort-kode-
+ * sæt (EVENT_EMAIL_TOKENS) og samme gem/nulstil-adfærd, kun selve teksten
+ * (titel/beskrivelse/standardtekst) og HVILKE actions der kaldes varierer
+ * pr. skabelon (styret af `templateKind`, samme mønster som
+ * InvitationTextSettings — importerer selv sine server actions direkte,
+ * fremfor at modtage dem som props udefra). Freelancer-invitationen
+ * beholder sin egen, oprindelige komponent uændret (andet kort-kode-sæt,
+ * ingen grund til at lægge den om for kun to genbrugere).
+ */
+export default function EventEmailTextSettings({
+  templateKind,
+  cardTitle,
+  cardDescription,
   initial,
+  defaultSubject,
+  defaultBody,
 }: {
-  initial: { subject: string; body: string };
+  templateKind: EventEmailTemplateKind;
+  cardTitle: string;
+  cardDescription: string;
+  initial: TextInput;
+  defaultSubject: string;
+  defaultBody: string;
 }) {
   const [subject, setSubject] = useState(initial.subject);
   const [body, setBody] = useState(initial.body);
@@ -33,7 +56,10 @@ export default function InvitationTextSettings({
     setError(null);
     setSaved(false);
     startTransition(async () => {
-      const res = await updateFreelancerInvitationText({ subject, body });
+      const res =
+        templateKind === "booking-approved"
+          ? await updateBookingApprovedText({ subject, body })
+          : await updateEventFollowupText({ subject, body });
       if (!res.success) {
         setError(res.error);
         return;
@@ -46,14 +72,15 @@ export default function InvitationTextSettings({
   function reset() {
     setError(null);
     startResetTransition(async () => {
-      const res = await resetFreelancerInvitationText();
+      const res =
+        templateKind === "booking-approved" ? await resetBookingApprovedText() : await resetEventFollowupText();
       if (!res.success) {
         setError(res.error);
         setConfirmingReset(false);
         return;
       }
-      setSubject(DEFAULT_FREELANCER_INVITATION_SUBJECT);
-      setBody(DEFAULT_FREELANCER_INVITATION_BODY);
+      setSubject(defaultSubject);
+      setBody(defaultBody);
       setConfirmingReset(false);
     });
   }
@@ -68,13 +95,8 @@ export default function InvitationTextSettings({
           <Icon name="chevron-left" size={16} />
           Tekster
         </Link>
-        <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">
-          Email-invitation til nye freelancere
-        </div>
-        <div className="text-[13.5px] text-pepo-t2 mt-[3px] max-w-2xl leading-relaxed">
-          Sendes når I opretter en ny freelancer og trykker &quot;Send invitation&quot;. Emnelinjen og
-          brødteksten herunder er jeres egen tekst — nulstil til Pepos standardtekst når som helst.
-        </div>
+        <div className="text-[22px] font-semibold tracking-tight text-pepo-t1">{cardTitle}</div>
+        <div className="text-[13.5px] text-pepo-t2 mt-[3px] max-w-2xl leading-relaxed">{cardDescription}</div>
       </div>
 
       <div className="px-[var(--page-px)] py-[22px] pb-10 max-w-2xl">
@@ -103,7 +125,7 @@ export default function InvitationTextSettings({
               Kort-koder du kan bruge
             </div>
             <div className="flex flex-col gap-1.5">
-              {INVITATION_EMAIL_TOKENS.map((t) => (
+              {EVENT_EMAIL_TOKENS.map((t) => (
                 <div key={t.token} className="flex items-baseline gap-2 text-[12.5px]">
                   <code className="bg-pepo-wh border border-pepo-bds rounded px-1.5 py-0.5 text-pepo-p font-mono text-[11.5px] flex-shrink-0">
                     {t.token}

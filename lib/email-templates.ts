@@ -211,6 +211,143 @@ export function buildInvitationEmailText(bodyText: string): string {
   return `${bodyText.trim()}\n\nÅbn app.pepo.team: https://app.pepo.team`;
 }
 
+// ---------------------------------------------------------------------------
+// Klient-mails (2026-08-09) — booking-godkendt og event-opfølgning. Begge
+// deler samme kort-kode-sæt (samme kontekst: en kunde, ét event), se
+// [[project_texts_settings_next_steps]]. IKKE forbundet til nogen reel
+// afsendelse endnu — kun selve skabelonerne + Tekster-siden er bygget indtil
+// videre; "godkend booking"-flowet og et post-event-cron-job, der rent
+// faktisk KALDER disse render-funktioner, er et senere skridt.
+// ---------------------------------------------------------------------------
+
+export const EVENT_EMAIL_TOKENS: { token: string; description: string }[] = [
+  { token: "[company-name]", description: "Virksomhedens navn" },
+  { token: "[company-phone-number]", description: "Virksomhedens telefonnummer" },
+  { token: "[company-email]", description: "Virksomhedens emailadresse" },
+  { token: "[client-name]", description: "Kundens kontaktperson" },
+  { token: "[event-name]", description: "Eventets titel" },
+  { token: "[event-date]", description: "Eventets dato" },
+  { token: "[event-venue]", description: "Eventstedets navn/adresse" },
+  { token: "[booked-staff]", description: "Det bookede personale (jobfunktioner og antal)" },
+  { token: "[event-status-url]", description: "Link til kundens egen status-/dialogside for eventet" },
+];
+
+export type EventEmailTokenValues = {
+  companyName: string;
+  companyPhone: string;
+  companyEmail: string;
+  clientName: string;
+  eventName: string;
+  eventDate: string;
+  eventVenue: string;
+  bookedStaff: string;
+  eventStatusUrl: string;
+};
+
+/** Samme "simpel find/erstat"-tilgang som renderInvitationTokens — se dens
+ * kommentar for hvorfor ingen skabelon-motor er nødvendig her. */
+export function renderEventEmailTokens(text: string, values: EventEmailTokenValues): string {
+  return text
+    .replaceAll("[company-name]", values.companyName)
+    .replaceAll("[company-phone-number]", values.companyPhone)
+    .replaceAll("[company-email]", values.companyEmail)
+    .replaceAll("[client-name]", values.clientName)
+    .replaceAll("[event-name]", values.eventName)
+    .replaceAll("[event-date]", values.eventDate)
+    .replaceAll("[event-venue]", values.eventVenue)
+    .replaceAll("[booked-staff]", values.bookedStaff)
+    .replaceAll("[event-status-url]", values.eventStatusUrl);
+}
+
+export const DEFAULT_BOOKING_APPROVED_SUBJECT = "Jeres booking hos [company-name] er bekræftet";
+
+export const DEFAULT_BOOKING_APPROVED_BODY = `Kære [client-name],
+
+Godt nyt — [company-name] har bekræftet jeres booking af "[event-name]" den [event-date]!
+
+Vi har booket følgende personale til jer:
+[booked-staff]
+
+Sted: [event-venue]
+
+I kan altid følge status for bookingen og skrive direkte til os her:
+[event-status-url]
+
+Har I spørgsmål eller ønsker I at ændre noget inden da, er I velkomne til at kontakte os på [company-email] eller [company-phone-number].
+
+Vi glæder os til at gøre jeres event til en succes!
+
+Kh,
+[company-name]`;
+
+export const DEFAULT_EVENT_FOLLOWUP_SUBJECT = "Hvordan gik det med [event-name]?";
+
+export const DEFAULT_EVENT_FOLLOWUP_BODY = `Kære [client-name],
+
+Tusind tak fordi I valgte [company-name] til "[event-name]" den [event-date]!
+
+Vi håber, at [booked-staff] gjorde en god forskel, og at både I og jeres gæster fik en god oplevelse.
+
+Vi vil meget gerne høre, hvordan det gik — svar endelig på denne mail, eller skriv til os direkte her:
+[event-status-url]
+
+Jeres tilbagemelding betyder meget og hjælper os med at blive endnu bedre til næste event.
+
+Tak for denne gang — vi håber at se jer igen! ❤️
+
+Kh,
+[company-name]`;
+
+/** Samme HTML-skal/knap-mønster som invitationsmailen — ingen firmalogo-
+ * header her (disse mails sendes til KUNDEN, ikke freelanceren, men skallen
+ * er identisk; company-logo tilføjes hvis/når det bliver relevant). CTA'en
+ * peger på selve status-siden i stedet for app.pepo.team. */
+export function buildBookingApprovedEmailHtml({
+  bodyText,
+  companyLogoUrl,
+  statusUrl,
+}: {
+  bodyText: string;
+  companyLogoUrl: string | null;
+  statusUrl: string;
+}): string {
+  const header = companyLogoUrl
+    ? `<div style="padding:36px 48px 0;display:flex;align-items:center;justify-content:flex-end;">
+        <img src="${escapeHtml(companyLogoUrl)}" alt="" height="34" style="height:34px;max-width:160px;object-fit:contain;display:block;" />
+      </div>`
+    : "";
+  const body = `${renderBodyHtml(bodyText)}
+    ${ctaButtonHtml("Se status for jeres booking", statusUrl)}`;
+  return renderEmailShell({ headerHtml: header, bodyHtml: body, topPadding: companyLogoUrl ? "28px" : "44px" });
+}
+
+export function buildBookingApprovedEmailText(bodyText: string, statusUrl: string): string {
+  return `${bodyText.trim()}\n\nSe status for jeres booking: ${statusUrl}`;
+}
+
+export function buildEventFollowupEmailHtml({
+  bodyText,
+  companyLogoUrl,
+  statusUrl,
+}: {
+  bodyText: string;
+  companyLogoUrl: string | null;
+  statusUrl: string;
+}): string {
+  const header = companyLogoUrl
+    ? `<div style="padding:36px 48px 0;display:flex;align-items:center;justify-content:flex-end;">
+        <img src="${escapeHtml(companyLogoUrl)}" alt="" height="34" style="height:34px;max-width:160px;object-fit:contain;display:block;" />
+      </div>`
+    : "";
+  const body = `${renderBodyHtml(bodyText)}
+    ${ctaButtonHtml("Giv os din feedback", statusUrl)}`;
+  return renderEmailShell({ headerHtml: header, bodyHtml: body, topPadding: companyLogoUrl ? "28px" : "44px" });
+}
+
+export function buildEventFollowupEmailText(bodyText: string, statusUrl: string): string {
+  return `${bodyText.trim()}\n\nGiv os din feedback: ${statusUrl}`;
+}
+
 /**
  * Generisk, IKKE tenant-tilpasset skabelon — brugt til de to sjældnere
  * auth-mails der (endnu) ikke har nogen "Tekster"-side at hente egen
