@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Icon from "@/components/Icon";
+import { updateImportantUrls, type ImportantUrlsInput } from "@/app/tenant/(protected)/settings/urls/actions";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
+
+const inputClass =
+  "w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p";
 
 type UrlKey = "apply" | "app" | "request";
 
@@ -28,9 +32,34 @@ function CopyableUrl({ id, url, copied, onCopy }: { id: UrlKey; url: string; cop
   );
 }
 
-export default function ImportantUrlsSettings({ tenantSlug }: { tenantSlug: string }) {
+export default function ImportantUrlsSettings({
+  tenantSlug,
+  initial,
+}: {
+  tenantSlug: string;
+  initial: ImportantUrlsInput;
+}) {
   const [copied, setCopied] = useState<UrlKey | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [form, setForm] = useState<ImportantUrlsInput>(initial);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [isSaving, startTransition] = useTransition();
+
+  function save() {
+    setSaveError(null);
+    setSaved(false);
+    startTransition(async () => {
+      const res = await updateImportantUrls(form);
+      if (!res.success) {
+        setSaveError(res.error);
+        return;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    });
+  }
 
   const applyUrl = `https://${tenantSlug}.${ROOT_DOMAIN}/apply`;
   const appUrl = `https://app.${ROOT_DOMAIN}`;
@@ -115,6 +144,72 @@ export default function ImportantUrlsSettings({ tenantSlug }: { tenantSlug: stri
           </label>
           <CopyableUrl id="request" url={requestUrl} copied={copied} onCopy={copy} />
         </div>
+
+        <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
+          <div className="flex items-start gap-3 mb-5">
+            <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0">
+              <Icon name="brand-google" size={20} />
+            </div>
+            <div className="text-[13.5px] text-pepo-t2 leading-relaxed">
+              Jeres link til at give en anmeldelse på Google. Bruges i kort-koden{" "}
+              <code className="bg-pepo-su border border-pepo-bds rounded px-1.5 py-0.5 text-pepo-p font-mono text-[11.5px]">
+                [google-review-link]
+              </code>{" "}
+              i opfølgningsmailen efter et event.
+            </div>
+          </div>
+
+          <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+            Google-anmeldelseslink
+          </label>
+          <input
+            value={form.googleReviewUrl}
+            onChange={(e) => setForm((f) => ({ ...f, googleReviewUrl: e.target.value }))}
+            placeholder="https://g.page/r/..."
+            className={inputClass}
+          />
+        </div>
+
+        <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
+          <div className="flex items-start gap-3 mb-5">
+            <div className="w-9 h-9 rounded-full bg-pepo-pl text-pepo-p flex items-center justify-center flex-shrink-0">
+              <Icon name="world" size={20} />
+            </div>
+            <div className="text-[13.5px] text-pepo-t2 leading-relaxed">
+              Jeres officielle hjemmeside. Bruges i kort-koden{" "}
+              <code className="bg-pepo-su border border-pepo-bds rounded px-1.5 py-0.5 text-pepo-p font-mono text-[11.5px]">
+                [company-website-url]
+              </code>{" "}
+              i klient-mailene under &quot;Tekster&quot;.
+            </div>
+          </div>
+
+          <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+            Hjemmeside
+          </label>
+          <input
+            value={form.websiteUrl}
+            onChange={(e) => setForm((f) => ({ ...f, websiteUrl: e.target.value }))}
+            placeholder="https://jeresfirma.dk"
+            className={inputClass}
+          />
+        </div>
+
+        {saveError && (
+          <p className="text-[12.5px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {saveError}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={save}
+          disabled={isSaving}
+          className="self-start h-11 px-4 rounded-[10px] text-[13px] font-medium bg-pepo-p text-white flex items-center gap-1.5 disabled:opacity-40"
+        >
+          <Icon name="check" size={16} />
+          {isSaving ? "Gemmer..." : saved ? "Gemt" : "Gem ændringer"}
+        </button>
       </div>
     </div>
   );

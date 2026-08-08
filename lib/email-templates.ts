@@ -224,12 +224,16 @@ export const EVENT_EMAIL_TOKENS: { token: string; description: string }[] = [
   { token: "[company-name]", description: "Virksomhedens navn" },
   { token: "[company-phone-number]", description: "Virksomhedens telefonnummer" },
   { token: "[company-email]", description: "Virksomhedens emailadresse" },
-  { token: "[client-name]", description: "Kundens kontaktperson" },
+  { token: "[client-name]", description: "Kundens kontaktperson (fulde navn)" },
+  { token: "[client-first-name]", description: "Kundens kontaktperson (kun fornavn)" },
   { token: "[event-name]", description: "Eventets titel" },
   { token: "[event-date]", description: "Eventets dato" },
   { token: "[event-venue]", description: "Eventstedets navn/adresse" },
   { token: "[booked-staff]", description: "Det bookede personale (jobfunktioner og antal)" },
   { token: "[event-status-url]", description: "Link til kundens egen status-/dialogside for eventet" },
+  { token: "[approved-by-name]", description: "Navnet på den admin, der godkendte bookingen" },
+  { token: "[google-review-link]", description: "Jeres Google-anmeldelseslink (indstilles under Vigtige URL'er)" },
+  { token: "[company-website-url]", description: "Jeres hjemmeside-adresse (indstilles under Vigtige URL'er)" },
 ];
 
 export type EventEmailTokenValues = {
@@ -237,11 +241,15 @@ export type EventEmailTokenValues = {
   companyPhone: string;
   companyEmail: string;
   clientName: string;
+  clientFirstName: string;
   eventName: string;
   eventDate: string;
   eventVenue: string;
   bookedStaff: string;
   eventStatusUrl: string;
+  approvedByName: string;
+  googleReviewLink: string;
+  companyWebsiteUrl: string;
 };
 
 /** Samme "simpel find/erstat"-tilgang som renderInvitationTokens — se dens
@@ -252,51 +260,66 @@ export function renderEventEmailTokens(text: string, values: EventEmailTokenValu
     .replaceAll("[company-phone-number]", values.companyPhone)
     .replaceAll("[company-email]", values.companyEmail)
     .replaceAll("[client-name]", values.clientName)
+    .replaceAll("[client-first-name]", values.clientFirstName)
     .replaceAll("[event-name]", values.eventName)
     .replaceAll("[event-date]", values.eventDate)
     .replaceAll("[event-venue]", values.eventVenue)
     .replaceAll("[booked-staff]", values.bookedStaff)
-    .replaceAll("[event-status-url]", values.eventStatusUrl);
+    .replaceAll("[event-status-url]", values.eventStatusUrl)
+    .replaceAll("[approved-by-name]", values.approvedByName)
+    .replaceAll("[google-review-link]", values.googleReviewLink)
+    .replaceAll("[company-website-url]", values.companyWebsiteUrl);
+}
+
+/** Splitter et fuldt navn til fornavn — samme inline-mønster som
+ * RegistrationForm.tsx bruger til freelancer-velkomsthilsenen. Ingen delt
+ * util findes andetsteds i kodebasen; "kunde" er faldback-tiltale hvis
+ * kontaktpersonen mangler et navn (fx en gammel klient uden udfyldt felt). */
+export function firstNameOf(fullName: string | null | undefined, fallback = "kunde"): string {
+  return fullName?.trim().split(/\s+/)[0] || fallback;
 }
 
 export const DEFAULT_BOOKING_APPROVED_SUBJECT = "Jeres booking hos [company-name] er bekræftet";
 
-export const DEFAULT_BOOKING_APPROVED_BODY = `Kære [client-name],
+export const DEFAULT_BOOKING_APPROVED_BODY = `Kære [client-first-name]
 
-Godt nyt — [company-name] har bekræftet jeres booking af "[event-name]" den [event-date]!
+Godt nyt!
+Vi bekræfter hermed jeres booking af personale til "[event-name]" den [event-date] ([event-venue]).
 
-Vi har booket følgende personale til jer:
+Vi giver lyd igen, når vi har besat jeres ønskede vagter:
 [booked-staff]
 
-Sted: [event-venue]
-
-I kan altid følge status for bookingen og skrive direkte til os her:
+I kan følge status for bookingen her:
 [event-status-url]
 
-Har I spørgsmål eller ønsker I at ændre noget inden da, er I velkomne til at kontakte os på [company-email] eller [company-phone-number].
+Via ovenstående URL kan I også løbende sende os beskeder eller spørgsmål, rette i bookingen eller tilføje yderligere personale.
 
-Vi glæder os til at gøre jeres event til en succes!
+Og har I brug for at afklare noget telefonisk, er I også velkomne til at ringe til os på [company-phone-number].
+
+Vi glæder os til at hjælpe med at gøre jeres arrangement til en succes 🤗❤️
 
 Kh,
+[approved-by-name]
 [company-name]`;
 
 export const DEFAULT_EVENT_FOLLOWUP_SUBJECT = "Hvordan gik det med [event-name]?";
 
-export const DEFAULT_EVENT_FOLLOWUP_BODY = `Kære [client-name],
+export const DEFAULT_EVENT_FOLLOWUP_BODY = `Kære [client-first-name]
 
-Tusind tak fordi I valgte [company-name] til "[event-name]" den [event-date]!
+Tusind tak fordi I valgte [company-name] til at hjælpe til jeres arrangement "[event-name]"!
 
-Vi håber, at [booked-staff] gjorde en god forskel, og at både I og jeres gæster fik en god oplevelse.
+Vi håber, at vores personale levede op til jeres forventninger og at både I og jeres gæster havde en god oplevelse.
 
-Vi vil meget gerne høre, hvordan det gik — svar endelig på denne mail, eller skriv til os direkte her:
-[event-status-url]
+Hvis I har et ledigt minut, vil vi blive vildt glade for at få en mini-bedømmelse på Google - det hjælper andre til at opdage, at vi gør os umage ☝️😃
+Det direkte link til at bedømme os er:
+[google-review-link].
 
-Jeres tilbagemelding betyder meget og hjælper os med at blive endnu bedre til næste event.
-
-Tak for denne gang — vi håber at se jer igen! ❤️
+Tak for denne gang - vi håber at se jer igen! ❤️
 
 Kh,
-[company-name]`;
+[approved-by-name]
+[company-name]
+[company-website-url]`;
 
 /** Samme HTML-skal/knap-mønster som invitationsmailen — ingen firmalogo-
  * header her (disse mails sendes til KUNDEN, ikke freelanceren, men skallen
