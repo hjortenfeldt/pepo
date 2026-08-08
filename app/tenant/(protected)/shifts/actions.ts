@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { getCompanyBySubdomain } from "@/lib/tenant";
+import { getCompanyBySubdomain, buildTenantUrl } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import type { EventAttachment, ShiftStatus, VenueItem } from "@/lib/admin-types";
 import { geocodeAddress, getDrivingDistanceKm } from "@/lib/maps";
@@ -20,6 +20,8 @@ import {
   pushShiftChanged,
   queueOpenShiftNotifications,
 } from "@/lib/shift-notifications";
+import { sendEmail } from "@/lib/resend";
+import { buildSimpleAuthEmailHtml, buildSimpleAuthEmailText } from "@/lib/email-templates";
 
 /**
  * Kronologisk ændringslog i eventets "Korrespondance"-tråd (sender "system",
@@ -119,6 +121,46 @@ export async function replyToEventAsAdmin(eventId: string, body: string, attachm
 
   if (!insertResult.success) {
     return { success: false as const, error: insertResult.error };
+  }
+
+  // Giver klienten besked om admins svar via email — samme begrundelse som
+  // replyAsAdmin i event-requests/actions.ts (den forespørgsel-specifikke
+  // udgave af nøjagtig samme "Korrespondance"-tråd). Fejler aldrig selve
+  // svaret, hvis mailen af nogen grund ikke kan sendes.
+  try {
+    const { data: eventRow } = await supabase
+      .from("events")
+      .select("title, correspondence_token, clients(contact_email, name, contact_person)")
+      .eq("id", eventId)
+      .eq("company_id", company.id)
+      .maybeSingle();
+
+    const clientRaw = eventRow?.clients as
+      | { contact_email: string | null; name: string | null; contact_person: string | null }
+      | { contact_email: string | null; name: string | null; contact_person: string | null }[]
+      | null;
+    const client = Array.isArray(clientRaw) ? clientRaw[0] ?? null : clientRaw;
+
+    if (eventRow && client?.contact_email) {
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("contact_email")
+        .eq("id", company.id)
+        .maybeSingle();
+      const statusUrl = buildTenantUrl(company.slug, `/status/${eventRow.correspondence_token}`);
+      const subject = `Ny besked fra ${company.name}`;
+      const message = `I har fået et svar i jeres dialog om "${eventRow.title}". Se og besvar det her:`;
+      await sendEmail({
+        to: client.contact_email,
+        subject,
+        html: buildSimpleAuthEmailHtml({ greeting: subject, message, cta: { label: "Se beskeden", url: statusUrl } }),
+        text: buildSimpleAuthEmailText({ greeting: subject, message, cta: { label: "Se beskeden", url: statusUrl } }),
+        fromName: company.name,
+        replyTo: companyRow?.contact_email || undefined,
+      });
+    }
+  } catch (err) {
+    console.error("replyToEventAsAdmin: besked-notifikation kunne ikke sendes", err);
   }
 
   revalidatePath(`/shifts/event/${eventId}`);

@@ -1,11 +1,24 @@
 "use server";
 
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { getCompanyBySubdomain } from "@/lib/tenant";
+import { getCompanyBySubdomain, buildTenantUrl } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
-import { getEventRequestById, type EventRequestDetail } from "@/lib/event-requests";
+import { getEventRequestById, summarizeBookedStaff, type EventRequestDetail } from "@/lib/event-requests";
 import { insertEventMessage, getCurrentAdminName, uploadMessageAttachment, type NewMessageAttachment } from "@/lib/event-messages";
 import { createEventWithShifts, type EventFormInput, type ShiftCreateRowInput } from "@/app/tenant/(protected)/shifts/actions";
+import { venueLabel, formatDateDisplay } from "@/lib/format";
+import { sendEmail } from "@/lib/resend";
+import {
+  DEFAULT_BOOKING_APPROVED_SUBJECT,
+  DEFAULT_BOOKING_APPROVED_BODY,
+  renderEventEmailTokens,
+  buildBookingApprovedEmailHtml,
+  buildBookingApprovedEmailText,
+  buildSimpleAuthEmailHtml,
+  buildSimpleAuthEmailText,
+  firstNameOf,
+  type EventEmailTokenValues,
+} from "@/lib/email-templates";
 
 // Se shifts/actions.ts for hvorfor company.id skal sættes/filtreres
 // eksplicit i stedet for at stole på RLS/databasetriggerens fallback.
@@ -91,10 +104,14 @@ export async function replyAsAdmin(requestId: string, body: string, attachments?
   const adminName = await getCurrentAdminName(supabase);
 
   // Genbrug event_id, hvis forespørgslen allerede er accepteret — så svaret
-  // også dukker op i eventets egen "Korrespondance"-tråd, ikke kun her.
+  // også dukker op i eventets egen "Korrespondance"-tråd, ikke kun her. Også
+  // henter vi klientens email/titel/access_token her i samme opslag, til
+  // "ny besked"-mailen nedenfor — access_token virker som statuslink
+  // UANSET om forespørgslen er accepteret endnu (se lib/event-status.ts's
+  // fallback-kæde), så vi behøver ikke skelne på created_event_id for det.
   const { data: existing } = await supabase
     .from("event_requests")
-    .select("created_event_id")
+    .select("created_event_id, access_token, title, client_name, client_contact_person, client_contact_email")
     .eq("id", requestId)
     .eq("company_id", company.id)
     .maybeSingle();
@@ -119,6 +136,33 @@ export async function replyAsAdmin(requestId: string, body: string, attachments?
     .eq("id", requestId)
     .eq("company_id", company.id)
     .eq("status", "new");
+
+  // Giver klienten besked om admins svar via email — uden dette skulle de
+  // selv huske at genbesøge deres /status/[token]-link for at se det.
+  // Fejler aldrig selve svaret, hvis mailen af nogen grund ikke kan sendes
+  // (samme filosofi som push-koden andre steder i kodebasen).
+  if (existing?.client_contact_email) {
+    try {
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("contact_email")
+        .eq("id", company.id)
+        .maybeSingle();
+      const statusUrl = buildTenantUrl(company.slug, `/status/${existing.access_token}`);
+      const subject = `Ny besked fra ${company.name}`;
+      const message = `I har fået et svar i jeres dialog om "${existing.title}". Se og besvar det her:`;
+      await sendEmail({
+        to: existing.client_contact_email as string,
+        subject,
+        html: buildSimpleAuthEmailHtml({ greeting: subject, message, cta: { label: "Se beskeden", url: statusUrl } }),
+        text: buildSimpleAuthEmailText({ greeting: subject, message, cta: { label: "Se beskeden", url: statusUrl } }),
+        fromName: company.name,
+        replyTo: companyRow?.contact_email || undefined,
+      });
+    } catch (err) {
+      console.error("replyAsAdmin: besked-notifikation kunne ikke sendes", err);
+    }
+  }
 
   revalidatePath("/event-requests");
   return { success: true as const };
@@ -341,6 +385,68 @@ export async function acceptEventRequest(requestId: string, clientChoice: Accept
     senderName: adminName,
     body: "accepterede forespørgslen og oprettede eventet.",
   });
+
+  // Booking-godkendt-mailen til klienten — genbruger skabelonen/kort-koderne
+  // bygget i [[project_texts_settings_next_steps]], som indtil nu kun var
+  // redigerbare tekster uden nogen reel afsendelse (se
+  // [[project_client_emails_send_wiring_audit]]). Fejler aldrig selve
+  // accept-flowet, hvis mailen af nogen grund ikke kan sendes — eventet er
+  // allerede oprettet på dette tidspunkt, det skal ikke rulles tilbage.
+  try {
+    const { data: companyRow } = await supabase
+      .from("companies")
+      .select(
+        "contact_phone, contact_email, booking_approved_email_subject, booking_approved_email_body, google_review_url, website_url, rental_terms_url, faq_url"
+      )
+      .eq("id", company.id)
+      .maybeSingle();
+
+    const clientName = request.clientName || request.contactPerson || "kunde";
+    const statusUrl = buildTenantUrl(company.slug, `/status/${request.accessToken}`);
+
+    const tokenValues: EventEmailTokenValues = {
+      companyName: company.name,
+      companyPhone: companyRow?.contact_phone || "",
+      companyEmail: companyRow?.contact_email || "",
+      clientName,
+      clientFirstName: firstNameOf(clientName),
+      eventName: request.title,
+      eventDate: formatDateDisplay(request.eventDate),
+      eventVenue: venueLabel({
+        name: request.venueName,
+        address: request.venueAddress,
+        postalCode: request.venuePostalCode,
+        city: request.venueCity,
+      }),
+      bookedStaff: summarizeBookedStaff(request.jobLines),
+      eventStatusUrl: statusUrl,
+      approvedByName: adminName || company.name,
+      googleReviewLink: companyRow?.google_review_url || "",
+      companyWebsiteUrl: companyRow?.website_url || "",
+      rentalTermsUrl: companyRow?.rental_terms_url || "",
+      faqUrl: companyRow?.faq_url || "",
+    };
+
+    const subject = renderEventEmailTokens(
+      companyRow?.booking_approved_email_subject || DEFAULT_BOOKING_APPROVED_SUBJECT,
+      tokenValues
+    );
+    const bodyText = renderEventEmailTokens(
+      companyRow?.booking_approved_email_body || DEFAULT_BOOKING_APPROVED_BODY,
+      tokenValues
+    );
+
+    await sendEmail({
+      to: request.contactEmail,
+      subject,
+      html: buildBookingApprovedEmailHtml({ bodyText, companyLogoUrl: company.logo_url, statusUrl }),
+      text: buildBookingApprovedEmailText(bodyText, statusUrl),
+      fromName: company.name,
+      replyTo: companyRow?.contact_email || undefined,
+    });
+  } catch (err) {
+    console.error("acceptEventRequest: booking-godkendt-mail kunne ikke sendes", err);
+  }
 
   revalidatePath("/event-requests");
   revalidatePath("/shifts");

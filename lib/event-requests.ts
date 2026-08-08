@@ -255,6 +255,23 @@ export type EventRequestJobLineItem = {
   endTime: string;
 };
 
+/**
+ * "2x Tjener\n1x Bartender" — jobfunktioner og antal, til [booked-staff]-
+ * kort-koden i booking-godkendt-mailen (se lib/email-templates.ts). Bevidst
+ * ALDRIG navngivne freelancere, heller ikke selv om nogle allerede er
+ * tildelt på accept-tidspunktet — klienten skal ikke se individuelle
+ * freelancer-navne, se [[project_texts_settings_next_steps]].
+ */
+export function summarizeBookedStaff(jobLines: EventRequestJobLineItem[]): string {
+  const counts = new Map<string, number>();
+  for (const line of jobLines) {
+    counts.set(line.categoryName, (counts.get(line.categoryName) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([name, count]) => `${count}x ${name}`)
+    .join("\n");
+}
+
 export type EventRequestDetail = {
   id: string;
   accessToken: string;
