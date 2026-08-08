@@ -9,7 +9,7 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "pepo.team";
 const inputClass =
   "w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[13.5px] outline-none focus:border-pepo-p";
 
-type UrlKey = "apply" | "app" | "request";
+type UrlKey = "apply" | "app" | "request" | "apply-embed" | "request-embed";
 
 function CopyableUrl({ id, url, copied, onCopy }: { id: UrlKey; url: string; copied: UrlKey | null; onCopy: (id: UrlKey) => void }) {
   return (
@@ -30,6 +30,65 @@ function CopyableUrl({ id, url, copied, onCopy }: { id: UrlKey; url: string; cop
       </button>
     </div>
   );
+}
+
+// Indlejringskoden er et par linjer (iframe + et lille resize-script), så
+// den vises som en flerlinjet, readonly kodeblok i stedet for CopyableUrl's
+// enkeltlinje-input. Selve koden bygges af buildEmbedCode nedenfor. Se
+// components/EmbedAutoHeight.tsx for det tilsvarende scriptet der kører INDE
+// i /apply og /request og sender højden hertil via postMessage.
+function CopyableEmbedCode({ id, code, copied, onCopy }: { id: UrlKey; code: string; copied: UrlKey | null; onCopy: (id: UrlKey) => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <textarea
+        readOnly
+        rows={5}
+        value={code}
+        spellCheck={false}
+        className="w-full border border-pepo-bds rounded-[9px] px-3 py-2.5 text-[11.5px] leading-relaxed text-pepo-t2 bg-pepo-su outline-none font-mono resize-none"
+        onFocus={(e) => e.currentTarget.select()}
+      />
+      <button
+        type="button"
+        onClick={() => onCopy(id)}
+        className="self-start h-[38px] px-3.5 rounded-[9px] border border-pepo-bds bg-pepo-wh text-pepo-t1 text-[12.5px] font-medium hover:bg-pepo-su transition-colors flex items-center gap-1.5"
+      >
+        <Icon name={copied === id ? "check" : "copy"} size={16} />
+        {copied === id ? "Kopieret" : "Kopiér indlejringskode"}
+      </button>
+    </div>
+  );
+}
+
+// Bygger indlejringskoden en tenant kan indsætte på sin egen hjemmeside (fx
+// i WordPress' "Custom HTML"-blok) — en <iframe> der peger på deres egen
+// /apply eller /request, plus et lille resize-script der lytter efter
+// højde-beskeder fra siden (sendt af components/EmbedAutoHeight.tsx) og
+// tilpasser iframe'ens højde løbende. Ingen ekstern scriptfil at hoste eller
+// holde ved — hele indlejringen er selvstændig i den kopierede tekst.
+//
+// event.origin-tjekket i scriptet er den vigtige sikkerhedsdel: uden det
+// kunne ALT andet på tenants side (andre scripts, annoncer osv.) sende en
+// postMessage og selv styre iframe'ens højde. src'en (og dermed origin) er
+// altid https://<slug>.pepo.team, uafhængigt af hvilket domæne koden
+// indsættes på.
+function buildEmbedCode(kind: "apply" | "request", tenantSlug: string, url: string) {
+  const frameId = `pepo-embed-${tenantSlug}-${kind}`;
+  const origin = `https://${tenantSlug}.${ROOT_DOMAIN}`;
+  const title = kind === "apply" ? "Ansøg som freelancer" : "Bed om personale";
+  const minHeight = kind === "apply" ? 640 : 780;
+
+  return `<iframe id="${frameId}" src="${url}" title="${title}" loading="lazy" style="width:100%;border:none;min-height:${minHeight}px;"></iframe>
+<script>
+(function () {
+  window.addEventListener("message", function (event) {
+    if (event.origin !== "${origin}") return;
+    if (!event.data || event.data.type !== "pepo:resize") return;
+    var frame = document.getElementById("${frameId}");
+    if (frame) frame.style.height = event.data.height + "px";
+  });
+})();
+</script>`;
 }
 
 export default function ImportantUrlsSettings({
@@ -64,15 +123,30 @@ export default function ImportantUrlsSettings({
   const applyUrl = `https://${tenantSlug}.${ROOT_DOMAIN}/apply`;
   const appUrl = `https://app.${ROOT_DOMAIN}`;
   const requestUrl = `https://${tenantSlug}.${ROOT_DOMAIN}/request`;
+  const applyEmbedCode = buildEmbedCode("apply", tenantSlug, applyUrl);
+  const requestEmbedCode = buildEmbedCode("request", tenantSlug, requestUrl);
 
   async function copy(id: UrlKey) {
-    const url = id === "apply" ? applyUrl : id === "app" ? appUrl : requestUrl;
+    const text =
+      id === "apply"
+        ? applyUrl
+        : id === "app"
+        ? appUrl
+        : id === "request"
+        ? requestUrl
+        : id === "apply-embed"
+        ? applyEmbedCode
+        : requestEmbedCode;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(text);
       setCopied(id);
       setTimeout(() => setCopied((c) => (c === id ? null : c)), 2000);
     } catch {
-      setError("Kunne ikke kopiere linket — markér og kopiér det manuelt.");
+      setError(
+        id === "apply-embed" || id === "request-embed"
+          ? "Kunne ikke kopiere koden — markér og kopiér den manuelt."
+          : "Kunne ikke kopiere linket — markér og kopiér det manuelt."
+      );
     }
   }
 
@@ -106,6 +180,17 @@ export default function ImportantUrlsSettings({
             Ansøgningsside
           </label>
           <CopyableUrl id="apply" url={applyUrl} copied={copied} onCopy={copy} />
+
+          <div className="mt-5 pt-5 border-t border-pepo-bd">
+            <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+              Indlejringskode (til jeres egen hjemmeside)
+            </label>
+            <p className="text-[12.5px] text-pepo-t2 mb-2.5">
+              Vil I i stedet holde ansøgerne på jeres egen hjemmeside? Indsæt koden herunder på en
+              side eller i en widget, fx via WordPress&apos; &quot;Custom HTML&quot;-blok.
+            </p>
+            <CopyableEmbedCode id="apply-embed" code={applyEmbedCode} copied={copied} onCopy={copy} />
+          </div>
         </div>
 
         <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">
@@ -143,6 +228,17 @@ export default function ImportantUrlsSettings({
             Eventforespørgsel
           </label>
           <CopyableUrl id="request" url={requestUrl} copied={copied} onCopy={copy} />
+
+          <div className="mt-5 pt-5 border-t border-pepo-bd">
+            <label className="block text-[11px] font-medium text-pepo-t3 uppercase tracking-wide mb-1.5">
+              Indlejringskode (til jeres egen hjemmeside)
+            </label>
+            <p className="text-[12.5px] text-pepo-t2 mb-2.5">
+              Vil I i stedet holde kunderne på jeres egen hjemmeside? Indsæt koden herunder på en
+              side eller i en widget, fx via WordPress&apos; &quot;Custom HTML&quot;-blok.
+            </p>
+            <CopyableEmbedCode id="request-embed" code={requestEmbedCode} copied={copied} onCopy={copy} />
+          </div>
         </div>
 
         <div className="bg-pepo-wh border border-pepo-bd rounded-[14px] p-6">

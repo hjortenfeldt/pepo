@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getCompanyBySubdomain } from "@/lib/tenant";
 import { getCategoriesForRequest, submitEventRequest } from "./actions";
 import EventRequestForm from "@/components/EventRequestForm";
+import EmbedAutoHeight from "@/components/EmbedAutoHeight";
 
 // Uden denne ville browserfanens titel falde tilbage til root layout.tsx's
 // default ("Pepo – Bliv freelancer", skrevet til /apply) — helt misvisende
@@ -26,6 +27,7 @@ export default async function TenantEventRequestPage() {
   if (!company) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[#F0EDF8] p-8">
+        <EmbedAutoHeight />
         <div className="bg-pepo-wh rounded-[20px] w-full max-w-[420px] p-8 text-center shadow-[0_4px_32px_rgba(62,31,138,0.10)]">
           <div className="text-[18px] font-semibold text-pepo-t1 mb-1.5">
             Der findes ikke et Pepo-system på dette domæne
@@ -42,6 +44,7 @@ export default async function TenantEventRequestPage() {
 
   return (
     <main className="flex-1 flex items-center justify-center px-[var(--page-px)] py-8 bg-[#F0EDF8] min-h-screen">
+      <EmbedAutoHeight />
       <EventRequestForm
         categories={categories}
         companyName={company.name}

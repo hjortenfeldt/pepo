@@ -67,6 +67,25 @@ function buildRequestHeaders(request: NextRequest, verifiedUserId?: string) {
   return requestHeaders;
 }
 
+// Uden en frame-ancestors-header tillader browsere som udgangspunkt at LIGGE
+// EN VILKÅRLIG SIDE ind i en <iframe> på et andet domæne — en clickjacking-
+// risiko for login/adminsider. Vi låser derfor alt til 'self' (kun eget
+// domæne kan frame'e), og åbner kun eksplicit for /apply og /request — de to
+// offentlige sider en tenant kan vælge at indlejre på sin egen hjemmeside via
+// indlejringskoden på Indstillinger → Vigtige URL'er (se
+// components/admin/ImportantUrlsSettings.tsx). Vi kender ikke tenants egne
+// domæner på forhånd (det kan være hvad som helst, fx en WordPress-side), så
+// "*" er nødvendigt her frem for en allowlist.
+const EMBEDDABLE_PATHS = new Set(["/apply", "/request"]);
+
+function applyFrameAncestors(response: NextResponse, pathname: string) {
+  response.headers.set(
+    "Content-Security-Policy",
+    EMBEDDABLE_PATHS.has(pathname) ? "frame-ancestors *" : "frame-ancestors 'self'"
+  );
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   let refreshed = NextResponse.next({ request });
 
@@ -102,7 +121,7 @@ export async function proxy(request: NextRequest) {
   // Apex-domænet (pepo.team / www.pepo.team) — den offentlige
   // registrerings-/marketingside. Ingen rewrite, ingen login-krav.
   if (!subdomain) {
-    return refreshed;
+    return applyFrameAncestors(refreshed, pathname);
   }
 
   const isLoginRoute = pathname === "/login";
@@ -139,18 +158,21 @@ export async function proxy(request: NextRequest) {
     if (!isLoginRoute && !user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      return withRefreshedCookies(NextResponse.redirect(url), refreshed);
+      return applyFrameAncestors(withRefreshedCookies(NextResponse.redirect(url), refreshed), pathname);
     }
     if (isLoginRoute && user) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
-      return withRefreshedCookies(NextResponse.redirect(url), refreshed);
+      return applyFrameAncestors(withRefreshedCookies(NextResponse.redirect(url), refreshed), pathname);
     }
     const url = request.nextUrl.clone();
     url.pathname = `/super-admin${pathname}`;
-    return withRefreshedCookies(
-      NextResponse.rewrite(url, { request: { headers: buildRequestHeaders(request) } }),
-      refreshed
+    return applyFrameAncestors(
+      withRefreshedCookies(
+        NextResponse.rewrite(url, { request: { headers: buildRequestHeaders(request) } }),
+        refreshed
+      ),
+      pathname
     );
   }
 
@@ -160,18 +182,21 @@ export async function proxy(request: NextRequest) {
     if (!isLoginRoute && !isPublicCalendarFeed && !user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      return withRefreshedCookies(NextResponse.redirect(url), refreshed);
+      return applyFrameAncestors(withRefreshedCookies(NextResponse.redirect(url), refreshed), pathname);
     }
     if (isLoginRoute && user) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
-      return withRefreshedCookies(NextResponse.redirect(url), refreshed);
+      return applyFrameAncestors(withRefreshedCookies(NextResponse.redirect(url), refreshed), pathname);
     }
     const url = request.nextUrl.clone();
     url.pathname = `/freelancer${pathname}`;
-    return withRefreshedCookies(
-      NextResponse.rewrite(url, { request: { headers: buildRequestHeaders(request, user?.id) } }),
-      refreshed
+    return applyFrameAncestors(
+      withRefreshedCookies(
+        NextResponse.rewrite(url, { request: { headers: buildRequestHeaders(request, user?.id) } }),
+        refreshed
+      ),
+      pathname
     );
   }
 
@@ -180,21 +205,24 @@ export async function proxy(request: NextRequest) {
   if (!isLoginRoute && !isPublicCalendarFeed && !isPublicApplicationPage && !isPublicEventRequestPage && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    return withRefreshedCookies(NextResponse.redirect(url), refreshed);
+    return applyFrameAncestors(withRefreshedCookies(NextResponse.redirect(url), refreshed), pathname);
   }
   if (isLoginRoute && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
-    return withRefreshedCookies(NextResponse.redirect(url), refreshed);
+    return applyFrameAncestors(withRefreshedCookies(NextResponse.redirect(url), refreshed), pathname);
   }
 
   const url = request.nextUrl.clone();
   url.pathname = `/tenant${pathname}`;
   const requestHeaders = buildRequestHeaders(request);
   requestHeaders.set(SUBDOMAIN_HEADER, subdomain);
-  return withRefreshedCookies(
-    NextResponse.rewrite(url, { request: { headers: requestHeaders } }),
-    refreshed
+  return applyFrameAncestors(
+    withRefreshedCookies(
+      NextResponse.rewrite(url, { request: { headers: requestHeaders } }),
+      refreshed
+    ),
+    pathname
   );
 }
 
