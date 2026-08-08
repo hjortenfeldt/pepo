@@ -4,6 +4,7 @@ import { Fragment, forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useS
 import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import type { PanInfo } from "motion/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import type {
   CategoryOption,
@@ -538,6 +539,8 @@ export function EventCard({
   onAddShift: () => void;
   onOpenShift: (shift: ShiftListItem) => void;
 }) {
+  const router = useRouter();
+
   // Memoized på `event.shifts` (ikke bare `.filter()` direkte), for at
   // undgå at måle-effekten nedenfor genkører i et uendeligt loop: uden
   // useMemo får `activeShifts` en NY array-reference ved hvert render,
@@ -612,7 +615,15 @@ export function EventCard({
   return (
     <div className="flex flex-col gap-2">
       <div
-        onClick={onEditEvent}
+        // Klik på selve kortet åbner "Eventdetaljer" (samme destination som
+        // knappen med det navn nedenfor), IKKE redigeringspanelet — ændret
+        // fra tidligere (hvor det åbnede samme panel som "Redigér event")
+        // efter Hjorths ønske 2026-08-08. "Redigér event"-knappen selv
+        // stopPropagation'er og kalder stadig onEditEvent uændret. På selve
+        // Eventdetaljer-siden (onEventDetailsPage) er vi allerede der, så
+        // klik på kortet giver i stedet redigering, som hidtil — at
+        // "navigere" til den side man allerede kigger på ville være meningsløst.
+        onClick={onEventDetailsPage ? onEditEvent : () => router.push(`/shifts/event/${event.id}`)}
         className="bg-pepo-wh border border-pepo-bd rounded-xl px-[15px] py-[13px] cursor-pointer hover:border-pepo-pm hover:shadow-[0_2px_12px_rgba(62,31,138,0.08)] transition-colors"
       >
         {/* Info-kolonnen (titel + kunde/sted/afstand) og knap-klyngen er BEGGE

@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { venueLabel, todayIso, addDaysIso } from "@/lib/format";
+import { venueLabel, todayIso, addDaysIso, hoursBetween } from "@/lib/format";
+import { calculateVat, calculateTotal } from "@/lib/pricing";
 import type {
   EventListItem,
   ClientOption,
@@ -39,7 +40,19 @@ type RawClientRef = {
   contact_phone: string | null;
   contact_email: string | null;
 };
-type RawWorkCategoryRef = { name: string; icon: string | null };
+// `group_id`/`work_category_groups` er kun udvalgt i events-forespørgslen
+// nedenfor (bruges til den lilla prisboks's arbejdsløn-delsum, se
+// labourSubtotalKr på EventListItem) — freelancer_categories-opslaget
+// (RawFreelancerCategoryRow) har ikke brug for dem, derfor valgfri her.
+type RawWorkCategoryRef = {
+  name: string;
+  icon: string | null;
+  group_id?: string | null;
+  work_category_groups?:
+    | { client_rate_per_hour: number | string }
+    | { client_rate_per_hour: number | string }[]
+    | null;
+};
 type RawAttachmentRow = { id: string; file_name: string; file_url: string; file_type: string | null };
 // assigned_freelancer_id og shift_interests.freelancer_id er auth-login-id'er
 // (auth.users.id), IKKE freelancer_profiles.id — PostgREST kan derfor ikke
@@ -137,7 +150,7 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
          shift_attachments(id, file_name, file_url, file_type),
          shifts(id, category_id, shift_date, start_time, end_time, status, previous_status,
            assigned_freelancer_id,
-           work_categories(name, icon),
+           work_categories(name, icon, group_id, work_category_groups(client_rate_per_hour)),
            shift_interests(freelancer_id, status),
            time_clock_entries(id, clock_in_at, clock_out_at)),
          event_messages(sender, read_by_admin)`
@@ -255,6 +268,30 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
         ? Math.round(venue.distance_from_company_km * 2 * transportRatePerKm * freelancerCount * 100) / 100
         : null;
 
+    // Arbejdsløn-delsummen til den lilla prisboks (PriceBreakdownBox, se
+    // [[project_event_correspondence_and_system_log]] og
+    // Eventforespørgsler's tilsvarende, oprindelige boks) — genberegnet LIVE
+    // her ud fra eventets nuværende ikke-annullerede vagter × jobfunktionens
+    // priskategoris kunde-timepris, med PRÆCIS samme formel som
+    // lib/pricing.ts's calculateLabourSubtotal (kan ikke genbruges direkte
+    // herfra, da den tager en CategoryRateMap keyed på categoryId, mens vi
+    // her allerede har raten inline pr. vagt via joinet). En jobfunktion
+    // uden priskategori (group_id null) bidrager 0 kr., samme faldback som
+    // klientens eget /request-overslag.
+    let labourSubtotalKr = 0;
+    for (const s of e.shifts ?? []) {
+      if (s.status === "cancelled") continue;
+      const category = one(s.work_categories);
+      const rateGroup = category ? one(category.work_category_groups) : null;
+      const rate = rateGroup ? Number(rateGroup.client_rate_per_hour) : 0;
+      labourSubtotalKr += hoursBetween(hhmm(s.start_time), hhmm(s.end_time)) * rate;
+    }
+    labourSubtotalKr = Math.round(labourSubtotalKr * 100) / 100;
+
+    const customerType: "company" | "private" = client?.name ? "company" : "private";
+    const vatKr = calculateVat(labourSubtotalKr, transportSurchargeKr, customerType);
+    const totalKr = calculateTotal(labourSubtotalKr, transportSurchargeKr, vatKr);
+
     return {
       id: e.id,
       title: e.title,
@@ -281,6 +318,9 @@ export async function getShiftsBoardData(companyId: string): Promise<ShiftsBoard
         : null,
       venueDistanceKm: venue?.distance_from_company_km ?? null,
       transportSurchargeKr,
+      labourSubtotalKr,
+      vatKr,
+      totalKr,
       unreadMessageCount: (e.event_messages ?? []).filter((m) => m.sender === "client" && !m.read_by_admin).length,
       attachments: (e.shift_attachments ?? []).map((a) => ({
         id: a.id,

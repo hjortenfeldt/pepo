@@ -136,6 +136,18 @@ export type EventListItem = {
   // er geokodet (fx ingen adresse angivet, eller opslaget hos Google
   // fejlede) — vis da ingenting i stedet for et forkert 0 kr.
   transportSurchargeKr: number | null;
+  // Prisoverslaget vist i den lilla boks på Eventdetaljer (samme
+  // beregning/komponent som Eventforespørgsler's — se PriceBreakdownBox.tsx
+  // og lib/pricing.ts, Hjorth 2026-08-08). Live genberegnet ud fra eventets
+  // NUVÆRENDE ikke-annullerede vagter hver gang siden hentes — IKKE et
+  // frosset snapshot fra en evt. oprindelig forespørgsel, så beløbet følger
+  // med hvis admin senere tilføjer/fjerner vagter på et allerede booket
+  // event. labourSubtotalKr/totalKr er altid et tal (0 hvis eventet endnu
+  // ingen vagter har) — kun vatKr kan være `null`, for privatkunder (se
+  // calculateVat).
+  labourSubtotalKr: number;
+  vatKr: number | null;
+  totalKr: number;
   // Antal ulæste klient-beskeder i eventets "Korrespondance"-tråd (se
   // [[project_event_correspondence_and_system_log]]) — vist som badge på
   // "Korrespondance"-knappen i ShiftWizardPanels editEvent-visning.

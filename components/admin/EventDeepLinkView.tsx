@@ -8,6 +8,7 @@ import type { BusyShift } from "@/lib/shift-conflicts";
 import type { EventMessageItem } from "@/lib/event-messages";
 import { replyToEventAsAdmin, uploadEventMessageAttachmentForEvent } from "@/app/tenant/(protected)/shifts/actions";
 import CorrespondenceThread from "@/components/CorrespondenceThread";
+import PriceBreakdownBox from "@/components/PriceBreakdownBox";
 import ShiftWizardPanel, { type WizardState } from "./ShiftWizardPanel";
 import ShiftDetailPanel from "./ShiftDetailPanel";
 import { EventCard } from "./ShiftBoard";
@@ -136,6 +137,21 @@ export default function EventDeepLinkView({
           onEditEvent={() => setWizard({ mode: "editEvent", event })}
           onAddShift={() => setWizard({ mode: "addShift", event })}
           onOpenShift={(shift) => setOpenShift({ shift, event })}
+        />
+
+        {/* Samme lilla prisboks som Eventforespørgsler — Hjorth 2026-08-08
+            ville også se prisoverslaget her, mellem eventets vagter og
+            Korrespondance-området. I modsætning til forespørgslens FROSNE
+            snapshot er tallene her LIVE genberegnet (se labourSubtotalKr på
+            EventListItem, lib/shifts-data.ts), så beløbet følger med hvis
+            admin senere ændrer i eventets vagter. */}
+        <PriceBreakdownBox
+          labourSubtotalKr={event.labourSubtotalKr}
+          transportSurchargeKr={event.transportSurchargeKr}
+          vatKr={event.vatKr}
+          totalKr={event.totalKr}
+          showVat={!event.clientIsPrivate}
+          className="mt-4"
         />
 
         <div

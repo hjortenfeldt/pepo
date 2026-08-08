@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatDateDisplay } from "@/lib/format";
 import Icon from "@/components/Icon";
 import CorrespondenceThread from "@/components/CorrespondenceThread";
+import PriceBreakdownBox from "@/components/PriceBreakdownBox";
 import type { EventRequestDetail } from "@/lib/event-requests";
 import {
   replyAsAdmin,
@@ -28,10 +29,6 @@ const STATUS_CLASS: Record<EventRequestDetail["status"], string> = {
   accepted: "bg-[#EAF6EE] text-pepo-gr",
   rejected: "bg-[#FDECEA] text-[#C0021A]",
 };
-
-function formatKr(value: number): string {
-  return new Intl.NumberFormat("da-DK", { maximumFractionDigits: 0 }).format(Math.round(value)) + " kr.";
-}
 
 export default function EventRequestDetailClient({ request }: { request: EventRequestDetail }) {
   const router = useRouter();
@@ -97,21 +94,14 @@ export default function EventRequestDetailClient({ request }: { request: EventRe
         ))}
       </div>
 
-      <div className="bg-pepo-pl rounded-[14px] px-4 py-3.5 mb-6">
-        <RowPlain label="Personale i alt" value={request.labourSubtotalKr != null ? formatKr(request.labourSubtotalKr) : "—"} />
-        <RowPlain
-          label="Transporttillæg"
-          value={request.transportSurchargeKr != null ? formatKr(request.transportSurchargeKr) : "Ukendt"}
-        />
-        {request.customerType === "company" && (
-          <RowPlain label="Moms" value={request.vatKr != null ? formatKr(request.vatKr) : "Ukendt"} />
-        )}
-        <div className="border-t border-pepo-p/15 my-2" />
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-pepo-t1">Samlet estimat</span>
-          <span className="text-[17px] font-semibold text-pepo-p">{request.totalKr != null ? formatKr(request.totalKr) : "—"}</span>
-        </div>
-      </div>
+      <PriceBreakdownBox
+        labourSubtotalKr={request.labourSubtotalKr}
+        transportSurchargeKr={request.transportSurchargeKr}
+        vatKr={request.vatKr}
+        totalKr={request.totalKr}
+        showVat={request.customerType === "company"}
+        className="mb-6"
+      />
 
       {request.status !== "accepted" && request.status !== "rejected" && (
         <div className="flex gap-2.5 mb-6">
@@ -271,15 +261,6 @@ function Row({ label, value, last }: { label: string; value: string; last?: bool
     <div className={"py-1.5 flex items-start justify-between gap-3 " + (last ? "" : "")}>
       <span className="text-[12.5px] text-pepo-t2 flex-shrink-0">{label}</span>
       <span className="text-[13px] text-pepo-t1 text-right">{value}</span>
-    </div>
-  );
-}
-
-function RowPlain({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-1">
-      <span className="text-[13px] text-pepo-t2">{label}</span>
-      <span className="text-sm text-pepo-t1">{value}</span>
     </div>
   );
 }
